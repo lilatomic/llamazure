@@ -1,6 +1,7 @@
 """Tests for tools for working with Azure resource IDs"""
 import string
 from pathlib import Path
+from typing import Optional
 from uuid import UUID
 
 from hypothesis import given
@@ -75,7 +76,7 @@ class TestRIDParse:
 	@given(st_resource_complex)
 	def test_complex_resource(self, res: Resource):
 		rid = ""
-		res_remaining = res
+		res_remaining: Optional[Resource] = res
 		while res_remaining:
 			rid = (
 				f"/providers/{res_remaining.provider}/{res_remaining.res_type}/{res_remaining.name}"
