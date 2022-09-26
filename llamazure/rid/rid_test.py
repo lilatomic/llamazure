@@ -2,7 +2,7 @@ import string
 from uuid import UUID
 
 from hypothesis import given
-from hypothesis.strategies import builds, text, uuids
+from hypothesis.strategies import builds, composite, recursive, text, uuids
 
 from llamazure.rid.rid import Resource, ResourceGroup, Subscription, parse
 
@@ -25,6 +25,19 @@ st_resource_base = builds(
 	az_alnum_lower,
 	st_rg,
 )
+
+
+@composite
+def complex_resource(draw, res_gen) -> Resource:
+	child = draw(res_gen)
+	parent = draw(res_gen)
+	imprinted_child = Resource(
+		child.provider, child.res_type, child.name, rg=parent.rg, parent=parent
+	)
+	return imprinted_child
+
+
+st_complex_resource = recursive(st_resource_base, complex_resource)
 
 
 class TestRIDTypes:
@@ -53,3 +66,17 @@ class TestRIDTypes:
 			)
 			== res
 		)
+
+	@given(st_complex_resource)
+	def test_complex_resource(self, res: Resource):
+		rid = ""
+		res_remaining = res
+		while res_remaining:
+			rid = (
+				f"/providers/{res_remaining.provider}/{res_remaining.res_type}/{res_remaining.name}"
+			) + rid
+			res_remaining = res_remaining.parent
+		rg = res.rg
+		rid = f"/subscriptions/{rg.subscription.uuid}/resourceGroups/{rg.name}" + rid
+
+		assert parse(rid) == res
