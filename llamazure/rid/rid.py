@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 
@@ -42,7 +43,7 @@ def parse(rid: str) -> Optional[AzObj]:
 	"""Parse an Azure resource ID into the Azure Resource it represenets and its chain of parents"""
 	parts = iter(rid.lower().split("/"))
 
-	out = None
+	out: Optional[AzObj] = None
 	try:
 		_ = next(parts)
 		if next(parts) == "subscriptions":
@@ -65,3 +66,26 @@ def parse(rid: str) -> Optional[AzObj]:
 
 	except StopIteration:
 		return out
+
+
+def serialise(obj: AzObj) -> str:
+	"""Turn an AzObj back into its resource ID"""
+	return str(serialise_p(obj))
+
+
+def serialise_p(obj: AzObj) -> Path:
+	"""Turn an AzObj back into its resource ID as a pathlib.Path"""
+	if isinstance(obj, Subscription):
+		return Path("/subscriptions") / obj.uuid
+	if isinstance(obj, ResourceGroup):
+		return serialise_p(obj.subscription) / "resourcegroups" / obj.name
+	if isinstance(obj, Resource):
+		return (
+			serialise_p(obj.parent if obj.parent else obj.rg)
+			/ "providers"
+			/ obj.provider
+			/ obj.res_type
+			/ obj.name
+		)
+	else:
+		raise TypeError(f"expected valid subclass of AzObj, found {type(obj)}")
