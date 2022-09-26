@@ -1,0 +1,21 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "wheel",
+    "twine",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+pretty = true
+
+[[tool.mypy.overrides]]
+module = [
+    "watchdog.*",
+    "setuptools",
+    "ansible.plugins.action",
+    "ansible.errors",
+    "azure.cli.*",
+    "knack.*",
+]
+ignore_missing_imports = true
