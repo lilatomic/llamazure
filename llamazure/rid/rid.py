@@ -28,7 +28,7 @@ class Resource(AzObj):
 	res_type: str
 	name: str
 	rg: ResourceGroup
-	parent: Optional["Resource"]
+	parent: Optional["Resource"] = None
 
 
 def parse(rid: str) -> Optional[AzObj]:
@@ -36,7 +36,8 @@ def parse(rid: str) -> Optional[AzObj]:
 
 	out = None
 	try:
-		if next(parts) == "subscription":
+		_ = next(parts)
+		if next(parts) == "subscriptions":
 			out = Subscription(next(parts))
 		else:
 			return None
@@ -52,7 +53,7 @@ def parse(rid: str) -> Optional[AzObj]:
 				provider = next(parts)
 				res_type = next(parts)
 				name = next(parts)
-				parent = Resource(provider, res_type, name, parent=parent, rg=rg)
+				out = parent = Resource(provider, res_type, name, parent=parent, rg=rg)
 
 	except StopIteration:
 		return out
