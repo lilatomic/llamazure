@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
+import pytest
 from hypothesis import given
 from hypothesis.strategies import builds, composite, recursive, text, uuids
 
-from llamazure.rid.rid import Resource, ResourceGroup, Subscription, parse, serialise_p
+from llamazure.rid.rid import Resource, ResourceGroup, Subscription, parse, serialise, serialise_p
 
 az_alnum = text(alphabet=list(string.ascii_letters + string.digits), min_size=1)
 
@@ -138,3 +139,19 @@ class TestRIDCyclic:
 	@given(st_resource_complex)
 	def test_complex_resource(self, res: Resource):
 		assert parse(str(serialise_p(res))) == res
+
+
+class TestRIDPathological:
+	"""Tests using real-world pathological cases"""
+
+	@pytest.mark.parametrize(
+		"rid",
+		[
+			"/subscriptions/<>/resourcegroups/<>/providers/microsoft.operationalinsights/workspaces/<>/linkedservices/security",
+			"/subscriptions/<>/resourcegroups/<>/providers/microsoft.storage/storageaccounts/<>/providers/microsoft.security/advancedthreatprotectionsettings/current",
+		],
+	)
+	def test_pathological(self, rid):
+		parsed = serialise(parse(rid))
+		print(parsed)
+		assert parsed == rid
