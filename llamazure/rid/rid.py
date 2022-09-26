@@ -1,8 +1,9 @@
+"""Tools for working with Azure resource IDs"""
 from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional
 
 
 class AzObj(abc.ABC):
@@ -13,17 +14,23 @@ class AzObj(abc.ABC):
 
 @dataclass
 class Subscription(AzObj):
+	"""An Azure Subscription"""
+
 	uuid: str
 
 
 @dataclass
 class ResourceGroup(AzObj):
+	"""An Azure Resource Group"""
+
 	name: str
 	subscription: Subscription
 
 
 @dataclass
 class Resource(AzObj):
+	"""An Azure Resource"""
+
 	provider: str
 	res_type: str
 	name: str
@@ -32,6 +39,7 @@ class Resource(AzObj):
 
 
 def parse(rid: str) -> Optional[AzObj]:
+	"""Parse an Azure resource ID into the Azure Resource it represenets and its chain of parents"""
 	parts = iter(rid.lower().split("/"))
 
 	out = None

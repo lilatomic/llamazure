@@ -1,3 +1,4 @@
+"""Tests for tools for working with Azure resource IDs"""
 import string
 from uuid import UUID
 
@@ -29,6 +30,7 @@ st_resource_base = builds(
 
 @composite
 def complex_resource(draw, res_gen) -> Resource:
+	"""Create a resource which may have parents"""
 	child = draw(res_gen)
 	parent = draw(res_gen)
 	imprinted_child = Resource(
@@ -41,6 +43,8 @@ st_complex_resource = recursive(st_resource_base, complex_resource)
 
 
 class TestRIDTypes:
+	"""Test for simple resource ID types"""
+
 	@given(uuids())
 	def test_subscription(self, u: UUID):
 		assert parse(f"/subscriptions/{u}") == Subscription(str(u))
