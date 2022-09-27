@@ -4,7 +4,7 @@ from __future__ import annotations
 import abc
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 
 class AzObj(abc.ABC):
@@ -35,9 +35,9 @@ class Resource(AzObj):
 	provider: str
 	res_type: str
 	name: str
-	rg: ResourceGroup
+	rg: Optional[ResourceGroup]
 	sub: Subscription
-	parent: Optional[Resource] = None
+	parent: Optional[Union[Resource, SubResource]] = None
 
 
 @dataclass
@@ -46,9 +46,9 @@ class SubResource(AzObj):
 
 	res_type: str
 	name: str
-	rg: ResourceGroup
+	rg: Optional[ResourceGroup]
 	sub: Subscription
-	parent: Optional[Resource] = None
+	parent: Optional[Union[Resource, SubResource]] = None
 
 
 class _Peekable:
@@ -87,7 +87,7 @@ def parse(rid: str) -> Optional[AzObj]:
 		else:
 			rg = None  # There are subscription-level resources, like locks
 
-		parent = None
+		parent: Optional[Union[Resource, SubResource]] = None
 		while True:
 			start = next(parts)
 
