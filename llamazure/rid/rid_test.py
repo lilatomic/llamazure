@@ -16,14 +16,10 @@ az_alnum_lower = text(alphabet=list(string.ascii_lowercase + string.digits), min
 
 st_subscription = builds(lambda u: Subscription(str(u)), uuids())
 
-st_rg = builds(
-	lambda sub, name: ResourceGroup(name, sub), st_subscription, az_alnum_lower
-)
+st_rg = builds(lambda sub, name: ResourceGroup(name, sub), st_subscription, az_alnum_lower)
 
 st_resource_base = builds(
-	lambda provider, res_type, name, rg: Resource(
-		provider, res_type, name, rg, parent=None, sub=rg.sub
-	),
+	lambda provider, res_type, name, rg: Resource(provider, res_type, name, rg, parent=None, sub=rg.sub),
 	az_alnum_lower,
 	az_alnum_lower,
 	az_alnum_lower,
@@ -59,9 +55,7 @@ class TestRIDParse:
 
 	@given(st_subscription, az_alnum)
 	def test_resource_group(self, sub: Subscription, rg: str):
-		assert parse(f"/subscriptions/{sub.uuid}/resourceGroups/{rg}") == ResourceGroup(
-			rg.lower(), sub
-		)
+		assert parse(f"/subscriptions/{sub.uuid}/resourceGroups/{rg}") == ResourceGroup(rg.lower(), sub)
 
 	@given(st_rg)
 	def test_resource_group_constructed(self, rg: ResourceGroup):
@@ -69,21 +63,14 @@ class TestRIDParse:
 
 	@given(st_resource_base)
 	def test_simple_resource(self, res: Resource):
-		assert (
-			parse(
-				f"/subscriptions/{res.rg.sub.uuid}/resourceGroups/{res.rg.name}/providers/{res.provider}/{res.res_type}/{res.name}"
-			)
-			== res
-		)
+		assert parse(f"/subscriptions/{res.rg.sub.uuid}/resourceGroups/{res.rg.name}/providers/{res.provider}/{res.res_type}/{res.name}") == res
 
 	@given(st_resource_complex)
 	def test_complex_resource(self, res: Resource):
 		rid = ""
 		res_remaining: Optional[Resource] = res
 		while res_remaining:
-			rid = (
-				f"/providers/{res_remaining.provider}/{res_remaining.res_type}/{res_remaining.name}"
-			) + rid
+			rid = (f"/providers/{res_remaining.provider}/{res_remaining.res_type}/{res_remaining.name}") + rid
 			res_remaining = res_remaining.parent
 		rg = res.rg
 		rid = f"/subscriptions/{rg.sub.uuid}/resourceGroups/{rg.name}" + rid
@@ -100,24 +87,11 @@ class TestRIDSerialise:
 
 	@given(st_rg)
 	def test_resource_group(self, rg: ResourceGroup):
-		assert (
-			serialise_p(rg)
-			== Path("/subscriptions") / rg.sub.uuid / "resourcegroups" / rg.name
-		)
+		assert serialise_p(rg) == Path("/subscriptions") / rg.sub.uuid / "resourcegroups" / rg.name
 
 	@given(st_resource_base)
 	def test_simple_resource(self, res: Resource):
-		assert (
-			serialise_p(res)
-			== Path("/subscriptions")
-			/ res.rg.sub.uuid
-			/ "resourcegroups"
-			/ res.rg.name
-			/ "providers"
-			/ res.provider
-			/ res.res_type
-			/ res.name
-		)
+		assert serialise_p(res) == Path("/subscriptions") / res.rg.sub.uuid / "resourcegroups" / res.rg.name / "providers" / res.provider / res.res_type / res.name
 
 
 class TestRIDCyclic:

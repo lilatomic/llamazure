@@ -95,15 +95,11 @@ def parse(rid: str) -> Optional[AzObj]:
 				provider = next(parts)
 				res_type = next(parts)
 				name = next(parts)
-				out = parent = Resource(
-					provider, res_type, name, parent=parent, rg=rg, sub=subscription
-				)
+				out = parent = Resource(provider, res_type, name, parent=parent, rg=rg, sub=subscription)
 			else:
 				res_type = start
 				name = next(parts)
-				out = parent = SubResource(
-					res_type, name, parent=parent, rg=rg, sub=subscription
-				)
+				out = parent = SubResource(res_type, name, parent=parent, rg=rg, sub=subscription)
 
 	except StopIteration:
 		return out
@@ -121,13 +117,7 @@ def serialise_p(obj: AzObj) -> Path:
 	if isinstance(obj, ResourceGroup):
 		return serialise_p(obj.sub) / "resourcegroups" / obj.name
 	if isinstance(obj, Resource):
-		return (
-			serialise_p(obj.parent or obj.rg or obj.sub)
-			/ "providers"
-			/ obj.provider
-			/ obj.res_type
-			/ obj.name
-		)
+		return serialise_p(obj.parent or obj.rg or obj.sub) / "providers" / obj.provider / obj.res_type / obj.name
 	if isinstance(obj, SubResource):
 		return serialise_p(obj.parent or obj.rg or obj.sub) / obj.res_type / obj.name
 	else:
