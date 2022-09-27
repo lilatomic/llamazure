@@ -25,7 +25,7 @@ class ResourceGroup(AzObj):
 	"""An Azure Resource Group"""
 
 	name: str
-	subscription: Subscription
+	sub: Subscription
 
 
 @dataclass
@@ -36,6 +36,7 @@ class Resource(AzObj):
 	res_type: str
 	name: str
 	rg: ResourceGroup
+	sub: Subscription
 	parent: Optional[Resource] = None
 
 
@@ -46,6 +47,7 @@ class SubResource(AzObj):
 	res_type: str
 	name: str
 	rg: ResourceGroup
+	sub: Subscription
 	parent: Optional[Resource] = None
 
 
@@ -75,13 +77,13 @@ def parse(rid: str) -> Optional[AzObj]:
 	try:
 		_ = next(parts)  # escape leading `/`
 		if next(parts) == "subscriptions":
-			out = Subscription(next(parts))
+			out = subscription = Subscription(next(parts))
 		else:
 			return None
 
 		if parts.peek() == "resourcegroups":
 			_ = next(parts)
-			out = rg = ResourceGroup(next(parts), out)
+			out = rg = ResourceGroup(next(parts), subscription)
 		else:
 			rg = None  # There are subscription-level resources, like locks
 
@@ -93,11 +95,15 @@ def parse(rid: str) -> Optional[AzObj]:
 				provider = next(parts)
 				res_type = next(parts)
 				name = next(parts)
-				out = parent = Resource(provider, res_type, name, parent=parent, rg=rg)
+				out = parent = Resource(
+					provider, res_type, name, parent=parent, rg=rg, sub=subscription
+				)
 			else:
 				res_type = start
 				name = next(parts)
-				out = parent = SubResource(res_type, name, parent=parent, rg=rg)
+				out = parent = SubResource(
+					res_type, name, parent=parent, rg=rg, sub=subscription
+				)
 
 	except StopIteration:
 		return out
@@ -113,18 +119,16 @@ def serialise_p(obj: AzObj) -> Path:
 	if isinstance(obj, Subscription):
 		return Path("/subscriptions") / obj.uuid
 	if isinstance(obj, ResourceGroup):
-		return serialise_p(obj.subscription) / "resourcegroups" / obj.name
+		return serialise_p(obj.sub) / "resourcegroups" / obj.name
 	if isinstance(obj, Resource):
 		return (
-			serialise_p(obj.parent if obj.parent else obj.rg)
+			serialise_p(obj.parent or obj.rg or obj.sub)
 			/ "providers"
 			/ obj.provider
 			/ obj.res_type
 			/ obj.name
 		)
 	if isinstance(obj, SubResource):
-		return (
-			serialise_p(obj.parent if obj.parent else obj.rg) / obj.res_type / obj.name
-		)
+		return serialise_p(obj.parent or obj.rg or obj.sub) / obj.res_type / obj.name
 	else:
 		raise TypeError(f"expected valid subclass of AzObj, found {type(obj)}")

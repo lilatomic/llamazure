@@ -22,7 +22,7 @@ st_rg = builds(
 
 st_resource_base = builds(
 	lambda provider, res_type, name, rg: Resource(
-		provider, res_type, name, rg, parent=None
+		provider, res_type, name, rg, parent=None, sub=rg.sub
 	),
 	az_alnum_lower,
 	az_alnum_lower,
@@ -37,7 +37,12 @@ def complex_resource(draw, res_gen) -> Resource:
 	child = draw(res_gen)
 	parent = draw(res_gen)
 	imprinted_child = Resource(
-		child.provider, child.res_type, child.name, rg=parent.rg, parent=parent
+		child.provider,
+		child.res_type,
+		child.name,
+		rg=parent.rg,
+		parent=parent,
+		sub=parent.rg.sub,
 	)
 	return imprinted_child
 
@@ -60,16 +65,13 @@ class TestRIDParse:
 
 	@given(st_rg)
 	def test_resource_group_constructed(self, rg: ResourceGroup):
-		assert (
-			parse(f"/subscriptions/{rg.subscription.uuid}/resourceGroups/{rg.name}")
-			== rg
-		)
+		assert parse(f"/subscriptions/{rg.sub.uuid}/resourceGroups/{rg.name}") == rg
 
 	@given(st_resource_base)
 	def test_simple_resource(self, res: Resource):
 		assert (
 			parse(
-				f"/subscriptions/{res.rg.subscription.uuid}/resourceGroups/{res.rg.name}/providers/{res.provider}/{res.res_type}/{res.name}"
+				f"/subscriptions/{res.rg.sub.uuid}/resourceGroups/{res.rg.name}/providers/{res.provider}/{res.res_type}/{res.name}"
 			)
 			== res
 		)
@@ -84,7 +86,7 @@ class TestRIDParse:
 			) + rid
 			res_remaining = res_remaining.parent
 		rg = res.rg
-		rid = f"/subscriptions/{rg.subscription.uuid}/resourceGroups/{rg.name}" + rid
+		rid = f"/subscriptions/{rg.sub.uuid}/resourceGroups/{rg.name}" + rid
 
 		assert parse(rid) == res
 
@@ -100,10 +102,7 @@ class TestRIDSerialise:
 	def test_resource_group(self, rg: ResourceGroup):
 		assert (
 			serialise_p(rg)
-			== Path("/subscriptions")
-			/ rg.subscription.uuid
-			/ "resourcegroups"
-			/ rg.name
+			== Path("/subscriptions") / rg.sub.uuid / "resourcegroups" / rg.name
 		)
 
 	@given(st_resource_base)
@@ -111,7 +110,7 @@ class TestRIDSerialise:
 		assert (
 			serialise_p(res)
 			== Path("/subscriptions")
-			/ res.rg.subscription.uuid
+			/ res.rg.sub.uuid
 			/ "resourcegroups"
 			/ res.rg.name
 			/ "providers"
