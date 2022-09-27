@@ -1,14 +1,14 @@
 """Tests for tools for working with Azure resource IDs"""
 import string
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID
 
 import pytest
 from hypothesis import given
 from hypothesis.strategies import builds, composite, recursive, text, uuids
 
-from llamazure.rid.rid import Resource, ResourceGroup, Subscription, parse, serialise, serialise_p
+from llamazure.rid.rid import Resource, ResourceGroup, SubResource, Subscription, parse, serialise, serialise_p
 
 az_alnum = text(alphabet=list(string.ascii_letters + string.digits), min_size=1)
 
@@ -63,16 +63,21 @@ class TestRIDParse:
 
 	@given(st_resource_base)
 	def test_simple_resource(self, res: Resource):
+		assert res.rg is not None
 		assert parse(f"/subscriptions/{res.rg.sub.uuid}/resourceGroups/{res.rg.name}/providers/{res.provider}/{res.res_type}/{res.name}") == res
 
 	@given(st_resource_complex)
 	def test_complex_resource(self, res: Resource):
 		rid = ""
-		res_remaining: Optional[Resource] = res
+		res_remaining: Optional[Union[Resource, SubResource]] = res
 		while res_remaining:
-			rid = (f"/providers/{res_remaining.provider}/{res_remaining.res_type}/{res_remaining.name}") + rid
-			res_remaining = res_remaining.parent
+			if isinstance(res_remaining, Resource):
+				rid = f"/providers/{res_remaining.provider}/{res_remaining.res_type}/{res_remaining.name}" + rid
+				res_remaining = res_remaining.parent
+			if isinstance(res_remaining, SubResource):
+				rid = f"/{res_remaining.res_type}/{res_remaining.name}" + rid
 		rg = res.rg
+		assert rg is not None
 		rid = f"/subscriptions/{rg.sub.uuid}/resourceGroups/{rg.name}" + rid
 
 		assert parse(rid) == res
@@ -91,6 +96,7 @@ class TestRIDSerialise:
 
 	@given(st_resource_base)
 	def test_simple_resource(self, res: Resource):
+		assert res.rg is not None
 		assert serialise_p(res) == Path("/subscriptions") / res.rg.sub.uuid / "resourcegroups" / res.rg.name / "providers" / res.provider / res.res_type / res.name
 
 
