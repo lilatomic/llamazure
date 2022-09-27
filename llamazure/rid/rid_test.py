@@ -152,6 +152,27 @@ class TestRIDPathological:
 		],
 	)
 	def test_pathological(self, rid):
-		parsed = serialise(parse(rid))
-		print(parsed)
-		assert parsed == rid
+		assert serialise(parse(rid)) == rid
+
+
+class TestMSRestAzure:
+	"""Test cases copied from the msrestazure-for-python repository"""
+
+	@pytest.mark.parametrize(
+		"rid",
+		[
+			"/subscriptions/fakesub/resourcegroups/testgroup/providers/Microsoft.Storage/storageAccounts/foo/providers/Microsoft.Authorization/locks/bar",
+			"/subscriptions/fakesub/resourcegroups/testgroup/providers/Microsoft.Storage/storageAccounts/foo/locks/bar",
+			"/subscriptions/fakesub/resourcegroups/testgroup/providers/Microsoft.Storage/storageAccounts/foo/providers/Microsoft.Authorization/locks/bar/providers/Microsoft.Network/nets/gc",
+			"/subscriptions/fakesub/resourcegroups/testgroup/providers/Microsoft.Storage/storageAccounts/foo/locks/bar/nets/gc",
+			"/subscriptions/mySub/resourceGroups/myRg/providers/Microsoft.Provider1/resourceType1/name1",
+			"/subscriptions/mySub/resourceGroups/myRg/providers/Microsoft.Provider1/resourceType1/name1/resourceType2/name2",
+			"/subscriptions/00000/resourceGroups/myRg/providers/Microsoft.RecoveryServices/vaults/vault_name/backupFabrics/fabric_name/protectionContainers/container_name/protectedItems/item_name/recoveryPoint/recovery_point_guid",
+			"/subscriptions/mySub/resourceGroups/myRg/providers/Microsoft.Provider1/resourceType1/name1/resourceType2/name2/providers/Microsoft.Provider3/resourceType3/name3",
+			"/subscriptions/fakesub/providers/Microsoft.Authorization/locks/foo",
+			"/Subscriptions/fakesub/providers/Microsoft.Authorization/locks/foo",
+			"/subscriptions/mySub/resourceGroups/myRg",
+		],
+	)
+	def test_accept(self, rid):
+		assert serialise(parse(rid)) == rid.lower()
