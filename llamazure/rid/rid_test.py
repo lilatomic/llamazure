@@ -26,24 +26,41 @@ st_resource_base = builds(
 	st_rg,
 )
 
+st_subresource = builds(
+	lambda res_type, name, rg: SubResource(res_type, name, rg, parent=None, sub=rg.sub),
+	az_alnum_lower,
+	az_alnum_lower,
+	st_rg,
+)
+
 
 @composite
-def complex_resource(draw, res_gen) -> Resource:
+def complex_resource(draw, res_gen) -> Union[Resource, SubResource]:
 	"""Create a resource which may have parents"""
 	child = draw(res_gen)
 	parent = draw(res_gen)
-	imprinted_child = Resource(
-		child.provider,
-		child.res_type,
-		child.name,
-		rg=parent.rg,
-		parent=parent,
-		sub=parent.rg.sub,
-	)
-	return imprinted_child
+	if isinstance(child, Resource):
+		return Resource(
+			child.provider,
+			child.res_type,
+			child.name,
+			rg=parent.rg,
+			parent=parent,
+			sub=parent.rg.sub,
+		)
+	if isinstance(child, SubResource):
+		return SubResource(
+			child.res_type,
+			child.name,
+			rg=parent.rg,
+			parent=parent,
+			sub=parent.rg.sub,
+		)
+	else:
+		raise RuntimeError("AAAA")
 
 
-st_resource_complex = recursive(st_resource_base, complex_resource)
+st_resource_complex = recursive(st_resource_base | st_subresource, complex_resource)
 
 
 class TestRIDParse:
@@ -76,6 +93,7 @@ class TestRIDParse:
 				res_remaining = res_remaining.parent
 			if isinstance(res_remaining, SubResource):
 				rid = f"/{res_remaining.res_type}/{res_remaining.name}" + rid
+				res_remaining = res_remaining.parent
 		rg = res.rg
 		assert rg is not None
 		rid = f"/subscriptions/{rg.sub.uuid}/resourceGroups/{rg.name}" + rid
@@ -117,7 +135,7 @@ class TestRIDCyclic:
 
 	@given(st_resource_complex)
 	def test_complex_resource(self, res: Resource):
-		assert parse(str(serialise_p(res))) == res
+		assert parse(serialise(res)) == res
 
 
 class TestRIDPathological:
