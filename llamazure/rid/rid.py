@@ -49,9 +49,27 @@ class SubResource(AzObj):
 	parent: Optional[Resource] = None
 
 
+class _Peekable:
+	def __init__(self, iter):
+		self.iter = iter
+		self._cache = None
+
+	def peek(self):
+		if not self._cache:
+			self._cache = next(self.iter)
+		return self._cache
+
+	def __next__(self):
+		if not self._cache:
+			return next(self.iter)
+		else:
+			out, self._cache = self._cache, None
+			return out
+
+
 def parse(rid: str) -> Optional[AzObj]:
 	"""Parse an Azure resource ID into the Azure Resource it represenets and its chain of parents"""
-	parts = iter(rid.lower().split("/"))
+	parts = _Peekable(iter(rid.lower().split("/")))
 
 	out: Optional[AzObj] = None
 	try:
@@ -61,10 +79,11 @@ def parse(rid: str) -> Optional[AzObj]:
 		else:
 			return None
 
-		if next(parts) == "resourcegroups":
+		if parts.peek() == "resourcegroups":
+			_ = next(parts)
 			out = rg = ResourceGroup(next(parts), out)
 		else:
-			return out
+			rg = None  # There are subscription-level resources, like locks
 
 		parent = None
 		while True:
