@@ -36,7 +36,17 @@ class Resource(AzObj):
 	res_type: str
 	name: str
 	rg: ResourceGroup
-	parent: Optional["Resource"] = None
+	parent: Optional[Resource] = None
+
+
+@dataclass
+class SubResource(AzObj):
+	"""Some Azure resources aren't a full child, but are nested under a parent resource"""
+
+	res_type: str
+	name: str
+	rg: ResourceGroup
+	parent: Optional[Resource] = None
 
 
 def parse(rid: str) -> Optional[AzObj]:
@@ -45,7 +55,7 @@ def parse(rid: str) -> Optional[AzObj]:
 
 	out: Optional[AzObj] = None
 	try:
-		_ = next(parts)
+		_ = next(parts)  # escape leading `/`
 		if next(parts) == "subscriptions":
 			out = Subscription(next(parts))
 		else:
@@ -58,11 +68,17 @@ def parse(rid: str) -> Optional[AzObj]:
 
 		parent = None
 		while True:
-			if next(parts) == "providers":
+			start = next(parts)
+
+			if start == "providers":
 				provider = next(parts)
 				res_type = next(parts)
 				name = next(parts)
 				out = parent = Resource(provider, res_type, name, parent=parent, rg=rg)
+			else:
+				res_type = start
+				name = next(parts)
+				out = parent = SubResource(res_type, name, parent=parent, rg=rg)
 
 	except StopIteration:
 		return out
@@ -86,6 +102,10 @@ def serialise_p(obj: AzObj) -> Path:
 			/ obj.provider
 			/ obj.res_type
 			/ obj.name
+		)
+	if isinstance(obj, SubResource):
+		return (
+			serialise_p(obj.parent if obj.parent else obj.rg) / obj.res_type / obj.name
 		)
 	else:
 		raise TypeError(f"expected valid subclass of AzObj, found {type(obj)}")
