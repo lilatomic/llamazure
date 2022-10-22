@@ -9,9 +9,10 @@ python_tests(
 python_distribution(
 	name="llamazure.rid",
 	dependencies=[":rid"],
+    long_description_path="llamazure/rid/readme.md",
 	provides=python_artifact(
 		name="llamazure.rid",
-		version="0.0.1",
+		version="0.0.3",
 		description="Azure Resource IDs you can use",
 		author="Daniel Goldman",
 		classifiers=[
@@ -23,5 +24,6 @@ python_distribution(
 			"Topic :: Internet :: Log Analysis",
 		],
 		license="Round Robin 2.0.0",
+		long_description_content_type="text/markdown",
 	),
 )
