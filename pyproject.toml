@@ -6,6 +6,16 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
+[tool.isort]
+profile="black"
+line_length=180
+known_first_party=[
+    "llamazure"
+]
+
+[tool.black]
+line_length=180
+
 [tool.mypy]
 pretty = true
 
