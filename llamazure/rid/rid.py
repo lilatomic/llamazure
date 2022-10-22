@@ -13,14 +13,14 @@ class AzObj(abc.ABC):
 	...
 
 
-@dataclass
+@dataclass(frozen=True)
 class Subscription(AzObj):
 	"""An Azure Subscription"""
 
 	uuid: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class ResourceGroup(AzObj):
 	"""An Azure Resource Group"""
 
@@ -28,7 +28,7 @@ class ResourceGroup(AzObj):
 	sub: Subscription
 
 
-@dataclass
+@dataclass(frozen=True)
 class Resource(AzObj):
 	"""An Azure Resource"""
 
@@ -40,7 +40,7 @@ class Resource(AzObj):
 	parent: Optional[Union[Resource, SubResource]] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class SubResource(AzObj):
 	"""Some Azure resources aren't a full child, but are nested under a parent resource"""
 
