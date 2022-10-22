@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Optional, Union
 
 
@@ -110,10 +110,10 @@ def serialise(obj: AzObj) -> str:
 	return str(serialise_p(obj))
 
 
-def serialise_p(obj: AzObj) -> Path:
+def serialise_p(obj: AzObj) -> PurePosixPath:
 	"""Turn an AzObj back into its resource ID as a pathlib.Path"""
 	if isinstance(obj, Subscription):
-		return Path("/subscriptions") / obj.uuid
+		return PurePosixPath("/subscriptions") / obj.uuid
 	if isinstance(obj, ResourceGroup):
 		return serialise_p(obj.sub) / "resourcegroups" / obj.name
 	if isinstance(obj, Resource):
