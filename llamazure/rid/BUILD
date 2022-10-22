@@ -22,5 +22,6 @@ python_distribution(
 			"Topic :: Utilities",
 			"Topic :: Internet :: Log Analysis",
 		],
+		license="Round Robin 2.0.0",
 	),
 )
