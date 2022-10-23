@@ -26,7 +26,7 @@ class Tresource:
 			# Adding a Resource or SubResource requires us to add all parents
 			# The llamazure.rid makes it very easy to trace backwards,
 			# and that adds complexity here
-			inv_path = [obj]
+			inv_path: List[AzObj] = [obj]
 			r = obj
 			while r.parent:
 				inv_path.append(r.parent)
@@ -37,7 +37,11 @@ class Tresource:
 					part = parts.pop()
 					mut_recurse(d[part], parts)
 
-			mut_recurse(self.resources, inv_path + [obj.rg, obj.sub])
+			if obj.rg:
+				inv_path.append(obj.rg)
+			inv_path.append(obj.sub)
+
+			mut_recurse(self.resources, inv_path)
 
 	@property
 	def subs(self):
