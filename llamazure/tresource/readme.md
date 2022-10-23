@@ -1,6 +1,6 @@
 # llamazure.rid : Resource IDs you can use
 
-The `llamazure.tresource` package provides a way to group resources into their hierarchy. 
+The `llamazure.tresource` package provides a way to group Azure resources into their hierarchy. 
 
 ## Usage
 
