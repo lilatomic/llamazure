@@ -5,7 +5,7 @@ from hypothesis import given
 from hypothesis.strategies import lists
 
 from llamazure.rid.rid import Resource, ResourceGroup, SubResource
-from llamazure.rid.rid_test import st_resource_base, st_rg, st_subscription, st_resource_complex
+from llamazure.rid.rid_test import st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.tresource.tresource import Tresource
 
 

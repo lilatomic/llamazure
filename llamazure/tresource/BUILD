@@ -1,15 +1,15 @@
 python_sources(
-    name="tresource",
+	name="tresource",
 )
 
 python_tests(
-    name="tests",
+	name="tests",
 )
 
 python_distribution(
 	name="llamazure.tresource",
 	dependencies=[":tresource"],
-    long_description_path="llamazure/tresource/readme.md",
+	long_description_path="llamazure/tresource/readme.md",
 	provides=python_artifact(
 		name="llamazure.tresource",
 		version="0.0.1",

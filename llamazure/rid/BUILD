@@ -9,7 +9,7 @@ python_tests(
 python_distribution(
 	name="llamazure.rid",
 	dependencies=[":rid"],
-    long_description_path="llamazure/rid/readme.md",
+	long_description_path="llamazure/rid/readme.md",
 	provides=python_artifact(
 		name="llamazure.rid",
 		version="0.0.3",

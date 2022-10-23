@@ -3,9 +3,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import DefaultDict, Dict, List
 
-from llamazure.rid.rid import AzObj, ResourceGroup, Subscription, Resource, SubResource
+from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription
 
-recursive_default_dict = lambda: defaultdict(recursive_default_dict)
+
+def recursive_default_dict():
+	return defaultdict(recursive_default_dict)
 
 
 @dataclass
@@ -36,8 +38,6 @@ class Tresource:
 					mut_recurse(d[part], parts)
 
 			mut_recurse(self.resources, inv_path + [obj.rg, obj.sub])
-
-
 
 	@property
 	def subs(self):
