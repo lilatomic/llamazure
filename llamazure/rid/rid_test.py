@@ -8,7 +8,7 @@ import pytest
 from hypothesis import given
 from hypothesis.strategies import builds, composite, recursive, text, uuids
 
-from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, parse, parse_chain, serialise, serialise_p
+from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, get_chain, parse, parse_chain, serialise, serialise_p
 
 az_alnum = text(alphabet=list(string.ascii_letters + string.digits), min_size=1)
 
@@ -190,3 +190,12 @@ class TestParseChain:
 
 		# check that the last resource is the same as the test input
 		assert parsed_chain[-1] == res
+
+	@given(st_resource_any)
+	def test_parse_chain_is_same_as_chain_of_parsed(self, res: AzObj):
+		"""Test that the parse_chain method gives the same output as the chain of a normally parsed resource"""
+		parsed_chain = parse_chain(serialise(res))
+
+		chain_of_parsed = get_chain(res)
+
+		assert parsed_chain == chain_of_parsed

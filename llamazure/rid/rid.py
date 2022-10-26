@@ -141,3 +141,22 @@ def serialise_p(obj: AzObj) -> PurePosixPath:
 		return serialise_p(obj.parent or obj.rg or obj.sub) / obj.res_type / obj.name
 	else:
 		raise TypeError(f"expected valid subclass of AzObj, found {type(obj)}")
+
+
+def get_chain(obj: AzObj) -> Sequence[AzObj]:
+	if isinstance(obj, Subscription):
+		return (obj,)
+	elif isinstance(obj, ResourceGroup):
+		return (obj.sub, obj)
+	elif isinstance(obj, Resource) or isinstance(obj, SubResource):
+		o = []
+		current: Union[Resource, SubResource, None] = obj
+		while current:
+			o.append(current)
+			current = current.parent
+		if obj.rg:
+			return (obj.sub, obj.rg, *reversed(o))
+		else:
+			return (obj.sub, *reversed(o))
+	else:
+		raise TypeError(f"Expected known subclass of AzObj, got {type(obj)}")
