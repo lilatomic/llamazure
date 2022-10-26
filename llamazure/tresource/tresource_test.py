@@ -80,6 +80,8 @@ class TestBuildTree:
 
 
 class TestBuildTreeFromChain:
+	"""Test that adding from chain is the same as adding from a terminal AzObj"""
+
 	@given(lists(st_resource_any))
 	def test_chain_and_normal_are_equivalent(self, ress: List[AzObj]):
 		single_tree = Tresource()

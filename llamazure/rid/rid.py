@@ -4,7 +4,7 @@ from __future__ import annotations
 import abc
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Generator, Optional, Sequence, Union
+from typing import Generator, Iterator, Optional, Sequence, Union
 
 
 class AzObj(abc.ABC):
@@ -52,18 +52,21 @@ class SubResource(AzObj):
 
 
 class _Peekable:
-	def __init__(self, iter):
-		self.iter = iter
+	"""A wrapper for iterators which lets you peek at the next element without consuming it"""
+
+	def __init__(self, iterator: Iterator):
+		self.iterator = iterator
 		self._cache = None
 
 	def peek(self):
+		"""Peek at the next item in the iterator without consuming it"""
 		if not self._cache:
-			self._cache = next(self.iter)
+			self._cache = next(self.iterator)
 		return self._cache
 
 	def __next__(self):
 		if not self._cache:
-			return next(self.iter)
+			return next(self.iterator)
 		else:
 			out, self._cache = self._cache, None
 			return out
@@ -144,6 +147,10 @@ def serialise_p(obj: AzObj) -> PurePosixPath:
 
 
 def get_chain(obj: AzObj) -> Sequence[AzObj]:
+	"""
+	Get the resource chain from a parsed resource.
+	If you have a resource ID, you can instead parse that directly with `parse_chain`
+	"""
 	if isinstance(obj, Subscription):
 		return (obj,)
 	elif isinstance(obj, ResourceGroup):

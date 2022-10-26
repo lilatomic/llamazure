@@ -7,6 +7,7 @@ from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subsc
 
 
 def recursive_default_dict():
+	"""A default dictionary where the default is a default dictionary where the default..."""
 	return defaultdict(recursive_default_dict)
 
 
@@ -55,6 +56,7 @@ class Tresource:
 
 	@property
 	def res(self):
+		"""Return all resources as a tree"""
 		return self.resources
 
 	def res_flat(self):
