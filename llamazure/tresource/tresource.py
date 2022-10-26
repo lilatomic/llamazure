@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import DefaultDict, Dict, List, Sequence
 
-from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription
+from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, get_chain
 
 
 def recursive_default_dict():
@@ -23,25 +23,7 @@ class Tresource:
 		elif isinstance(obj, ResourceGroup):
 			self.resources[obj.sub][obj].update()
 		elif isinstance(obj, Resource) or isinstance(obj, SubResource):
-			# Adding a Resource or SubResource requires us to add all parents
-			# The llamazure.rid makes it very easy to trace backwards,
-			# and that adds complexity here
-			inv_path: List[AzObj] = [obj]
-			r = obj
-			while r.parent:
-				inv_path.append(r.parent)
-				r = r.parent
-
-			def mut_recurse(d, parts):
-				if parts:
-					part = parts.pop()
-					mut_recurse(d[part], parts)
-
-			if obj.rg:
-				inv_path.append(obj.rg)
-			inv_path.append(obj.sub)
-
-			mut_recurse(self.resources, inv_path)
+			self.add_chain(get_chain(obj))
 
 	def add_chain(self, chain: Sequence[AzObj]):
 		"""
