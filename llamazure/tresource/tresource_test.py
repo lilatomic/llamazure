@@ -4,8 +4,8 @@ from typing import List, Union
 from hypothesis import given
 from hypothesis.strategies import lists
 
-from llamazure.rid.rid import Resource, ResourceGroup, SubResource
-from llamazure.rid.rid_test import st_resource_base, st_resource_complex, st_rg, st_subscription
+from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, parse_chain, serialise
+from llamazure.rid.rid_test import st_resource_any, st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.tresource.tresource import Tresource
 
 
@@ -77,3 +77,18 @@ class TestBuildTree:
 		assert rgs == set(tree.rgs_flat())
 		# since there is nesting, there are implicit resources, and there will be more
 		assert resources == set(tree.res_flat())
+
+
+class TestBuildTreeFromChain:
+	@given(lists(st_resource_any))
+	def test_chain_and_normal_are_equivalent(self, ress: List[AzObj]):
+		single_tree = Tresource()
+		for res in ress:
+			single_tree.add(res)
+
+		chains = [parse_chain(serialise(res)) for res in ress]
+		chain_tree = Tresource()
+		for chain in chains:
+			chain_tree.add_chain(chain)
+
+		assert single_tree.resources == chain_tree.resources

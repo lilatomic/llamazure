@@ -1,7 +1,7 @@
 """Build a tree of Azure resources"""
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import DefaultDict, Dict, List
+from typing import DefaultDict, Dict, List, Sequence
 
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription
 
@@ -42,6 +42,16 @@ class Tresource:
 			inv_path.append(obj.sub)
 
 			mut_recurse(self.resources, inv_path)
+
+	def add_chain(self, chain: Sequence[AzObj]):
+		"""
+		Add a chain of resources.
+		This method is higher performance but assumes a valid resource chain.
+		Fortunately, you can easily get a valid resurce chain with the `parse_chain` method.
+		"""
+		ref: Dict = self.resources
+		for i in chain:
+			ref = ref[i]
 
 	@property
 	def subs(self):
