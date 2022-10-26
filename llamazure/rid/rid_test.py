@@ -8,7 +8,7 @@ import pytest
 from hypothesis import given
 from hypothesis.strategies import builds, composite, recursive, text, uuids
 
-from llamazure.rid.rid import Resource, ResourceGroup, SubResource, Subscription, parse, serialise, serialise_p
+from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, parse, parse_chain, serialise, serialise_p
 
 az_alnum = text(alphabet=list(string.ascii_letters + string.digits), min_size=1)
 
@@ -61,6 +61,7 @@ def complex_resource(draw, res_gen) -> Union[Resource, SubResource]:
 
 
 st_resource_complex = recursive(st_resource_base | st_subresource, complex_resource)
+st_resource_any = st_subscription | st_rg | st_resource_base | st_subresource | st_resource_complex
 
 
 class TestRIDParse:
@@ -173,3 +174,19 @@ class TestMSRestAzure:
 	)
 	def test_accept(self, rid):
 		assert serialise(parse(rid)) == rid.lower()
+
+
+class TestParseChain:
+	"""Tests that parsing as a chain returns the same as the chain of a parsed resource"""
+
+	@given(st_resource_any)
+	def test_chain_reserialises(self, res: AzObj):
+		"""Test that the chain reserialises correctly"""
+		parsed_chain = parse_chain(serialise(res))
+
+		# check that every element in the chain is the parent of the next resource
+		for i, elem in list(enumerate(parsed_chain))[:-1]:  # skip the last element since we're doing pairwise comparisons
+			assert serialise(parsed_chain[i + 1]).startswith(serialise(elem))
+
+		# check that the last resource is the same as the test input
+		assert parsed_chain[-1] == res

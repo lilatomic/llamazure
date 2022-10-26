@@ -4,7 +4,7 @@ from __future__ import annotations
 import abc
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Optional, Union
+from typing import Generator, Optional, Sequence, Union
 
 
 class AzObj(abc.ABC):
@@ -71,23 +71,36 @@ class _Peekable:
 
 def parse(rid: str) -> Optional[AzObj]:
 	"""Parse an Azure resource ID into the Azure Resource it represenets and its chain of parents"""
+	*_, resource = parse_gen(rid)
+	return resource
+
+
+def parse_chain(rid: str) -> Sequence[AzObj]:
+	"""Parse an Azure resource ID into a sequence of a resource and its parents"""
+	return tuple(parse_gen(rid))
+
+
+def parse_gen(rid: str) -> Generator[AzObj, None, None]:
+	"""Parse an Azure resource ID into a generator with components"""
 	parts = _Peekable(iter(rid.lower().split("/")))
 
-	out: Optional[AzObj] = None
 	try:
 		_ = next(parts)  # escape leading `/`
 		if next(parts) == "subscriptions":
-			out = subscription = Subscription(next(parts))
+			subscription = Subscription(next(parts))
+			yield subscription
 		else:
-			return None
+			return
 
 		if parts.peek() == "resourcegroups":
 			_ = next(parts)
-			out = rg = ResourceGroup(next(parts), subscription)
+			rg = ResourceGroup(next(parts), subscription)
+			yield rg
 		else:
 			rg = None  # There are subscription-level resources, like locks
 
 		parent: Optional[Union[Resource, SubResource]] = None
+		parsed_resource: Union[Resource, SubResource]
 		while True:
 			start = next(parts)
 
@@ -95,14 +108,20 @@ def parse(rid: str) -> Optional[AzObj]:
 				provider = next(parts)
 				res_type = next(parts)
 				name = next(parts)
-				out = parent = Resource(provider, res_type, name, parent=parent, rg=rg, sub=subscription)
+
+				parsed_resource = Resource(provider, res_type, name, parent=parent, rg=rg, sub=subscription)
+				parent = parsed_resource
+				yield parsed_resource
 			else:
 				res_type = start
 				name = next(parts)
-				out = parent = SubResource(res_type, name, parent=parent, rg=rg, sub=subscription)
+
+				parsed_resource = SubResource(res_type, name, parent=parent, rg=rg, sub=subscription)
+				parent = parsed_resource
+				yield parsed_resource
 
 	except StopIteration:
-		return out
+		return
 
 
 def serialise(obj: AzObj) -> str:
