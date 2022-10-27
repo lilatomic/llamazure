@@ -46,7 +46,8 @@ class TestBuildTree:
 
 		for res in ress:
 			subs.add(res.sub)
-			rgs.add(res.rg)
+			if res.rg:
+				rgs.add(res.rg)
 			tree.add(res)
 
 		assert subs == set(tree.subs)
@@ -69,7 +70,8 @@ class TestBuildTree:
 
 		for res in ress:
 			subs.add(res.sub)
-			rgs.add(res.rg)
+			if res.rg:
+				rgs.add(res.rg)
 			recurse_register(res)
 			tree.add(res)
 

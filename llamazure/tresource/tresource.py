@@ -46,13 +46,13 @@ class Tresource:
 		"""
 		Get RGs nested by subscription
 		"""
-		return {sub: list(rgs.keys()) for sub, rgs in self.resources.items()}
+		return {sub: list(rg for rg in rgs.keys() if isinstance(rg, ResourceGroup)) for sub, rgs in self.resources.items()}
 
 	def rgs_flat(self) -> List[ResourceGroup]:
 		"""
 		Get RGs as a flat list
 		"""
-		return [rg for rgs in self.resources.values() for rg in rgs]
+		return [rg for rgs in self.resources.values() for rg in rgs if isinstance(rg, ResourceGroup)]
 
 	@property
 	def res(self):
@@ -63,6 +63,7 @@ class Tresource:
 		"""
 		Return all resources flattened into a list,
 		including resources that were implicitly added as a parent of another resource
+		but excluding subscriptions and resource groups
 		"""
 		out = []
 
@@ -73,8 +74,11 @@ class Tresource:
 					recurse_resources(child, subchildren)
 
 		for rgs in self.resources.values():
-			for ress in rgs.values():
-				for res, children in ress.items():
-					recurse_resources(res, children)
+			for rg, ress in rgs.items():
+				if isinstance(rg, ResourceGroup):
+					for res, children in ress.items():
+						recurse_resources(res, children)
+				else:  # actually a resource attached to the subscription directly
+					recurse_resources(rg, ress)
 
 		return out

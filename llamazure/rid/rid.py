@@ -73,7 +73,7 @@ class _Peekable:
 
 
 def parse(rid: str) -> Optional[AzObj]:
-	"""Parse an Azure resource ID into the Azure Resource it represenets and its chain of parents"""
+	"""Parse an Azure resource ID into the Azure Resource it represents and its chain of parents"""
 	*_, resource = parse_gen(rid)
 	return resource
 
