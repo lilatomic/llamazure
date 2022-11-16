@@ -14,8 +14,40 @@ def recursive_default_dict():
 	return defaultdict(recursive_default_dict)
 
 
+class ITresource(abc.ABC):
+	@property
+	@abc.abstractmethod
+	def subs(self):
+		"""Get subscriptions"""
+		...
+
+	# @property
+	# @abc.abstractmethod
+	# def rgs(self):
+	# 	"""Get RGs nested by subscription"""
+	# 	...
+
+	def rgs_flat(self) -> List[ResourceGroup]:
+		"""Get RGs as a flat list"""
+		...
+
+	@property
+	@abc.abstractmethod
+	def res(self):
+		"""Return all resources as a tree"""
+		...
+
+	def res_flat(self) -> List[Union[Resource, SubResource]]:
+		"""
+		Return all resources flattened into a list,
+		including resources that were implicitly added as a parent of another resource
+		but excluding subscriptions and resource groups
+		"""
+		...
+
+
 @dataclass
-class Tresource:
+class Tresource(ITresource):
 	"""A tree of Azure resources"""
 
 	resources: DefaultDict[Subscription, Dict] = field(default_factory=recursive_default_dict)
@@ -41,33 +73,21 @@ class Tresource:
 
 	@property
 	def subs(self):
-		"""Get subscriptions"""
 		return list(self.resources.keys())
 
 	@property
 	def rgs(self) -> Dict[Subscription, List[ResourceGroup]]:
-		"""
-		Get RGs nested by subscription
-		"""
 		return {sub: list(rg for rg in rgs.keys() if isinstance(rg, ResourceGroup)) for sub, rgs in self.resources.items()}
 
 	def rgs_flat(self) -> List[ResourceGroup]:
-		"""
-		Get RGs as a flat list
-		"""
+
 		return [rg for rgs in self.resources.values() for rg in rgs if isinstance(rg, ResourceGroup)]
 
 	@property
 	def res(self):
-		"""Return all resources as a tree"""
 		return self.resources
 
 	def res_flat(self):
-		"""
-		Return all resources flattened into a list,
-		including resources that were implicitly added as a parent of another resource
-		but excluding subscriptions and resource groups
-		"""
 		out = []
 
 		def recurse_resources(res, children):
