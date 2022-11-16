@@ -36,3 +36,7 @@ lockfile = "cicd/mypy.lock"
 
 #extra_requirements.add = ["pytest"]
 extra_type_stubs = ["types-PyYAML", "types-requests"]
+
+[anonymous-telemetry]
+enabled = true
+repo_id = "5c263cce-11ff-3ab5-a552-01e94b0c9d60"
