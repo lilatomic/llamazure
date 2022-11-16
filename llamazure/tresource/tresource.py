@@ -4,7 +4,7 @@ from __future__ import annotations
 import abc
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import DefaultDict, Dict, Generic, Iterable, List, Sequence, TypeVar, Union
+from typing import DefaultDict, Dict, Generic, Iterable, List, Optional, Sequence, TypeVar, Union
 
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, get_chain
 
@@ -115,7 +115,7 @@ class Node(Generic[T]):
 	"""Generic node in a TresourceData"""
 
 	obj: AzObj
-	data: T
+	data: Optional[T]
 	children: Dict[str, Node[T]] = field(default_factory=dict)
 
 	def add(self, slug: str, node: Node[T]):
@@ -136,7 +136,7 @@ class Node(Generic[T]):
 class TresourceData(Generic[T], ITresource):
 	"""A tree of Azure resources with data attached"""
 
-	resources: Node = field(default_factory=lambda: Node(None, None))
+	resources: Node[T] = field(default_factory=lambda: Node(None, None))  # type: ignore # This node is just to make recursion easier, we can contain its grossness
 
 	def set_data(self, obj: AzObj, data: T):
 		"""Set data on a node, creating intermediate nodes if necessary"""

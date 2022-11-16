@@ -113,7 +113,7 @@ class TestBuildDataTree:
 	@given(lists(st_rg))
 	def test_build_rgs(self, rgs: List[ResourceGroup]):
 		"""Test adding only RGs"""
-		tree = TresourceData()
+		tree: TresourceData[int] = TresourceData()
 
 		subs = set()
 
@@ -126,7 +126,7 @@ class TestBuildDataTree:
 
 	@given(lists(st_resource_base))
 	def test_build_simple_resources(self, ress: List[Resource]):
-		tree = TresourceData()
+		tree: TresourceData[int] = TresourceData()
 
 		subs = set()
 		rgs = set()
