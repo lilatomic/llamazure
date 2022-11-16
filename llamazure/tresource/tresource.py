@@ -161,8 +161,9 @@ class TresourceData(Generic[T], ITresource):
 		for i in chain:
 			slug = i.slug()
 			if i not in ref.children:
-				ref = ref.children[slug] = Node(i, None)
-			ref = ref.children[slug]
+				ref.children[slug] = ref = Node(i, None)
+			else:
+				ref = ref.children[slug]
 
 		ref.children[node.obj.slug()] = node
 
