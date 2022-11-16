@@ -11,6 +11,7 @@ Benefits:
 ## Usage
 
 Just call `parse` to turn resource IDs into objects. That's it. The resource you want is the result, all the other information is chained in.
+You can also ask for the chain directly using the `parse_chain` method. This returns a list of all the parents of the resource, starting at the subscription. Having the chain is useful if you intend to use the hierarchy of resources, like pushing resources into a `Tresource` for the tree structure.
 
 You'll know if a resource is a child resource if it has a non-None parent resource. It is a root resource if parent is None.
 

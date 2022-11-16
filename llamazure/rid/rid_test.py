@@ -5,10 +5,10 @@ from typing import Optional, Union
 from uuid import UUID
 
 import pytest
-from hypothesis import given
-from hypothesis.strategies import builds, composite, recursive, text, uuids
+from hypothesis import assume, given
+from hypothesis.strategies import builds, composite, none, recursive, text, uuids
 
-from llamazure.rid.rid import Resource, ResourceGroup, SubResource, Subscription, parse, serialise, serialise_p
+from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, get_chain, parse, parse_chain, serialise, serialise_p
 
 az_alnum = text(alphabet=list(string.ascii_letters + string.digits), min_size=1)
 
@@ -19,18 +19,20 @@ st_subscription = builds(lambda u: Subscription(str(u)), uuids())
 st_rg = builds(lambda sub, name: ResourceGroup(name, sub), st_subscription, az_alnum_lower)
 
 st_resource_base = builds(
-	lambda provider, res_type, name, rg: Resource(provider, res_type, name, rg, parent=None, sub=rg.sub),
+	lambda provider, res_type, name, rg_name, sub: Resource(provider, res_type, name, ResourceGroup(rg_name, sub) if rg_name else None, parent=None, sub=sub),
 	az_alnum_lower,
 	az_alnum_lower,
 	az_alnum_lower,
-	st_rg,
+	none() | az_alnum_lower,
+	st_subscription,
 )
 
 st_subresource = builds(
-	lambda res_type, name, rg: SubResource(res_type, name, rg, parent=None, sub=rg.sub),
+	lambda res_type, name, rg_name, sub: SubResource(res_type, name, ResourceGroup(rg_name, sub) if rg_name else None, parent=None, sub=sub),
 	az_alnum_lower,
 	az_alnum_lower,
-	st_rg,
+	none() | az_alnum_lower,
+	st_subscription,
 )
 
 
@@ -46,7 +48,7 @@ def complex_resource(draw, res_gen) -> Union[Resource, SubResource]:
 			child.name,
 			rg=parent.rg,
 			parent=parent,
-			sub=parent.rg.sub,
+			sub=parent.sub,
 		)
 	if isinstance(child, SubResource):
 		return SubResource(
@@ -54,13 +56,14 @@ def complex_resource(draw, res_gen) -> Union[Resource, SubResource]:
 			child.name,
 			rg=parent.rg,
 			parent=parent,
-			sub=parent.rg.sub,
+			sub=parent.sub,
 		)
 	else:
 		raise RuntimeError("AAAA")
 
 
 st_resource_complex = recursive(st_resource_base | st_subresource, complex_resource)
+st_resource_any = st_subscription | st_rg | st_resource_base | st_subresource | st_resource_complex
 
 
 class TestRIDParse:
@@ -80,11 +83,16 @@ class TestRIDParse:
 
 	@given(st_resource_base)
 	def test_simple_resource(self, res: Resource):
+		assume(res.rg is not None)
 		assert res.rg is not None
+
 		assert parse(f"/subscriptions/{res.rg.sub.uuid}/resourceGroups/{res.rg.name}/providers/{res.provider}/{res.res_type}/{res.name}") == res
 
 	@given(st_resource_complex)
 	def test_complex_resource(self, res: Resource):
+		assume(res.rg is not None)
+		assert res.rg is not None
+
 		rid = ""
 		res_remaining: Optional[Union[Resource, SubResource]] = res
 		while res_remaining:
@@ -95,7 +103,6 @@ class TestRIDParse:
 				rid = f"/{res_remaining.res_type}/{res_remaining.name}" + rid
 				res_remaining = res_remaining.parent
 		rg = res.rg
-		assert rg is not None
 		rid = f"/subscriptions/{rg.sub.uuid}/resourceGroups/{rg.name}" + rid
 
 		assert parse(rid) == res
@@ -114,7 +121,9 @@ class TestRIDSerialise:
 
 	@given(st_resource_base)
 	def test_simple_resource(self, res: Resource):
+		assume(res.rg is not None)
 		assert res.rg is not None
+
 		assert serialise_p(res) == Path("/subscriptions") / res.rg.sub.uuid / "resourcegroups" / res.rg.name / "providers" / res.provider / res.res_type / res.name
 
 
@@ -173,3 +182,28 @@ class TestMSRestAzure:
 	)
 	def test_accept(self, rid):
 		assert serialise(parse(rid)) == rid.lower()
+
+
+class TestParseChain:
+	"""Tests that parsing as a chain returns the same as the chain of a parsed resource"""
+
+	@given(st_resource_any)
+	def test_chain_reserialises(self, res: AzObj):
+		"""Test that the chain reserialises correctly"""
+		parsed_chain = parse_chain(serialise(res))
+
+		# check that every element in the chain is the parent of the next resource
+		for i, elem in list(enumerate(parsed_chain))[:-1]:  # skip the last element since we're doing pairwise comparisons
+			assert serialise(parsed_chain[i + 1]).startswith(serialise(elem))
+
+		# check that the last resource is the same as the test input
+		assert parsed_chain[-1] == res
+
+	@given(st_resource_any)
+	def test_parse_chain_is_same_as_chain_of_parsed(self, res: AzObj):
+		"""Test that the parse_chain method gives the same output as the chain of a normally parsed resource"""
+		parsed_chain = parse_chain(serialise(res))
+
+		chain_of_parsed = get_chain(res)
+
+		assert parsed_chain == chain_of_parsed

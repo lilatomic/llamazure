@@ -1,5 +1,5 @@
 python_sources(
-	name="rid",
+	name="tresource",
 )
 
 python_tests(
@@ -7,13 +7,13 @@ python_tests(
 )
 
 python_distribution(
-	name="llamazure.rid",
-	dependencies=[":rid"],
-	long_description_path="llamazure/rid/readme.md",
+	name="llamazure.tresource",
+	dependencies=[":tresource"],
+	long_description_path="llamazure/tresource/readme.md",
 	provides=python_artifact(
-		name="llamazure.rid",
-		version="0.0.3",
-		description="Azure Resource IDs you can use",
+		name="llamazure.tresource",
+		version="0.0.1",
+		description="Group Azure resources into their hierarchy",
 		author="Daniel Goldman",
 		classifiers=[
 			"Development Status :: 3 - Alpha",
