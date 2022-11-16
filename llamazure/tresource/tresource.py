@@ -15,6 +15,8 @@ def recursive_default_dict():
 
 
 class ITresource(abc.ABC):
+	"""Common interface to output resources from all Tresources"""
+
 	@property
 	@abc.abstractmethod
 	def subs(self):
@@ -119,15 +121,22 @@ class Node(Generic[T]):
 	children: Dict[str, Node[T]] = field(default_factory=dict)
 
 	def add(self, slug: str, node: Node[T]):
+		"""
+		Add an arbitrary Node as a child with an arbitrary slug.
+		You probably want `add_child`, which will compute the slug for you
+		"""
 		self.children[slug] = node
 
-	def add_child_resource(self, res: AzObj):
-		self.children[res.slug()] = Node(res, None)
+	def add_child_resource(self, res: AzObj, data: T = None):
+		"""Create a Node for a resource and add it as a child of this Node"""
+		self.children[res.slug()] = Node(res, data)
 
 	def add_child(self, child: Node[T]):
+		"""Add a child to this node"""
 		self.children[Node.obj.slug()] = child
 
 	def add_children(self, children: Iterable[Node[T]]):
+		"""Add multiple children to this node"""
 		for child in children:
 			self.add_child(child)
 
@@ -139,10 +148,17 @@ class TresourceData(Generic[T], ITresource):
 	resources: Node[T] = field(default_factory=lambda: Node(None, None))  # type: ignore # This node is just to make recursion easier, we can contain its grossness
 
 	def set_data(self, obj: AzObj, data: T):
-		"""Set data on a node, creating intermediate nodes if necessary"""
+		"""
+		Create a node with data.
+		Missing intermediate nodes are created with no data.
+		"""
 		self.set_data_chain(get_chain(obj), data)
 
 	def set_data_chain(self, chain: Sequence[AzObj], data: T):
+		"""
+		Create a node with data at the end of a resource chain.
+		Missing intermediate nodes are created with no data.
+		"""
 		ref = self.resources
 		for i in chain:
 			slug = i.slug()
@@ -154,9 +170,18 @@ class TresourceData(Generic[T], ITresource):
 		ref.data = data
 
 	def add_node(self, node: Node[T]):
+		"""
+		Add a node to the tresource.
+		Missing intermediate nodes are created with no data.
+		"""
 		self.add_node_chain(get_chain(node.obj)[:-1], node)  # need to remove the last element from the chain, since we add that as a node
 
 	def add_node_chain(self, chain: Sequence[AzObj], node: Node[T]):
+		"""
+		Add a node at the end of a chain of resources.
+		The chain should not contain the resource in the node
+		Missing intermediate nodes are created with no data.
+		"""
 		ref = self.resources
 		for i in chain:
 			slug = i.slug()

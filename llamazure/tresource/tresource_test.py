@@ -99,6 +99,8 @@ class TestBuildTreeFromChain:
 
 
 class TestBuildDataTree:
+	"""Test building a TresourceData"""
+
 	@given(lists(st_subscription))
 	def test_build_subscriptions(self, subs):
 		"""Test adding only subscriptions"""
@@ -169,6 +171,8 @@ class TestBuildDataTree:
 
 
 class TestNodesDataTree:
+	"""Test building a TresourceData with add_node"""
+
 	@given(lists(st_resource_complex))
 	def test_build_complex_resources(self, ress: List[Union[Resource, SubResource]]):
 		tree: TresourceData[int] = TresourceData()
