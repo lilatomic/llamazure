@@ -10,7 +10,14 @@ from typing import Generator, Iterator, Optional, Sequence, Union
 class AzObj(abc.ABC):
 	"""An Azure object"""
 
-	...
+	@abc.abstractmethod
+	def slug(self) -> str:
+		"""
+		Generate the component of the resource ID specific to this resource (and not part of its parent).
+		For example, for a resource with ID "/subscriptions/000/resourcegroups/111/providers/Microsoft.things/widgets/222",
+		the resource "222" would have slug "/providers/Microsoft.things/widgets/222"
+		"""
+		...
 
 
 @dataclass(frozen=True)
@@ -19,6 +26,9 @@ class Subscription(AzObj):
 
 	uuid: str
 
+	def slug(self) -> str:
+		return f"/subscriptions/{self.uuid}"
+
 
 @dataclass(frozen=True)
 class ResourceGroup(AzObj):
@@ -26,6 +36,9 @@ class ResourceGroup(AzObj):
 
 	name: str
 	sub: Subscription
+
+	def slug(self) -> str:
+		return f"/resourcegroups/{self.name}"
 
 
 @dataclass(frozen=True)
@@ -39,6 +52,9 @@ class Resource(AzObj):
 	sub: Subscription
 	parent: Optional[Union[Resource, SubResource]] = None
 
+	def slug(self) -> str:
+		return f"/providers/{self.provider}/{self.res_type}/{self.name}"
+
 
 @dataclass(frozen=True)
 class SubResource(AzObj):
@@ -49,6 +65,9 @@ class SubResource(AzObj):
 	rg: Optional[ResourceGroup]
 	sub: Subscription
 	parent: Optional[Union[Resource, SubResource]] = None
+
+	def slug(self) -> str:
+		return f"/{self.res_type}/{self.name}"
 
 
 class _Peekable:
