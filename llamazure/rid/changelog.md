@@ -3,7 +3,7 @@
 
 ## 0.0
 
-### next
+### 0.0.4
 
 - feature: get chain of resources
 - feature: parse resource directly to its chain

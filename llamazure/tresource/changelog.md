@@ -2,7 +2,7 @@
 
 ## 0.0
 
-### next
+### 0.0.1
 
 - feature: init Tresource for holding resources as a tree
 - feature: add a chain of resources directly
