@@ -1,7 +1,10 @@
 """Build a tree of Azure resources"""
+from __future__ import annotations
+
+import abc
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import DefaultDict, Dict, List, Sequence
+from typing import DefaultDict, Dict, Generic, Iterable, List, Sequence, TypeVar, Union
 
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, get_chain
 
@@ -80,5 +83,99 @@ class Tresource:
 						recurse_resources(res, children)
 				else:  # actually a resource attached to the subscription directly
 					recurse_resources(rg, ress)
+
+		return out
+
+
+T = TypeVar("T")
+
+
+@dataclass
+class Node(Generic[T]):
+	"""Generic node in a TresourceData"""
+
+	obj: AzObj
+	data: T
+	children: Dict[str, Node[T]] = field(default_factory=dict)
+
+	def add(self, slug: str, node: Node[T]):
+		self.children[slug] = node
+
+	def add_child_resource(self, res: AzObj):
+		self.children[res.slug()] = Node(res, None)
+
+	def add_child(self, child: Node[T]):
+		self.children[Node.obj.slug()] = child
+
+	def add_children(self, children: Iterable[Node[T]]):
+		for child in children:
+			self.add_child(child)
+
+
+@dataclass
+class TresourceData(Generic[T], ITresource):
+	"""A tree of Azure resources with data attached"""
+
+	resources: Node = field(default_factory=lambda: Node(None, None))
+
+	def set_data(self, obj: AzObj, data: T):
+		"""Set data on a node, creating intermediate nodes if necessary"""
+		self.set_data_chain(get_chain(obj), data)
+
+	def set_data_chain(self, chain: Sequence[AzObj], data: T):
+		ref = self.resources
+		for i in chain:
+			slug = i.slug()
+			if i not in ref.children:
+				ref.children[slug] = ref = Node(i, None)  # multiple assignment is done left-to-right
+			else:
+				ref = ref.children[slug]
+
+		ref.data = data
+
+	def add_node(self, node: Node[T]):
+		self.add_node_chain(get_chain(node.obj)[:-1], node)  # need to remove the last element from the chain, since we add that as a node
+
+	def add_node_chain(self, chain: Sequence[AzObj], node: Node[T]):
+		ref = self.resources
+		for i in chain:
+			slug = i.slug()
+			if i not in ref.children:
+				ref = ref.children[slug] = Node(i, None)
+			ref = ref.children[slug]
+
+		ref.children[node.obj.slug()] = node
+
+	@property
+	def subs(self):
+		return self.resources.children
+
+	def rgs_flat(self) -> List[ResourceGroup]:
+		rgs = []
+		for sub in self.resources.children.values():
+			for maybe_rg in sub.children.values():
+				if isinstance(maybe_rg.obj, ResourceGroup):
+					rgs.append(maybe_rg.obj)
+		return rgs
+
+	@property
+	def res(self):
+		return self.resources
+
+	def res_flat(self):
+		out: List[AzObj] = []
+
+		def recurse_resource_node(res: Node[T]):
+			out.append(res.obj)
+			for child in res.children.values():
+				recurse_resource_node(child)
+
+		for sub in self.resources.children.values():
+			for maybe_rg in sub.children.values():
+				if isinstance(maybe_rg.obj, ResourceGroup):
+					for res in maybe_rg.children.values():
+						recurse_resource_node(res)
+				else:
+					recurse_resource_node(maybe_rg)
 
 		return out

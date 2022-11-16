@@ -6,7 +6,7 @@ from hypothesis.strategies import lists
 
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, parse_chain, serialise
 from llamazure.rid.rid_test import st_resource_any, st_resource_base, st_resource_complex, st_rg, st_subscription
-from llamazure.tresource.tresource import Tresource
+from llamazure.tresource.tresource import Tresource, TresourceData
 
 
 class TestBuildTree:
@@ -96,3 +96,48 @@ class TestBuildTreeFromChain:
 			chain_tree.add_chain(chain)
 
 		assert single_tree.resources == chain_tree.resources
+
+
+class TestBuildDataTree:
+	@given(lists(st_subscription))
+	def test_build_subscriptions(self, subs):
+		"""Test adding only subscriptions"""
+		tree = TresourceData()
+
+		for sub in subs:
+			tree.set_data(sub, hash(sub))
+
+		assert len(set(tree.subs)) == len(subs)
+		assert set(hash(t.obj) for t in tree.subs.values()) == set(hash(t) for t in subs)
+
+	@given(lists(st_rg))
+	def test_build_rgs(self, rgs: List[ResourceGroup]):
+		"""Test adding only RGs"""
+		tree = TresourceData()
+
+		subs = set()
+
+		for rg in rgs:
+			subs.add(rg.sub)
+			tree.set_data(rg, hash(rg))
+
+		assert subs == set(t.obj for t in tree.subs.values())
+		assert set(rgs) == set(tree.rgs_flat())
+
+	@given(lists(st_resource_base))
+	def test_build_simple_resources(self, ress: List[Resource]):
+		tree = TresourceData()
+
+		subs = set()
+		rgs = set()
+
+		for res in ress:
+			subs.add(res.sub)
+			if res.rg:
+				rgs.add(res.rg)
+			tree.set_data(res, hash(res))
+
+		assert subs == set(t.obj for t in tree.subs.values())
+		assert rgs == set(tree.rgs_flat())
+		# since there is no nesting, there are no implicit resources, and this comparison is valid
+		assert set(ress) == set(tree.res_flat())
