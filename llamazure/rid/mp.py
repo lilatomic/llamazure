@@ -1,11 +1,10 @@
 """Resource IDs that treat the resource id as a materialised path"""
 from __future__ import annotations
 
-import abc
 from dataclasses import dataclass
-from typing import Generator, NewType, Optional, Tuple, Union
+from typing import Generator, NewType, Optional, Protocol, Sequence, Tuple, Union
 
-from llamazure.rid.util import FindAllIterable, _Peekable
+from llamazure.rid.util import SegmentAndPathIterable, _Peekable
 
 Path = NewType("Path", str)
 PathSubscription = Path
@@ -14,14 +13,11 @@ PathResource = Path
 PathSubResource = Path
 
 
-class AzObj(abc.ABC):
+class AzObj(Protocol):
 	"""An Azure object"""
 
-	@property
-	@abc.abstractmethod
-	def path(self) -> Path:
-		"""The materialised path of this resource. This is the resource ID"""
-		...
+	path: Path
+	"""The materialised path of this resource. This is the resource ID"""
 
 
 @dataclass(frozen=True)
