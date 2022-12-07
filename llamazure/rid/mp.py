@@ -65,10 +65,24 @@ class SubResource(AzObj):
 MP = NewType("MP", Tuple[Path, AzObj])
 
 
+def parse(rid: str) -> Optional[MP]:
+	"""Parse an Azure resource ID into the Azure Resource it represents and its chain of parents"""
+	x = list(parse_gen(rid))
+	print(x)
+	*_, resource = x
+	return resource
+
+
+def parse_chain(rid: str) -> Sequence[MP]:
+	"""Parse an Azure resource ID into a sequence of a resource and its parents"""
+
+	return tuple(parse_gen(rid))
+
+
 def parse_gen(rid: str) -> Generator[MP, None, None]:
 	"""Parse an Azure resource ID into the Azure Resource it represents and its chain of parents"""
 
-	parts = _Peekable(FindAllIterable(rid))
+	parts = _Peekable(SegmentAndPathIterable(rid))
 
 	try:
 		if next(parts)[1] == "subscriptions":
