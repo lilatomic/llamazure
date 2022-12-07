@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import Generic, Optional, TypeVar, Union, NewType, Type, Tuple, Generator
+from typing import Generator, NewType, Optional, Tuple, Union
 
 from llamazure.rid.util import FindAllIterable, _Peekable
 
@@ -76,7 +76,7 @@ def parse_gen(rid: str) -> Generator[MP, None, None]:
 
 	try:
 		if next(parts)[1] == "subscriptions":
-			mp, p  = next(parts)
+			mp, p = next(parts)
 			subscription = Subscription(mp, p)
 			yield mp, subscription
 		else:

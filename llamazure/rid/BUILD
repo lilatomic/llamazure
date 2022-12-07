@@ -27,3 +27,7 @@ python_distribution(
 		long_description_content_type="text/markdown",
 	),
 )
+
+python_test_utils(
+    name="test_utils",
+)

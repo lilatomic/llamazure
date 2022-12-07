@@ -4,8 +4,8 @@ from typing import List, Union
 from hypothesis import given
 from hypothesis.strategies import lists
 
+from llamazure.rid.conftest import st_resource_any, st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, parse_chain, serialise
-from llamazure.rid.rid_test import st_resource_any, st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.tresource.tresource import Node, Tresource, TresourceData
 
 

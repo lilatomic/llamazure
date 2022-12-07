@@ -33,13 +33,13 @@ class FindAllIterable:
 		if self.start == -1:
 			raise StopIteration
 
-		i = self.s.find("/", self.start+1)
+		i = self.s.find("/", self.start + 1)
 		if i == -1:
-			segment = self.s[self.start:]
+			segment = self.s[self.start :]
 			mp = self.s
 			self.start = -1
 		else:
-			segment = self.s[self.start:i]
+			segment = self.s[self.start : i]
 			mp = self.s[:i]
 		self.start = i
 		return mp, segment
