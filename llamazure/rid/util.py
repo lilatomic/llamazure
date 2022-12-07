@@ -24,7 +24,7 @@ class _Peekable:
 			return out
 
 
-class FindAllIterable:
+class SegmentAndPathIterable:
 	def __init__(self, s: str):
 		self.s = s
 		self.start = 0
@@ -35,11 +35,11 @@ class FindAllIterable:
 
 		i = self.s.find("/", self.start + 1)
 		if i == -1:
-			segment = self.s[self.start :]
+			segment = self.s[self.start + 1 :]
 			mp = self.s
 			self.start = -1
 		else:
-			segment = self.s[self.start : i]
+			segment = self.s[self.start + 1 : i]
 			mp = self.s[:i]
 		self.start = i
 		return mp, segment
