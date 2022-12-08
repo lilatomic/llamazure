@@ -29,6 +29,7 @@ class ITresource(abc.ABC):
 	# 	"""Get RGs nested by subscription"""
 	# 	...
 
+	@abc.abstractmethod
 	def rgs_flat(self) -> List[ResourceGroup]:
 		"""Get RGs as a flat list"""
 		...
@@ -39,6 +40,7 @@ class ITresource(abc.ABC):
 		"""Return all resources as a tree"""
 		...
 
+	@abc.abstractmethod
 	def res_flat(self) -> List[Union[Resource, SubResource]]:
 		"""
 		Return all resources flattened into a list,
@@ -82,7 +84,6 @@ class Tresource(ITresource):
 		return {sub: list(rg for rg in rgs.keys() if isinstance(rg, ResourceGroup)) for sub, rgs in self.resources.items()}
 
 	def rgs_flat(self) -> List[ResourceGroup]:
-
 		return [rg for rgs in self.resources.values() for rg in rgs if isinstance(rg, ResourceGroup)]
 
 	@property
