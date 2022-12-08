@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import Generator, NewType, Optional, Protocol, Sequence, Tuple, Union
 
 from llamazure.rid.util import SegmentAndPathIterable, _Peekable
@@ -124,3 +125,22 @@ def parse_gen(rid: str) -> Generator[MP, None, None]:
 
 	except StopIteration:
 		return
+
+
+def serialise(obj: AzObj):
+	"""Turn an AzObj back into its resource ID"""
+	return obj.path
+
+
+def serialise_p(obj: AzObj) -> PurePosixPath:
+	"""Turn an AzObj back into its resource ID as a pathlib.Path"""
+
+	return PurePosixPath(obj.path)
+
+
+def get_chain(obj: AzObj) -> Sequence[MP]:
+	"""
+	Get the resource chain from a parsed resource.
+	If you have a resource ID, you can instead parse that directly with `parse_chain`
+	"""
+	return parse_chain(obj.path)
