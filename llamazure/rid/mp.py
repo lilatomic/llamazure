@@ -83,7 +83,7 @@ def parse_chain(rid: str) -> Sequence[MP]:
 def parse_gen(rid: str) -> Generator[MP, None, None]:
 	"""Parse an Azure resource ID into the Azure Resource it represents and its chain of parents"""
 
-	parts = _Peekable(SegmentAndPathIterable(rid))
+	parts = _Peekable(SegmentAndPathIterable(rid.lower()))
 
 	try:
 		if next(parts)[1] == "subscriptions":
