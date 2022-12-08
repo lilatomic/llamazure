@@ -1,3 +1,5 @@
+"""Utilities for the `llamazure.rid` package"""
+
 from __future__ import annotations
 
 from typing import Iterator
@@ -25,6 +27,8 @@ class _Peekable:
 
 
 class SegmentAndPathIterable:
+	"""An iterator that yields the current segment and absolute path"""
+
 	def __init__(self, s: str):
 		self.s = s
 		self.start = 0

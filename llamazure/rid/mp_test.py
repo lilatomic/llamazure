@@ -1,6 +1,9 @@
+"""Tests for MP resource IDs"""
+
 import dataclasses
 from typing import Union
 
+import pytest
 from hypothesis import assume, given
 
 from llamazure.rid import rid
@@ -10,6 +13,10 @@ from llamazure.rid.mp import Path, Resource, ResourceGroup, SubResource, Subscri
 
 class TestMPParse:
 	"""Tests directly for MP parsing"""
+
+	def test_invalid(self):
+		with pytest.raises(ValueError):
+			parse("/hihello")
 
 	@given(st_subscription)
 	def test_subscriptions(self, sub: rid.Subscription):
@@ -28,6 +35,7 @@ class TestMPParse:
 	@given(st_resource_base)
 	def test_simple_resource(self, res: rid.Resource):
 		assume(res.rg is not None)
+		assert res.rg is not None
 
 		res_id = Path(rid.serialise(res))
 		mp = parse(res_id)
@@ -60,6 +68,7 @@ class TestMPParse:
 	@given(st_resource_complex)
 	def test_complex_resource(self, res: Union[rid.Resource, rid.SubResource]):
 		assume(res.rg is not None)
+		assert res.rg is not None
 
 		res_id = Path(rid.serialise(res))
 		mp = parse(res_id)

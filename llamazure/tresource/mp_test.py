@@ -7,6 +7,7 @@ from hypothesis.strategies import lists
 from llamazure.rid import rid
 from llamazure.rid.conftest import st_resource_base, st_rg, st_subscription
 from llamazure.rid.conv import rid2mp
+from llamazure.rid.mp import Resource
 from llamazure.tresource.mp import TresourceMP
 
 
@@ -37,8 +38,12 @@ class TestBuildTree:
 		assert set(rg.path for rg in rgs) == set(tree.rgs_flat())
 
 	@given(lists(st_resource_base))
-	def test_build_simple_resource(self, ress: List[rid.Resource]):
-		ress = [rid2mp(res) for res in ress]
+	def test_build_simple_resource(self, ress_rid: List[rid.Resource]):
+		ress: List[Resource] = []
+		for res_rid in ress_rid:
+			converted = rid2mp(res_rid)
+			assert isinstance(converted, Resource)
+			ress.append(converted)
 		tree = TresourceMP()
 
 		subs = set()

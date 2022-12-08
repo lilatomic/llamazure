@@ -1,3 +1,5 @@
+"""Tests for the utilities"""
+
 from hypothesis import given
 from hypothesis.strategies import characters, lists, text
 
@@ -5,6 +7,8 @@ from llamazure.rid.util import SegmentAndPathIterable
 
 
 class TestSegmentAndPathIterable:
+	"""Test the SegmentAndPathIterable"""
+
 	def test_no_results(self):
 		s = "/hihello"
 		r = list(iter(SegmentAndPathIterable(s)))

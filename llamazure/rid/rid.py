@@ -72,7 +72,7 @@ class SubResource(AzObj):
 		return f"/{self.res_type}/{self.name}"
 
 
-def parse(rid: str) -> Optional[AzObj]:
+def parse(rid: str) -> AzObj:
 	"""Parse an Azure resource ID into the Azure Resource it represents and its chain of parents"""
 	*_, resource = parse_gen(rid)
 	return resource

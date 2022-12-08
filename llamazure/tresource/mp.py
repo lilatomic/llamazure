@@ -2,22 +2,61 @@
 
 from __future__ import annotations
 
+import abc
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Union
 
 from llamazure.rid.mp import MP, AzObj, Path, PathResourceGroup, Resource, ResourceGroup, SubResource, Subscription
-from llamazure.tresource.tresource import ITresource
+
+
+class ITresource(abc.ABC):
+	"""Common interface to output resources from all Tresources"""
+
+	@property
+	@abc.abstractmethod
+	def subs(self):
+		"""Get subscriptions"""
+		...
+
+	# @property
+	# @abc.abstractmethod
+	# def rgs(self):
+	# 	"""Get RGs nested by subscription"""
+	# 	...
+
+	@abc.abstractmethod
+	def rgs_flat(self) -> List[PathResourceGroup]:
+		"""Get RGs as a flat list"""
+		...
+
+	@property
+	@abc.abstractmethod
+	def res(self):
+		"""Return all resources as a tree"""
+		...
+
+	@abc.abstractmethod
+	def res_flat(self) -> List[Union[Resource, SubResource]]:
+		"""
+		Return all resources flattened into a list,
+		including resources that were implicitly added as a parent of another resource
+		but excluding subscriptions and resource groups
+		"""
+		...
 
 
 @dataclass
 class TresourceMP(ITresource):
+	"""Tresource implementation for materialised-path-based resources. It's not really a tree, since materialised-path is an alternative to using trees"""
 
 	resources: Dict[Path, AzObj] = field(default_factory=dict)
 
 	def add_single(self, obj: AzObj):
+		"""Add an AzObj to this Tresource"""
 		self.resources[obj.path] = obj
 
 	def add_many(self, mps: Iterable[MP]):
+		"""Add an iterable of MP to this Tresource"""
 		self.resources.update(dict(mps))
 
 	@property
@@ -25,6 +64,8 @@ class TresourceMP(ITresource):
 		return list(set(obj.sub for obj in self.resources.values()))
 
 	def rgs_flat(self) -> List[PathResourceGroup]:
+		"""All resource groups that any resource is contained by"""
+
 		def extract_rg(res: AzObj) -> Optional[PathResourceGroup]:
 			if isinstance(res, Resource) or isinstance(res, SubResource):
 				return res.rg
@@ -32,13 +73,14 @@ class TresourceMP(ITresource):
 				return res.path
 			return None
 
-		return list(set(extract_rg(res) for res in self.resources.values()) - {None})
+		return list(filter(None, set(extract_rg(res) for res in self.resources.values())))
 
 	@property
 	def res(self):
 		return self.resources
 
 	def res_flat(self) -> List[Union[Resource, SubResource]]:
+		"""All Resources and SubResources"""
 		return list(res for res in self.resources.values() if isinstance(res, Resource) or isinstance(res, SubResource))
 
 	def where_parent(self, obj: AzObj) -> TresourceMP:

@@ -81,6 +81,7 @@ class Tresource(ITresource):
 
 	@property
 	def rgs(self) -> Dict[Subscription, List[ResourceGroup]]:
+		"""Resourcegroups grouped by subscription"""
 		return {sub: list(rg for rg in rgs.keys() if isinstance(rg, ResourceGroup)) for sub, rgs in self.resources.items()}
 
 	def rgs_flat(self) -> List[ResourceGroup]:

@@ -31,7 +31,8 @@ class Subscription(AzObj):
 	uuid: str
 
 	@property
-	def sub(self) -> PathSubscription:
+	def sub(self) -> PathSubscription:  # type: ignore
+		"""Path of this subscription. Shim for uniformity with other AzObj"""
 		return self.path
 
 
@@ -69,10 +70,10 @@ class SubResource(AzObj):
 	parent: Optional[Union[PathResource, PathSubResource]] = None
 
 
-MP = NewType("MP", Tuple[Path, AzObj])
+MP = Tuple[Path, AzObj]
 
 
-def parse(rid: str) -> Optional[MP]:
+def parse(rid: str) -> MP:
 	"""Parse an Azure resource ID into the Azure Resource it represents and its chain of parents"""
 	*_, resource = list(parse_gen(rid))
 	return resource
@@ -116,14 +117,14 @@ def parse_gen(rid: str) -> Generator[MP, None, None]:
 				res_type = next(parts)[1]
 				mp, name = next(parts)
 
-				parsed_resource = Resource(mp, provider, res_type, name, parent=parent, rg=rg and rg.path, sub=subscription.path)
+				parsed_resource = Resource(mp, provider, res_type, name, parent=parent, rg=rg.path if rg else None, sub=subscription.path)
 				parent = mp
 				yield mp, parsed_resource
 			else:
 				res_type = start[1]
 				mp, name = next(parts)
 
-				parsed_resource = SubResource(mp, res_type, name, parent=parent, rg=rg and rg.path, sub=subscription.path)
+				parsed_resource = SubResource(mp, res_type, name, parent=parent, rg=rg.path if rg else None, sub=subscription.path)
 				parent = mp
 				yield mp, parsed_resource
 
