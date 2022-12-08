@@ -68,9 +68,7 @@ MP = NewType("MP", Tuple[Path, AzObj])
 
 def parse(rid: str) -> Optional[MP]:
 	"""Parse an Azure resource ID into the Azure Resource it represents and its chain of parents"""
-	x = list(parse_gen(rid))
-	print(x)
-	*_, resource = x
+	*_, resource = list(parse_gen(rid))
 	return resource
 
 
