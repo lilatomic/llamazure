@@ -116,14 +116,14 @@ def parse_gen(rid: str) -> Generator[MP, None, None]:
 				res_type = next(parts)[1]
 				mp, name = next(parts)
 
-				parsed_resource = Resource(mp, provider, res_type, name, parent=parent, rg=rg.path, sub=subscription.path)
+				parsed_resource = Resource(mp, provider, res_type, name, parent=parent, rg=rg and rg.path, sub=subscription.path)
 				parent = mp
 				yield mp, parsed_resource
 			else:
 				res_type = start[1]
 				mp, name = next(parts)
 
-				parsed_resource = SubResource(mp, res_type, name, parent=parent, rg=rg.path, sub=subscription.path)
+				parsed_resource = SubResource(mp, res_type, name, parent=parent, rg=rg and rg.path, sub=subscription.path)
 				parent = mp
 				yield mp, parsed_resource
 

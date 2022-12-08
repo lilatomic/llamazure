@@ -1,3 +1,4 @@
+import dataclasses
 from typing import Union
 
 from hypothesis import assume, given
@@ -37,6 +38,22 @@ class TestMPParse:
 			res_type=res.res_type,
 			name=res.name,
 			rg=Path(rid.serialise(res.rg)),
+			sub=Path(rid.serialise(res.sub)),
+		)
+
+	@given(st_resource_base)
+	def test_resource_no_rg(self, res: rid.Resource):
+		res = dataclasses.replace(res, rg=None)
+
+		res_id = Path(rid.serialise(res))
+		mp = parse(res_id)
+		assert mp[0] == res_id == mp[1].path
+		assert mp[1] == Resource(
+			res_id,
+			provider=res.provider,
+			res_type=res.res_type,
+			name=res.name,
+			rg=None,
 			sub=Path(rid.serialise(res.sub)),
 		)
 
