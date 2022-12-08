@@ -20,6 +20,8 @@ class AzObj(Protocol):
 	path: Path
 	"""The materialised path of this resource. This is the resource ID"""
 
+	sub: PathSubscription
+
 
 @dataclass(frozen=True)
 class Subscription(AzObj):
@@ -27,6 +29,10 @@ class Subscription(AzObj):
 
 	path: PathSubscription
 	uuid: str
+
+	@property
+	def sub(self) -> PathSubscription:
+		return self.path
 
 
 @dataclass(frozen=True)
