@@ -3,7 +3,7 @@ from typing import Generic, Protocol, Set, TypeVar, Optional
 
 AzObjT = TypeVar("AzObjT")
 DataT = TypeVar("DataT")
-ObjReprT = TypeVar("ObjReprT", covariant=True)
+ObjReprT = TypeVar("ObjReprT")
 
 
 class ITresource(Generic[AzObjT, ObjReprT], ABC):

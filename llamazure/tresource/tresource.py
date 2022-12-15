@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import DefaultDict, Dict, Iterable, List, Optional, Sequence, Set, TypeVar
+from typing import DefaultDict, Dict, Iterable, List, Optional, Sequence, Set, TypeVar, Generic
 
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, get_chain
 from llamazure.tresource.itresource import INode, ITresource, ITresourceData
@@ -107,7 +107,7 @@ class Node(INode[AzObj, T]):
 
 
 @dataclass
-class TresourceData(ITresourceData[AzObj, T, Node[T], AzObj]):
+class TresourceData(Generic[T], ITresourceData[AzObj, T, Node[T], AzObj]):
 	"""A tree of Azure resources with data attached"""
 
 	resources: Node[T] = field(default_factory=lambda: Node(None, None))  # type: ignore # This node is just to make recursion easier, we can contain its grossness
