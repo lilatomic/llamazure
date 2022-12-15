@@ -4,49 +4,14 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass, field
-from typing import Dict, Generic, Iterable, List, Optional, Tuple, TypeVar, Union
+from typing import Dict, Generic, Iterable, List, Optional, Set, Tuple, TypeVar, Union
 
-from llamazure.rid.mp import MP, AzObj, Path, PathResourceGroup, Resource, ResourceGroup, SubResource, Subscription
-
-
-class ITresource(abc.ABC):
-	"""Common interface to output resources from all Tresources"""
-
-	@property
-	@abc.abstractmethod
-	def subs(self):
-		"""Get subscriptions"""
-		...
-
-	# @property
-	# @abc.abstractmethod
-	# def rgs(self):
-	# 	"""Get RGs nested by subscription"""
-	# 	...
-
-	@abc.abstractmethod
-	def rgs_flat(self) -> List[PathResourceGroup]:
-		"""Get RGs as a flat list"""
-		...
-
-	@property
-	@abc.abstractmethod
-	def res(self):
-		"""Return all resources as a tree"""
-		...
-
-	@abc.abstractmethod
-	def res_flat(self) -> List[Union[Resource, SubResource]]:
-		"""
-		Return all resources flattened into a list,
-		including resources that were implicitly added as a parent of another resource
-		but excluding subscriptions and resource groups
-		"""
-		...
+from llamazure.rid.mp import MP, AzObj, Path, PathResource, PathResourceGroup, PathSubResource, PathSubscription, Resource, ResourceGroup, SubResource, Subscription
+from llamazure.tresource.itresource import INode, ITresource, ITresourceData
 
 
 @dataclass
-class TresourceMP(ITresource):
+class TresourceMP(ITresource[AzObj, Path]):
 	"""Tresource implementation for materialised-path-based resources. It's not really a tree, since materialised-path is an alternative to using trees"""
 
 	resources: Dict[Path, AzObj] = field(default_factory=dict)
@@ -59,11 +24,10 @@ class TresourceMP(ITresource):
 		"""Add an iterable of MP to this Tresource"""
 		self.resources.update(dict(mps))
 
-	@property
 	def subs(self):
-		return list(set(obj.sub for obj in self.resources.values()))
+		return set(obj.sub for obj in self.resources.values())
 
-	def rgs_flat(self) -> List[PathResourceGroup]:
+	def rgs_flat(self) -> Set[PathResourceGroup]:
 		"""All resource groups that any resource is contained by"""
 
 		def extract_rg(res: AzObj) -> Optional[PathResourceGroup]:
@@ -73,15 +37,15 @@ class TresourceMP(ITresource):
 				return res.path
 			return None
 
-		return list(filter(None, set(extract_rg(res) for res in self.resources.values())))
+		return set(filter(None, set(extract_rg(res) for res in self.resources.values())))
 
 	@property
 	def res(self):
 		return self.resources
 
-	def res_flat(self) -> List[Union[Resource, SubResource]]:
+	def res_flat(self) -> Set[Union[PathResource, PathSubResource]]:
 		"""All Resources and SubResources"""
-		return list(res for res in self.resources.values() if isinstance(res, Resource) or isinstance(res, SubResource))
+		return set(path for path, res in self.resources.items() if isinstance(res, Resource) or isinstance(res, SubResource))
 
 	def where_parent(self, obj: AzObj) -> TresourceMP:
 		"""Return all objects with this as a parent"""
@@ -104,13 +68,13 @@ T = TypeVar("T")
 
 
 @dataclass
-class MPData(Generic[T]):
+class MPData(INode[AzObj, T]):
 	obj: AzObj
 	data: Optional[T]
 
 
 @dataclass
-class TresourceMPData(Generic[T], ITresource):
+class TresourceMPData(ITresourceData[AzObj, MPData[T], Path]):
 	"""
 	Tresource implementation for materialised-path-based resources.
 	It's not really a tree, since materialised-path is an alternative to using trees
@@ -130,9 +94,8 @@ class TresourceMPData(Generic[T], ITresource):
 		"""Add an iterable of MP to this Tresource"""
 		self.resources.update(dict(mps))
 
-	@property
-	def subs(self):
-		return list(set(obj.obj.sub for obj in self.resources.values()))
+	def subs(self) -> Set[PathSubscription]:
+		return set(obj.obj.sub for obj in self.resources.values())
 
 	def rgs_flat(self) -> List[PathResourceGroup]:
 		"""All resource groups that any resource is contained by"""
@@ -150,9 +113,9 @@ class TresourceMPData(Generic[T], ITresource):
 	def res(self):
 		return self.resources
 
-	def res_flat(self) -> List[Union[Resource, SubResource]]:
+	def res_flat(self) -> Set[Union[PathResource, PathSubResource]]:
 		"""All Resources and SubResources"""
-		return list(res.obj for res in self.resources.values() if isinstance(res.obj, Resource) or isinstance(res.obj, SubResource))
+		return set(path for path, res in self.resources.values() if isinstance(res.obj, Resource) or isinstance(res.obj, SubResource))
 
 	def where_parent(self, obj: AzObj) -> TresourceMPData:
 		"""Return all objects with this as a parent"""
