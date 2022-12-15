@@ -100,17 +100,17 @@ class TestBuildTreeFromChain:
 		assert single_tree.resources == chain_tree.resources
 
 
-class TestBuildDataTree(ABCTestBuildDataTree):
+class TestBuildDataTree(ABCTestBuildDataTree[AzObj, AzObj]):
 	"""Test building a TresourceData"""
 
 	@property
 	def clz(self) -> Type:
 		return TresourceData
 
-	def conv(self, obj: rid.AzObj) -> AzObjT:
+	def conv(self, obj: rid.AzObj) -> AzObj:
 		return obj
 
-	def recover(self, repr: ObjReprT) -> rid.AzObj:
+	def recover(self, repr: AzObj) -> rid.AzObj:
 		return repr
 
 	@property

@@ -1,5 +1,5 @@
 import abc
-from typing import List, Set, Type, Union
+from typing import List, Set, Type, Union, Generic
 
 from hypothesis import given
 from hypothesis.strategies import lists
@@ -10,7 +10,7 @@ from llamazure.rid.rid import Resource, ResourceGroup, SubResource
 from llamazure.tresource.itresource import AzObjT, ITresourceData, ObjReprT
 
 
-class ABCTestBuildDataTree(abc.ABC):
+class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT],abc.ABC):
 	"""Test building a TresourceData"""
 
 	@property

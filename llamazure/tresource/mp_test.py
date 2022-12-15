@@ -7,7 +7,7 @@ from hypothesis.strategies import lists
 from llamazure.rid import conv, rid
 from llamazure.rid.conftest import st_resource_base, st_rg, st_subscription
 from llamazure.rid.conv import rid2mp
-from llamazure.rid.mp import Resource
+from llamazure.rid.mp import Resource, Path, AzObj
 from llamazure.tresource.conftest import ABCTestBuildDataTree
 from llamazure.tresource.itresource import AzObjT, ObjReprT
 from llamazure.tresource.mp import TresourceMP, TresourceMPData
@@ -64,17 +64,17 @@ class TestBuildTree:
 		assert set(x.path for x in ress) == set(tree.res_flat())
 
 
-class TestBuildDataTree(ABCTestBuildDataTree):
+class TestBuildDataTree(ABCTestBuildDataTree[AzObj, Path]):
 	"""Test building a TresourceData"""
 
 	@property
 	def clz(self) -> Type:
 		return TresourceMPData
 
-	def conv(self, obj: rid.AzObj) -> AzObjT:
+	def conv(self, obj: rid.AzObj) -> AzObj:
 		return conv.rid2mp(obj)
 
-	def recover(self, repr: ObjReprT) -> rid.AzObj:
+	def recover(self, repr: Path) -> rid.AzObj:
 		return rid.parse(repr)
 
 	@property
