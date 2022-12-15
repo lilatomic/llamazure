@@ -55,7 +55,7 @@ class ABCTestBuildDataTree(abc.ABC):
 	@given(lists(st_rg))
 	def test_build_rgs(self, rgs: List[ResourceGroup]):
 		"""Test adding only RGs"""
-		tree: ITresourceData[int] = self.clz()
+		tree: ITresourceData = self.clz()
 
 		subs = set()
 
@@ -68,7 +68,7 @@ class ABCTestBuildDataTree(abc.ABC):
 
 	@given(lists(st_resource_base))
 	def test_build_simple_resources(self, ress: List[Resource]):
-		tree: ITresourceData[int] = self.clz()
+		tree: ITresourceData = self.clz()
 
 		subs = set()
 		rgs = set()
@@ -86,7 +86,7 @@ class ABCTestBuildDataTree(abc.ABC):
 
 	@given(lists(st_resource_complex))
 	def test_build_complex_resources(self, ress: List[Union[Resource, SubResource]]):
-		tree: ITresourceData[int] = self.clz()
+		tree: ITresourceData = self.clz()
 
 		subs = set()
 		rgs = set()
