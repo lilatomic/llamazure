@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Generic, Protocol, Set, TypeVar
+from typing import Generic, Protocol, Set, TypeVar, Optional
 
 AzObjT = TypeVar("AzObjT")
 DataT = TypeVar("DataT")
-ObjReprT = TypeVar("ObjReprT")
+ObjReprT = TypeVar("ObjReprT", covariant=True)
 
 
 class ITresource(Generic[AzObjT, ObjReprT], ABC):
@@ -25,9 +25,9 @@ class ITresource(Generic[AzObjT, ObjReprT], ABC):
 		...
 
 
-class INode(Protocol[AzObjT, DataT]):
+class INode(Generic[AzObjT, DataT], ABC):
 	obj: AzObjT
-	data: DataT
+	data: Optional[DataT]
 
 
 NodeT = TypeVar("NodeT", bound=INode)
