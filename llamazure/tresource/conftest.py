@@ -1,5 +1,5 @@
-"""Test Tresource"""
-from typing import List, Type, Union
+import abc
+from typing import List, NewType, Type, TypeVar, Union
 
 from hypothesis import given
 from hypothesis.strategies import lists
@@ -7,41 +7,50 @@ from hypothesis.strategies import lists
 from llamazure.rid import rid
 from llamazure.rid.conftest import st_resource_any, st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, parse_chain, serialise
-from llamazure.tresource.conftest import ABCTestBuildDataTree
-from llamazure.tresource.itresource import AzObjT
+from llamazure.tresource.itresource import AzObjT, ITresourceData
 from llamazure.tresource.tresource import Node, Tresource, TresourceData
 
 
-class TestBuildTree:
-	"""Test that building a tree is correct and seamless"""
+class ABCTestBuildDataTree(abc.ABC):
+	"""Test building a TresourceData"""
+
+	@property
+	@abc.abstractmethod
+	def clz(self) -> Type[ITresourceData]:
+		...
+
+	@abc.abstractmethod
+	def conv(self, obj: rid.AzObj) -> AzObjT:
+		...
 
 	@given(lists(st_subscription))
 	def test_build_subscriptions(self, subs):
 		"""Test adding only subscriptions"""
-		tree = Tresource()
+		tree = self.clz()
 
 		for sub in subs:
-			tree.add(sub)
+			tree.set_data(sub, hash(sub))
 
-		assert len(tree.subs()) == len(subs)
+		assert len(set(tree.subs())) == len(subs)
+		assert tree.subs() == set(subs)
 
 	@given(lists(st_rg))
 	def test_build_rgs(self, rgs: List[ResourceGroup]):
 		"""Test adding only RGs"""
-		tree = Tresource()
+		tree: ITresourceData[int] = self.clz()
 
 		subs = set()
 
 		for rg in rgs:
 			subs.add(rg.sub)
-			tree.add(rg)
+			tree.set_data(rg, hash(rg))
 
 		assert subs == tree.subs()
 		assert set(rgs) == set(tree.rgs_flat())
 
 	@given(lists(st_resource_base))
 	def test_build_simple_resources(self, ress: List[Resource]):
-		tree = Tresource()
+		tree: ITresourceData[int] = self.clz()
 
 		subs = set()
 		rgs = set()
@@ -50,7 +59,7 @@ class TestBuildTree:
 			subs.add(res.sub)
 			if res.rg:
 				rgs.add(res.rg)
-			tree.add(res)
+			tree.set_data(res, hash(res))
 
 		assert subs == tree.subs()
 		assert rgs == set(tree.rgs_flat())
@@ -59,7 +68,7 @@ class TestBuildTree:
 
 	@given(lists(st_resource_complex))
 	def test_build_complex_resources(self, ress: List[Union[Resource, SubResource]]):
-		tree = Tresource()
+		tree: ITresourceData[int] = self.clz()
 
 		subs = set()
 		rgs = set()
@@ -75,53 +84,9 @@ class TestBuildTree:
 			if res.rg:
 				rgs.add(res.rg)
 			recurse_register(res)
-			tree.add(res)
+			tree.set_data(res, hash(res))
 
 		assert subs == tree.subs()
 		assert rgs == set(tree.rgs_flat())
 		# since there is nesting, there are implicit resources, and there will be more
 		assert resources == set(tree.res_flat())
-
-
-class TestBuildTreeFromChain:
-	"""Test that adding from chain is the same as adding from a terminal AzObj"""
-
-	@given(lists(st_resource_any))
-	def test_chain_and_normal_are_equivalent(self, ress: List[AzObj]):
-		single_tree = Tresource()
-		for res in ress:
-			single_tree.add(res)
-
-		chains = [parse_chain(serialise(res)) for res in ress]
-		chain_tree = Tresource()
-		for chain in chains:
-			chain_tree.add_chain(chain)
-
-		assert single_tree.resources == chain_tree.resources
-
-
-class TestBuildDataTree(ABCTestBuildDataTree):
-	"""Test building a TresourceData"""
-
-	@property
-	def clz(self) -> Type:
-		return TresourceData
-
-	def conv(self, obj: rid.AzObj) -> AzObjT:
-		return obj
-
-
-class TestNodesDataTree:
-	"""Test building a TresourceData with add_node"""
-
-	@given(lists(st_resource_complex))
-	def test_build_complex_resources(self, ress: List[Union[Resource, SubResource]]):
-		tree: TresourceData[int] = TresourceData()
-		verifier: TresourceData[int] = TresourceData()
-
-		for res in ress:
-			data = hash(res)
-			tree.add_node(Node(res, data))
-			verifier.set_data(res, data)
-
-		assert verifier.res_flat() == tree.res_flat()
