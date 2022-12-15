@@ -158,9 +158,8 @@ class TresourceData(ITresourceData[AzObj, Node[T], AzObj]):
 
 		ref.children[node.obj.slug()] = node
 
-	@property
-	def subs(self):
-		return self.resources.children
+	def subs(self) -> Set[Subscription]:
+		return set(x.obj for x in self.resources.children.values())
 
 	def rgs_flat(self) -> List[ResourceGroup]:
 		rgs = []
