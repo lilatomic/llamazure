@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import abc
 from dataclasses import dataclass, field
-from typing import Dict, Generic, Iterable, List, Optional, Set, Tuple, TypeVar, Union
+from typing import Dict, Iterable, Optional, Set, Tuple, TypeVar, Union
 
 from llamazure.rid.mp import MP, AzObj, Path, PathResource, PathResourceGroup, PathSubResource, PathSubscription, Resource, ResourceGroup, SubResource, Subscription
 from llamazure.tresource.itresource import INode, ITresource, ITresourceData
@@ -83,7 +82,7 @@ class TresourceMPData(ITresourceData[AzObj, MPData[T], Path]):
 
 	resources: Dict[Path, MPData[T]] = field(default_factory=dict)
 
-	def add_single(self, obj: AzObj, data: T):
+	def set_data(self, obj: AzObj, data: T):
 		"""Add an AzObj to this Tresource"""
 		self.resources[obj.path] = MPData(
 			obj,
@@ -97,7 +96,7 @@ class TresourceMPData(ITresourceData[AzObj, MPData[T], Path]):
 	def subs(self) -> Set[PathSubscription]:
 		return set(obj.obj.sub for obj in self.resources.values())
 
-	def rgs_flat(self) -> List[PathResourceGroup]:
+	def rgs_flat(self) -> Set[PathResourceGroup]:
 		"""All resource groups that any resource is contained by"""
 
 		def extract_rg(res: AzObj) -> Optional[PathResourceGroup]:
@@ -107,7 +106,7 @@ class TresourceMPData(ITresourceData[AzObj, MPData[T], Path]):
 				return res.path
 			return None
 
-		return list(filter(None, set(extract_rg(res.obj) for res in self.resources.values())))
+		return set(filter(None, set(extract_rg(res.obj) for res in self.resources.values())))
 
 	@property
 	def res(self):
