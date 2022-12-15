@@ -7,7 +7,7 @@ from hypothesis.strategies import lists
 from llamazure.rid import rid
 from llamazure.rid.conftest import st_resource_any, st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, parse_chain, serialise
-from llamazure.tresource.conftest import ABCTestBuildDataTree
+from llamazure.tresource.conftest import ABCTestBuildTree
 from llamazure.tresource.tresource import Node, Tresource, TresourceData
 
 
@@ -99,7 +99,7 @@ class TestBuildTreeFromChain:
 		assert single_tree.resources == chain_tree.resources
 
 
-class TestBuildDataTree(ABCTestBuildDataTree[AzObj, AzObj]):
+class TestBuildDataTree(ABCTestBuildTree[AzObj, AzObj]):
 	"""Test building a TresourceData"""
 
 	@property
@@ -127,7 +127,7 @@ class TestNodesDataTree:
 
 		for res in ress:
 			data = hash(res)
-			tree.add_node(Node(res, data))
+			tree.add(Node(res, data))
 			verifier.set_data(res, data)
 
 		assert verifier.res_flat() == tree.res_flat()

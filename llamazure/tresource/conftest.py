@@ -8,15 +8,15 @@ from hypothesis.strategies import lists
 from llamazure.rid import rid
 from llamazure.rid.conftest import st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.rid.rid import Resource, ResourceGroup, SubResource
-from llamazure.tresource.itresource import AzObjT, ITresourceData, ObjReprT
+from llamazure.tresource.itresource import AzObjT, DataT, ITresource, ITresourceData, ObjReprT
 
 
-class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
+class ABCTestBuildTree(Generic[AzObjT, ObjReprT], abc.ABC):
 	"""Test building a TresourceData"""
 
 	@property
 	@abc.abstractmethod
-	def clz(self) -> Type[ITresourceData]:
+	def clz(self) -> Type[ITresource]:
 		"""Class of the Tresource to test"""
 		...
 
@@ -46,13 +46,19 @@ class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
 		"""
 		...
 
+	def add_to_tree(self, tree: ITresource, obj: AzObjT, data: DataT):
+		if isinstance(tree, ITresourceData):
+			tree.set_data(obj, data)
+		else:
+			tree.add(obj)
+
 	@given(lists(st_subscription))
 	def test_build_subscriptions(self, subs):
 		"""Test adding only subscriptions"""
 		tree = self.clz()
 
 		for sub in subs:
-			tree.set_data(self.conv(sub), hash(sub))
+			self.add_to_tree(tree, self.conv(sub), hash(sub))
 
 		assert len(set(tree.subs())) == len(subs)
 		assert self._recover_many(tree.subs()) == set(subs)
@@ -60,13 +66,13 @@ class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
 	@given(lists(st_rg))
 	def test_build_rgs(self, rgs: List[ResourceGroup]):
 		"""Test adding only RGs"""
-		tree: ITresourceData = self.clz()
+		tree: ITresource = self.clz()
 
 		subs = set()
 
 		for rg in rgs:
 			subs.add(rg.sub)
-			tree.set_data(self.conv(rg), hash(rg))
+			self.add_to_tree(tree, self.conv(rg), hash(rg))
 
 		assert set(subs) == self._recover_many(tree.subs())
 		assert set(rgs) == self._recover_many(tree.rgs_flat())
@@ -74,7 +80,7 @@ class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
 	@given(lists(st_resource_base))
 	def test_build_simple_resources(self, ress: List[Resource]):
 		"""Test building a Tresource of simple resources"""
-		tree: ITresourceData = self.clz()
+		tree: ITresource = self.clz()
 
 		subs = set()
 		rgs = set()
@@ -83,7 +89,7 @@ class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
 			subs.add(res.sub)
 			if res.rg:
 				rgs.add(res.rg)
-			tree.set_data(self.conv(res), hash(res))
+			self.add_to_tree(tree, self.conv(res), hash(res))
 
 		assert set(subs) == self._recover_many(tree.subs())
 		assert set(rgs) == self._recover_many(tree.rgs_flat())
@@ -93,7 +99,7 @@ class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
 	@given(lists(st_resource_complex))
 	def test_build_complex_resources(self, ress: List[Union[Resource, SubResource]]):
 		"""Test building a Tresource of complex resources with parents"""
-		tree: ITresourceData = self.clz()
+		tree: ITresource = self.clz()
 
 		subs = set()
 		rgs = set()
@@ -109,7 +115,7 @@ class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
 			if res.rg:
 				rgs.add(res.rg)
 			recurse_register(res)
-			tree.set_data(self.conv(res), hash(res))
+			self.add_to_tree(tree, self.conv(res), hash(res))
 
 		assert set(subs) == self._recover_many(tree.subs())
 		assert set(rgs) == self._recover_many(tree.rgs_flat())

@@ -135,7 +135,7 @@ class TresourceData(Generic[T], ITresourceData[AzObj, T, Node[T], AzObj]):
 
 		ref.data = data
 
-	def add_node(self, node: Node[T]):
+	def add(self, node: Node[T]):
 		"""
 		Add a node to the tresource.
 		Missing intermediate nodes are created with no data.

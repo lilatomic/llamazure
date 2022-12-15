@@ -8,7 +8,7 @@ from llamazure.rid import conv, rid
 from llamazure.rid.conftest import st_resource_base, st_rg, st_subscription
 from llamazure.rid.conv import rid2mp
 from llamazure.rid.mp import AzObj, Path, Resource
-from llamazure.tresource.conftest import ABCTestBuildDataTree
+from llamazure.tresource.conftest import ABCTestBuildTree
 from llamazure.tresource.mp import TresourceMP, TresourceMPData
 
 
@@ -21,7 +21,7 @@ class TestBuildTree:
 		tree = TresourceMP()
 
 		for sub in subs:
-			tree.add_single(sub)
+			tree.add(sub)
 
 		assert tree.subs() == set(sub.path for sub in subs)
 
@@ -33,7 +33,7 @@ class TestBuildTree:
 		subs = set()
 		for rg in rgs:
 			subs.add(rg.sub)
-			tree.add_single(rg)
+			tree.add(rg)
 
 		assert subs == tree.subs()
 		assert set(rg.path for rg in rgs) == set(tree.rgs_flat())
@@ -54,7 +54,7 @@ class TestBuildTree:
 			subs.add(res.sub)
 			if res.rg:
 				rgs.add(res.rg)
-			tree.add_single(res)
+			tree.add(res)
 
 		assert subs == tree.subs()
 		assert rgs == set(tree.rgs_flat())
@@ -63,7 +63,7 @@ class TestBuildTree:
 		assert set(x.path for x in ress) == set(tree.res_flat())
 
 
-class TestBuildDataTree(ABCTestBuildDataTree[AzObj, Path]):
+class TestBuildDataTree(ABCTestBuildTree[AzObj, Path]):
 	"""Test building a TresourceData"""
 
 	@property

@@ -15,7 +15,7 @@ class TresourceMP(ITresource[AzObj, Path]):
 
 	resources: Dict[Path, AzObj] = field(default_factory=dict)
 
-	def add_single(self, obj: AzObj):
+	def add(self, obj: AzObj):
 		"""Add an AzObj to this Tresource"""
 		self.resources[obj.path] = obj
 
@@ -85,12 +85,15 @@ class TresourceMPData(Generic[T], ITresourceData[AzObj, T, MPData[T], Path]):
 
 	resources: Dict[Path, MPData[T]] = field(default_factory=dict)
 
-	def set_data(self, obj: AzObj, data: T):
+	def set_data(self, obj: AzObj, data: T) -> None:
 		"""Add an AzObj to this Tresource"""
 		self.resources[obj.path] = MPData(
 			obj,
 			data,
 		)
+
+	def add(self, obj: MPData[T]) -> None:
+		self.resources[obj.obj.path] = obj
 
 	def add_many(self, mps: Iterable[Tuple[Path, MPData[T]]]):
 		"""Add an iterable of MP to this Tresource"""
