@@ -1,9 +1,9 @@
+"""Interface definitions for Tresources"""
 from abc import ABC, abstractmethod
 from typing import FrozenSet, Generic, Optional, TypeVar
 
-AzObjT = TypeVar("AzObjT")
-DataT = TypeVar("DataT")
-ObjReprT = TypeVar("ObjReprT")
+AzObjT = TypeVar("AzObjT")  # Your AzObj type
+ObjReprT = TypeVar("ObjReprT")  # The type that your tresource uses to represent resources for membership
 
 
 class ITresource(Generic[AzObjT, ObjReprT], ABC):
@@ -25,7 +25,12 @@ class ITresource(Generic[AzObjT, ObjReprT], ABC):
 		...
 
 
+DataT = TypeVar("DataT")  # The type of Data you want to store
+
+
 class INode(Generic[AzObjT, DataT], ABC):
+	"""Generic interface for a node in a Tresource"""
+
 	obj: AzObjT
 	data: Optional[DataT]
 
@@ -38,4 +43,5 @@ class ITresourceData(Generic[AzObjT, DataT, NodeT, ObjReprT], ITresource[AzObjT,
 
 	@abstractmethod
 	def set_data(self, obj: AzObjT, data: DataT):
+		"""Create a node with data."""
 		...

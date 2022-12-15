@@ -40,6 +40,7 @@ class TresourceMP(ITresource[AzObj, Path]):
 
 	@property
 	def res(self):
+		"""Resources in this Tresource"""
 		return self.resources
 
 	def res_flat(self) -> FrozenSet[Union[PathResource, PathSubResource]]:
@@ -68,6 +69,8 @@ T = TypeVar("T")
 
 @dataclass
 class MPData(INode[AzObj, T]):
+	"""Node class for MP"""
+
 	obj: AzObj
 	data: Optional[T]
 
@@ -110,6 +113,7 @@ class TresourceMPData(Generic[T], ITresourceData[AzObj, T, MPData[T], Path]):
 
 	@property
 	def res(self):
+		"""Resources in this Tresource"""
 		return self.resources
 
 	def res_flat(self) -> FrozenSet[Union[PathResource, PathSubResource]]:

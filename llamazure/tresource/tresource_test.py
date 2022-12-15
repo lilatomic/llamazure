@@ -109,8 +109,8 @@ class TestBuildDataTree(ABCTestBuildDataTree[AzObj, AzObj]):
 	def conv(self, obj: rid.AzObj) -> AzObj:
 		return obj
 
-	def recover(self, repr: AzObj) -> rid.AzObj:
-		return repr
+	def recover(self, obj_repr: AzObj) -> rid.AzObj:
+		return obj_repr
 
 	@property
 	def recurse_implicit(self) -> bool:

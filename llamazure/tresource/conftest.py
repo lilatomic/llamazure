@@ -1,3 +1,4 @@
+"""Test helpers for Tresource"""
 import abc
 from typing import FrozenSet, Generic, List, Set, Type, Union
 
@@ -16,17 +17,21 @@ class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
 	@property
 	@abc.abstractmethod
 	def clz(self) -> Type[ITresourceData]:
+		"""Class of the Tresource to test"""
 		...
 
 	@abc.abstractmethod
 	def conv(self, obj: rid.AzObj) -> AzObjT:
+		"""Convert a rid.AzObj into your AzObjT"""
 		...
 
 	@abc.abstractmethod
-	def recover(self, repr: ObjReprT) -> rid.AzObj:
+	def recover(self, obj_repr: ObjReprT) -> rid.AzObj:
+		"""Convert one of your AzObjT into a rid.AzObj"""
 		...
 
 	def _recover_many(self, objs: FrozenSet[ObjReprT]) -> Set[rid.AzObj]:
+		"""Vectorised `recover`"""
 		return set(self.recover(x) for x in objs)
 
 	@property
@@ -68,6 +73,7 @@ class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
 
 	@given(lists(st_resource_base))
 	def test_build_simple_resources(self, ress: List[Resource]):
+		"""Test building a Tresource of simple resources"""
 		tree: ITresourceData = self.clz()
 
 		subs = set()
@@ -86,6 +92,7 @@ class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
 
 	@given(lists(st_resource_complex))
 	def test_build_complex_resources(self, ress: List[Union[Resource, SubResource]]):
+		"""Test building a Tresource of complex resources with parents"""
 		tree: ITresourceData = self.clz()
 
 		subs = set()

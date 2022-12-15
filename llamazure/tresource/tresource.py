@@ -52,6 +52,7 @@ class Tresource(ITresource[AzObj, AzObj]):
 
 	@property
 	def res(self):
+		"""Resources in this Tresource"""
 		return self.resources
 
 	def res_flat(self) -> FrozenSet[AzObj]:
@@ -170,6 +171,7 @@ class TresourceData(Generic[T], ITresourceData[AzObj, T, Node[T], AzObj]):
 
 	@property
 	def res(self):
+		"""Resources in this Tresource"""
 		return self.resources
 
 	def res_flat(self) -> FrozenSet[AzObj]:
