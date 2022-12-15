@@ -1,10 +1,9 @@
 """Build a tree of Azure resources"""
 from __future__ import annotations
 
-import abc
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import DefaultDict, Dict, Generic, Iterable, List, Optional, Sequence, Set, TypeVar, Union
+from typing import DefaultDict, Dict, Iterable, List, Optional, Sequence, Set, TypeVar
 
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, get_chain
 from llamazure.tresource.itresource import INode, ITresource, ITresourceData

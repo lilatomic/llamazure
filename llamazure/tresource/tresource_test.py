@@ -8,7 +8,7 @@ from llamazure.rid import rid
 from llamazure.rid.conftest import st_resource_any, st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, parse_chain, serialise
 from llamazure.tresource.conftest import ABCTestBuildDataTree
-from llamazure.tresource.itresource import AzObjT
+from llamazure.tresource.itresource import AzObjT, ObjReprT
 from llamazure.tresource.tresource import Node, Tresource, TresourceData
 
 
@@ -109,6 +109,13 @@ class TestBuildDataTree(ABCTestBuildDataTree):
 
 	def conv(self, obj: rid.AzObj) -> AzObjT:
 		return obj
+
+	def recover(self, repr: ObjReprT) -> rid.AzObj:
+		return repr
+
+	@property
+	def recurse_implicit(self) -> bool:
+		return True
 
 
 class TestNodesDataTree:

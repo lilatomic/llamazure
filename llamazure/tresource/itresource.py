@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generic, List, Protocol, Set, TypeVar
+from typing import Generic, Protocol, Set, TypeVar
 
 AzObjT = TypeVar("AzObjT")
 DataT = TypeVar("DataT")

@@ -1,14 +1,13 @@
 import abc
-from typing import List, NewType, Type, TypeVar, Union
+from typing import List, Set, Type, Union
 
 from hypothesis import given
 from hypothesis.strategies import lists
 
 from llamazure.rid import rid
-from llamazure.rid.conftest import st_resource_any, st_resource_base, st_resource_complex, st_rg, st_subscription
-from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, parse_chain, serialise
-from llamazure.tresource.itresource import AzObjT, ITresourceData
-from llamazure.tresource.tresource import Node, Tresource, TresourceData
+from llamazure.rid.conftest import st_resource_base, st_resource_complex, st_rg, st_subscription
+from llamazure.rid.rid import Resource, ResourceGroup, SubResource
+from llamazure.tresource.itresource import AzObjT, ITresourceData, ObjReprT
 
 
 class ABCTestBuildDataTree(abc.ABC):
@@ -23,16 +22,35 @@ class ABCTestBuildDataTree(abc.ABC):
 	def conv(self, obj: rid.AzObj) -> AzObjT:
 		...
 
+	@abc.abstractmethod
+	def recover(self, repr: ObjReprT) -> rid.AzObj:
+		...
+
+	def _recover_many(self, objs: Set[ObjReprT]) -> Set[rid.AzObj]:
+		return set(self.recover(x) for x in objs)
+
+	@property
+	@abc.abstractmethod
+	def recurse_implicit(self) -> bool:
+		"""
+		Whether implicit resources should be verified in the output
+		Implicit resources are resources which are parents of a resource which was added
+		For example, if a lock on a VNet is added:
+			- a value of `True` would request us to verify that the VNet and the Lock have been added
+			- a value of `False` would request us to verify that only the Lock has been added
+		"""
+		...
+
 	@given(lists(st_subscription))
 	def test_build_subscriptions(self, subs):
 		"""Test adding only subscriptions"""
 		tree = self.clz()
 
 		for sub in subs:
-			tree.set_data(sub, hash(sub))
+			tree.set_data(self.conv(sub), hash(sub))
 
 		assert len(set(tree.subs())) == len(subs)
-		assert tree.subs() == set(subs)
+		assert self._recover_many(tree.subs()) == set(subs)
 
 	@given(lists(st_rg))
 	def test_build_rgs(self, rgs: List[ResourceGroup]):
@@ -43,10 +61,10 @@ class ABCTestBuildDataTree(abc.ABC):
 
 		for rg in rgs:
 			subs.add(rg.sub)
-			tree.set_data(rg, hash(rg))
+			tree.set_data(self.conv(rg), hash(rg))
 
-		assert subs == tree.subs()
-		assert set(rgs) == set(tree.rgs_flat())
+		assert set(subs) == self._recover_many(tree.subs())
+		assert set(rgs) == self._recover_many(tree.rgs_flat())
 
 	@given(lists(st_resource_base))
 	def test_build_simple_resources(self, ress: List[Resource]):
@@ -59,12 +77,12 @@ class ABCTestBuildDataTree(abc.ABC):
 			subs.add(res.sub)
 			if res.rg:
 				rgs.add(res.rg)
-			tree.set_data(res, hash(res))
+			tree.set_data(self.conv(res), hash(res))
 
-		assert subs == tree.subs()
-		assert rgs == set(tree.rgs_flat())
+		assert set(subs) == self._recover_many(tree.subs())
+		assert set(rgs) == self._recover_many(tree.rgs_flat())
 		# since there is no nesting, there are no implicit resources, and this comparison is valid
-		assert set(ress) == set(tree.res_flat())
+		assert set(ress) == self._recover_many(tree.res_flat())
 
 	@given(lists(st_resource_complex))
 	def test_build_complex_resources(self, ress: List[Union[Resource, SubResource]]):
@@ -76,7 +94,7 @@ class ABCTestBuildDataTree(abc.ABC):
 
 		def recurse_register(resource):
 			resources.add(resource)
-			if resource.parent:
+			if self.recurse_implicit and resource.parent:
 				recurse_register(resource.parent)
 
 		for res in ress:
@@ -84,9 +102,9 @@ class ABCTestBuildDataTree(abc.ABC):
 			if res.rg:
 				rgs.add(res.rg)
 			recurse_register(res)
-			tree.set_data(res, hash(res))
+			tree.set_data(self.conv(res), hash(res))
 
-		assert subs == tree.subs()
-		assert rgs == set(tree.rgs_flat())
+		assert set(subs) == self._recover_many(tree.subs())
+		assert set(rgs) == self._recover_many(tree.rgs_flat())
 		# since there is nesting, there are implicit resources, and there will be more
-		assert resources == set(tree.res_flat())
+		assert set(resources) == self._recover_many(tree.res_flat())
