@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, Optional, Set, Tuple, TypeVar, Union
+from typing import Dict, Iterable, Optional, Set, Tuple, TypeVar, Union, Generic
 
 from llamazure.rid.mp import MP, AzObj, Path, PathResource, PathResourceGroup, PathSubResource, PathSubscription, Resource, ResourceGroup, SubResource, Subscription
 from llamazure.tresource.itresource import INode, ITresource, ITresourceData
@@ -73,7 +73,7 @@ class MPData(INode[AzObj, T]):
 
 
 @dataclass
-class TresourceMPData(ITresourceData[AzObj, MPData[T], Path]):
+class TresourceMPData(Generic[T], ITresourceData[AzObj, T, MPData[T], Path]):
 	"""
 	Tresource implementation for materialised-path-based resources.
 	It's not really a tree, since materialised-path is an alternative to using trees

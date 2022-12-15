@@ -33,7 +33,7 @@ class INode(Generic[AzObjT, DataT], ABC):
 NodeT = TypeVar("NodeT", bound=INode)
 
 
-class ITresourceData(Generic[AzObjT, NodeT, ObjReprT], ITresource[AzObjT, ObjReprT]):
+class ITresourceData(Generic[AzObjT, DataT, NodeT, ObjReprT], ITresource[AzObjT, ObjReprT]):
 	"""Generic interface for a TresourceData"""
 
 	@abstractmethod

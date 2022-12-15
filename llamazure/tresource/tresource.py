@@ -107,7 +107,7 @@ class Node(INode[AzObj, T]):
 
 
 @dataclass
-class TresourceData(ITresourceData[AzObj, Node[T], AzObj]):
+class TresourceData(ITresourceData[AzObj, T, Node[T], AzObj]):
 	"""A tree of Azure resources with data attached"""
 
 	resources: Node[T] = field(default_factory=lambda: Node(None, None))  # type: ignore # This node is just to make recursion easier, we can contain its grossness
