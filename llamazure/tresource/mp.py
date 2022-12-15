@@ -114,7 +114,7 @@ class TresourceMPData(ITresourceData[AzObj, MPData[T], Path]):
 
 	def res_flat(self) -> Set[Union[PathResource, PathSubResource]]:
 		"""All Resources and SubResources"""
-		return set(path for path, res in self.resources.values() if isinstance(res.obj, Resource) or isinstance(res.obj, SubResource))
+		return set(path for path, node in self.resources.items() if isinstance(node.obj, Resource) or isinstance(node.obj, SubResource))
 
 	def where_parent(self, obj: AzObj) -> TresourceMPData:
 		"""Return all objects with this as a parent"""
