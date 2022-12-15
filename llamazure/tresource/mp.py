@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, Optional, Set, Tuple, TypeVar, Union, Generic
+from typing import Dict, FrozenSet, Generic, Iterable, Optional, Tuple, TypeVar, Union
 
 from llamazure.rid.mp import MP, AzObj, Path, PathResource, PathResourceGroup, PathSubResource, PathSubscription, Resource, ResourceGroup, SubResource, Subscription
 from llamazure.tresource.itresource import INode, ITresource, ITresourceData
@@ -24,9 +24,9 @@ class TresourceMP(ITresource[AzObj, Path]):
 		self.resources.update(dict(mps))
 
 	def subs(self):
-		return set(obj.sub for obj in self.resources.values())
+		return frozenset(obj.sub for obj in self.resources.values())
 
-	def rgs_flat(self) -> Set[PathResourceGroup]:
+	def rgs_flat(self) -> FrozenSet[PathResourceGroup]:
 		"""All resource groups that any resource is contained by"""
 
 		def extract_rg(res: AzObj) -> Optional[PathResourceGroup]:
@@ -36,15 +36,15 @@ class TresourceMP(ITresource[AzObj, Path]):
 				return res.path
 			return None
 
-		return set(filter(None, set(extract_rg(res) for res in self.resources.values())))
+		return frozenset(filter(None, set(extract_rg(res) for res in self.resources.values())))
 
 	@property
 	def res(self):
 		return self.resources
 
-	def res_flat(self) -> Set[Union[PathResource, PathSubResource]]:
+	def res_flat(self) -> FrozenSet[Union[PathResource, PathSubResource]]:
 		"""All Resources and SubResources"""
-		return set(path for path, res in self.resources.items() if isinstance(res, Resource) or isinstance(res, SubResource))
+		return frozenset(path for path, res in self.resources.items() if isinstance(res, Resource) or isinstance(res, SubResource))
 
 	def where_parent(self, obj: AzObj) -> TresourceMP:
 		"""Return all objects with this as a parent"""
@@ -93,10 +93,10 @@ class TresourceMPData(Generic[T], ITresourceData[AzObj, T, MPData[T], Path]):
 		"""Add an iterable of MP to this Tresource"""
 		self.resources.update(dict(mps))
 
-	def subs(self) -> Set[PathSubscription]:
-		return set(obj.obj.sub for obj in self.resources.values())
+	def subs(self) -> FrozenSet[PathSubscription]:
+		return frozenset(obj.obj.sub for obj in self.resources.values())
 
-	def rgs_flat(self) -> Set[PathResourceGroup]:
+	def rgs_flat(self) -> FrozenSet[PathResourceGroup]:
 		"""All resource groups that any resource is contained by"""
 
 		def extract_rg(res: AzObj) -> Optional[PathResourceGroup]:
@@ -106,15 +106,15 @@ class TresourceMPData(Generic[T], ITresourceData[AzObj, T, MPData[T], Path]):
 				return res.path
 			return None
 
-		return set(filter(None, set(extract_rg(res.obj) for res in self.resources.values())))
+		return frozenset(filter(None, set(extract_rg(res.obj) for res in self.resources.values())))
 
 	@property
 	def res(self):
 		return self.resources
 
-	def res_flat(self) -> Set[Union[PathResource, PathSubResource]]:
+	def res_flat(self) -> FrozenSet[Union[PathResource, PathSubResource]]:
 		"""All Resources and SubResources"""
-		return set(path for path, node in self.resources.items() if isinstance(node.obj, Resource) or isinstance(node.obj, SubResource))
+		return frozenset(path for path, node in self.resources.items() if isinstance(node.obj, Resource) or isinstance(node.obj, SubResource))
 
 	def where_parent(self, obj: AzObj) -> TresourceMPData:
 		"""Return all objects with this as a parent"""

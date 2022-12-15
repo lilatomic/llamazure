@@ -1,5 +1,5 @@
 import abc
-from typing import List, Set, Type, Union, Generic
+from typing import FrozenSet, Generic, List, Set, Type, Union
 
 from hypothesis import given
 from hypothesis.strategies import lists
@@ -10,7 +10,7 @@ from llamazure.rid.rid import Resource, ResourceGroup, SubResource
 from llamazure.tresource.itresource import AzObjT, ITresourceData, ObjReprT
 
 
-class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT],abc.ABC):
+class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT], abc.ABC):
 	"""Test building a TresourceData"""
 
 	@property
@@ -26,7 +26,7 @@ class ABCTestBuildDataTree(Generic[AzObjT, ObjReprT],abc.ABC):
 	def recover(self, repr: ObjReprT) -> rid.AzObj:
 		...
 
-	def _recover_many(self, objs: Set[ObjReprT]) -> Set[rid.AzObj]:
+	def _recover_many(self, objs: FrozenSet[ObjReprT]) -> Set[rid.AzObj]:
 		return set(self.recover(x) for x in objs)
 
 	@property

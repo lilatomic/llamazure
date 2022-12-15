@@ -7,9 +7,8 @@ from hypothesis.strategies import lists
 from llamazure.rid import conv, rid
 from llamazure.rid.conftest import st_resource_base, st_rg, st_subscription
 from llamazure.rid.conv import rid2mp
-from llamazure.rid.mp import Resource, Path, AzObj
+from llamazure.rid.mp import AzObj, Path, Resource
 from llamazure.tresource.conftest import ABCTestBuildDataTree
-from llamazure.tresource.itresource import AzObjT, ObjReprT
 from llamazure.tresource.mp import TresourceMP, TresourceMPData
 
 

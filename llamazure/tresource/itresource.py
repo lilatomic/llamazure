@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Generic, Protocol, Set, TypeVar, Optional
+from typing import FrozenSet, Generic, Optional, TypeVar
 
 AzObjT = TypeVar("AzObjT")
 DataT = TypeVar("DataT")
@@ -10,17 +10,17 @@ class ITresource(Generic[AzObjT, ObjReprT], ABC):
 	"""Generic interface for all Tresources"""
 
 	@abstractmethod
-	def subs(self) -> Set[ObjReprT]:
+	def subs(self) -> FrozenSet[ObjReprT]:
 		"""Return all subscriptions that contain resources in this tresource"""
 		...
 
 	@abstractmethod
-	def rgs_flat(self) -> Set[ObjReprT]:
+	def rgs_flat(self) -> FrozenSet[ObjReprT]:
 		"""Return all resource groups that contain resources in this tresource"""
 		...
 
 	@abstractmethod
-	def res_flat(self) -> Set[ObjReprT]:
+	def res_flat(self) -> FrozenSet[ObjReprT]:
 		"""Resturn all explicit resources in this tresource"""
 		...
 

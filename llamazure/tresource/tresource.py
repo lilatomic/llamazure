@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import DefaultDict, Dict, Iterable, List, Optional, Sequence, Set, TypeVar, Generic
+from typing import DefaultDict, Dict, FrozenSet, Generic, Iterable, List, Optional, Sequence, TypeVar
 
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, get_chain
 from llamazure.tresource.itresource import INode, ITresource, ITresourceData
@@ -39,22 +39,22 @@ class Tresource(ITresource[AzObj, AzObj]):
 		for i in chain:
 			ref = ref[i]
 
-	def subs(self):
-		return set(self.resources.keys())
+	def subs(self) -> FrozenSet[Subscription]:
+		return frozenset(self.resources.keys())
 
 	@property
 	def rgs(self) -> Dict[Subscription, List[ResourceGroup]]:
 		"""Resourcegroups grouped by subscription"""
 		return {sub: list(rg for rg in rgs.keys() if isinstance(rg, ResourceGroup)) for sub, rgs in self.resources.items()}
 
-	def rgs_flat(self) -> Set[ResourceGroup]:
-		return {rg for rgs in self.resources.values() for rg in rgs if isinstance(rg, ResourceGroup)}
+	def rgs_flat(self) -> FrozenSet[ResourceGroup]:
+		return frozenset(rg for rgs in self.resources.values() for rg in rgs if isinstance(rg, ResourceGroup))
 
 	@property
 	def res(self):
 		return self.resources
 
-	def res_flat(self):
+	def res_flat(self) -> FrozenSet[AzObj]:
 		out = []
 
 		def recurse_resources(res, children):
@@ -71,7 +71,7 @@ class Tresource(ITresource[AzObj, AzObj]):
 				else:  # actually a resource attached to the subscription directly
 					recurse_resources(rg, ress)
 
-		return out
+		return frozenset(out)
 
 
 T = TypeVar("T")
@@ -157,22 +157,22 @@ class TresourceData(Generic[T], ITresourceData[AzObj, T, Node[T], AzObj]):
 
 		ref.children[node.obj.slug()] = node
 
-	def subs(self) -> Set[Subscription]:
-		return set(x.obj for x in self.resources.children.values() if isinstance(x.obj, Subscription))
+	def subs(self) -> FrozenSet[Subscription]:
+		return frozenset(x.obj for x in self.resources.children.values() if isinstance(x.obj, Subscription))
 
-	def rgs_flat(self) -> List[ResourceGroup]:
-		rgs = []
+	def rgs_flat(self) -> FrozenSet[ResourceGroup]:
+		rgs = set()
 		for sub in self.resources.children.values():
 			for maybe_rg in sub.children.values():
 				if isinstance(maybe_rg.obj, ResourceGroup):
-					rgs.append(maybe_rg.obj)
-		return rgs
+					rgs.add(maybe_rg.obj)
+		return frozenset(rgs)
 
 	@property
 	def res(self):
 		return self.resources
 
-	def res_flat(self):
+	def res_flat(self) -> FrozenSet[AzObj]:
 		out: List[AzObj] = []
 
 		def recurse_resource_node(res: Node[T]):
@@ -188,4 +188,4 @@ class TresourceData(Generic[T], ITresourceData[AzObj, T, Node[T], AzObj]):
 				else:
 					recurse_resource_node(maybe_rg)
 
-		return out
+		return frozenset(out)
