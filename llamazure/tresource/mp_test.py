@@ -1,14 +1,16 @@
 """Test TresourceMP"""
-from typing import List
+from typing import List, Type
 
 from hypothesis import given
 from hypothesis.strategies import lists
 
-from llamazure.rid import rid
+from llamazure.rid import conv, rid
 from llamazure.rid.conftest import st_resource_base, st_rg, st_subscription
 from llamazure.rid.conv import rid2mp
 from llamazure.rid.mp import Resource
-from llamazure.tresource.mp import TresourceMP
+from llamazure.tresource.conftest import ABCTestBuildDataTree
+from llamazure.tresource.itresource import AzObjT, ObjReprT
+from llamazure.tresource.mp import TresourceMP, TresourceMPData
 
 
 class TestBuildTree:
@@ -22,7 +24,7 @@ class TestBuildTree:
 		for sub in subs:
 			tree.add_single(sub)
 
-		assert set(tree.subs) == set(sub.path for sub in subs)
+		assert tree.subs() == set(sub.path for sub in subs)
 
 	@given(lists(st_rg))
 	def test_build_rgs(self, rgs):
@@ -34,7 +36,7 @@ class TestBuildTree:
 			subs.add(rg.sub)
 			tree.add_single(rg)
 
-		assert subs == set(tree.subs)
+		assert subs == tree.subs()
 		assert set(rg.path for rg in rgs) == set(tree.rgs_flat())
 
 	@given(lists(st_resource_base))
@@ -55,8 +57,26 @@ class TestBuildTree:
 				rgs.add(res.rg)
 			tree.add_single(res)
 
-		assert subs == set(tree.subs)
+		assert subs == tree.subs()
 		assert rgs == set(tree.rgs_flat())
 
 		# since there is no nesting, there are no implicit resources, and this comparison is valid
-		assert set(ress) == set(tree.res_flat())
+		assert set(x.path for x in ress) == set(tree.res_flat())
+
+
+class TestBuildDataTree(ABCTestBuildDataTree):
+	"""Test building a TresourceData"""
+
+	@property
+	def clz(self) -> Type:
+		return TresourceMPData
+
+	def conv(self, obj: rid.AzObj) -> AzObjT:
+		return conv.rid2mp(obj)
+
+	def recover(self, repr: ObjReprT) -> rid.AzObj:
+		return rid.parse(repr)
+
+	@property
+	def recurse_implicit(self) -> bool:
+		return False
