@@ -8,7 +8,7 @@ from llamazure.tresource.itresource import AzObjT, ObjReprT
 from llamazure.tresource.mp import TresourceMP, TresourceMPData
 
 
-class TestBuildTreeMP(ABCTestBuildTree[AzObj, Path]):
+class TestBuildTreeMP(ABCTestBuildTree):
 	"""Test that building the tree is correct and seamless"""
 
 	@property
@@ -26,7 +26,7 @@ class TestBuildTreeMP(ABCTestBuildTree[AzObj, Path]):
 		return False
 
 
-class TestBuildTreeMPData(ABCTestBuildTree[AzObj, Path]):
+class TestBuildTreeMPData(ABCTestBuildTree):
 	"""Test building a TresourceData"""
 
 	@property

@@ -1,6 +1,6 @@
 """Test helpers for Tresource"""
 import abc
-from typing import FrozenSet, Generic, List, Set, Type, Union
+from typing import FrozenSet, List, Set, Type, Union
 
 from hypothesis import given
 from hypothesis.strategies import lists
@@ -11,7 +11,7 @@ from llamazure.rid.rid import Resource, ResourceGroup, SubResource
 from llamazure.tresource.itresource import AzObjT, DataT, ITresource, ITresourceData, ObjReprT
 
 
-class ABCTestBuildTree(Generic[AzObjT, ObjReprT], abc.ABC):
+class ABCTestBuildTree(abc.ABC):
 	"""Test building a TresourceData"""
 
 	@property

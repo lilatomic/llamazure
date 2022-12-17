@@ -12,7 +12,7 @@ from llamazure.tresource.itresource import AzObjT, ITresource, ObjReprT
 from llamazure.tresource.tresource import Node, Tresource, TresourceData
 
 
-class TestBuildTree(ABCTestBuildTree[AzObj, AzObj]):
+class TestBuildTree(ABCTestBuildTree):
 	"""Test that building a tree is correct and seamless"""
 
 	@property
@@ -47,7 +47,7 @@ class TestBuildTreeFromChain:
 		assert single_tree.resources == chain_tree.resources
 
 
-class TestBuildDataTree(ABCTestBuildTree[AzObj, AzObj]):
+class TestBuildDataTree(ABCTestBuildTree):
 	"""Test building a TresourceData"""
 
 	@property
