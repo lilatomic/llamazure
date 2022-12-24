@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Generator, NewType, Optional, Protocol, Sequence, Tuple, Union
+from typing import Generator, NewType, Optional, Protocol, Sequence, Tuple, Union, Type, TypeVar
 
 from llamazure.rid.util import SegmentAndPathIterable, _Peekable
 
@@ -149,3 +149,16 @@ def get_chain(obj: AzObj) -> Sequence[MP]:
 	If you have a resource ID, you can instead parse that directly with `parse_chain`
 	"""
 	return parse_chain(obj.path)
+
+
+T = TypeVar("T", bound=AzObj)
+
+
+def narrow_assert(obj: AzObj, t: Type[T]) -> T:
+	"""
+	Narrow a generic AzObj to a specific subtype.
+	Uses `assert` for enforcement.
+	This is useful for failing tests
+	"""
+	assert isinstance(obj, t), f"object {obj} was not of type {t}"
+	return obj
