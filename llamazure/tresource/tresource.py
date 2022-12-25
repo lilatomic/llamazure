@@ -1,12 +1,12 @@
 """Build a tree of Azure resources"""
 from __future__ import annotations
 
-import abc
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import DefaultDict, Dict, Generic, Iterable, List, Optional, Sequence, TypeVar, Union
+from typing import DefaultDict, Dict, FrozenSet, Generic, Iterable, List, Optional, Sequence, TypeVar
 
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, get_chain
+from llamazure.tresource.itresource import INode, ITresource, ITresourceData
 
 
 def recursive_default_dict():
@@ -14,42 +14,8 @@ def recursive_default_dict():
 	return defaultdict(recursive_default_dict)
 
 
-class ITresource(abc.ABC):
-	"""Common interface to output resources from all Tresources"""
-
-	@property
-	@abc.abstractmethod
-	def subs(self):
-		"""Get subscriptions"""
-		...
-
-	# @property
-	# @abc.abstractmethod
-	# def rgs(self):
-	# 	"""Get RGs nested by subscription"""
-	# 	...
-
-	def rgs_flat(self) -> List[ResourceGroup]:
-		"""Get RGs as a flat list"""
-		...
-
-	@property
-	@abc.abstractmethod
-	def res(self):
-		"""Return all resources as a tree"""
-		...
-
-	def res_flat(self) -> List[Union[Resource, SubResource]]:
-		"""
-		Return all resources flattened into a list,
-		including resources that were implicitly added as a parent of another resource
-		but excluding subscriptions and resource groups
-		"""
-		...
-
-
 @dataclass
-class Tresource(ITresource):
+class Tresource(ITresource[AzObj, AzObj]):
 	"""A tree of Azure resources"""
 
 	resources: DefaultDict[Subscription, Dict] = field(default_factory=recursive_default_dict)
@@ -73,23 +39,23 @@ class Tresource(ITresource):
 		for i in chain:
 			ref = ref[i]
 
-	@property
-	def subs(self):
-		return list(self.resources.keys())
+	def subs(self) -> FrozenSet[Subscription]:
+		return frozenset(self.resources.keys())
 
 	@property
 	def rgs(self) -> Dict[Subscription, List[ResourceGroup]]:
+		"""Resourcegroups grouped by subscription"""
 		return {sub: list(rg for rg in rgs.keys() if isinstance(rg, ResourceGroup)) for sub, rgs in self.resources.items()}
 
-	def rgs_flat(self) -> List[ResourceGroup]:
-
-		return [rg for rgs in self.resources.values() for rg in rgs if isinstance(rg, ResourceGroup)]
+	def rgs_flat(self) -> FrozenSet[ResourceGroup]:
+		return frozenset(rg for rgs in self.resources.values() for rg in rgs if isinstance(rg, ResourceGroup))
 
 	@property
 	def res(self):
+		"""Resources in this Tresource"""
 		return self.resources
 
-	def res_flat(self):
+	def res_flat(self) -> FrozenSet[AzObj]:
 		out = []
 
 		def recurse_resources(res, children):
@@ -106,14 +72,14 @@ class Tresource(ITresource):
 				else:  # actually a resource attached to the subscription directly
 					recurse_resources(rg, ress)
 
-		return out
+		return frozenset(out)
 
 
 T = TypeVar("T")
 
 
 @dataclass
-class Node(Generic[T]):
+class Node(INode[AzObj, T]):
 	"""Generic node in a TresourceData"""
 
 	obj: AzObj
@@ -142,7 +108,7 @@ class Node(Generic[T]):
 
 
 @dataclass
-class TresourceData(Generic[T], ITresource):
+class TresourceData(Generic[T], ITresourceData[AzObj, T, Node[T], AzObj]):
 	"""A tree of Azure resources with data attached"""
 
 	resources: Node[T] = field(default_factory=lambda: Node(None, None))  # type: ignore # This node is just to make recursion easier, we can contain its grossness
@@ -169,7 +135,7 @@ class TresourceData(Generic[T], ITresource):
 
 		ref.data = data
 
-	def add_node(self, node: Node[T]):
+	def add(self, node: Node[T]):
 		"""
 		Add a node to the tresource.
 		Missing intermediate nodes are created with no data.
@@ -192,23 +158,23 @@ class TresourceData(Generic[T], ITresource):
 
 		ref.children[node.obj.slug()] = node
 
-	@property
-	def subs(self):
-		return self.resources.children
+	def subs(self) -> FrozenSet[Subscription]:
+		return frozenset(x.obj for x in self.resources.children.values() if isinstance(x.obj, Subscription))
 
-	def rgs_flat(self) -> List[ResourceGroup]:
-		rgs = []
+	def rgs_flat(self) -> FrozenSet[ResourceGroup]:
+		rgs = set()
 		for sub in self.resources.children.values():
 			for maybe_rg in sub.children.values():
 				if isinstance(maybe_rg.obj, ResourceGroup):
-					rgs.append(maybe_rg.obj)
-		return rgs
+					rgs.add(maybe_rg.obj)
+		return frozenset(rgs)
 
 	@property
 	def res(self):
+		"""Resources in this Tresource"""
 		return self.resources
 
-	def res_flat(self):
+	def res_flat(self) -> FrozenSet[AzObj]:
 		out: List[AzObj] = []
 
 		def recurse_resource_node(res: Node[T]):
@@ -224,4 +190,4 @@ class TresourceData(Generic[T], ITresource):
 				else:
 					recurse_resource_node(maybe_rg)
 
-		return out
+		return frozenset(out)

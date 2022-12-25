@@ -1,69 +1,14 @@
 """Tests for tools for working with Azure resource IDs"""
-import string
 from pathlib import Path
 from typing import Optional, Union
 from uuid import UUID
 
 import pytest
 from hypothesis import assume, given
-from hypothesis.strategies import builds, composite, none, recursive, text, uuids
+from hypothesis.strategies import uuids
 
+from llamazure.rid.conftest import az_alnum, st_resource_any, st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.rid.rid import AzObj, Resource, ResourceGroup, SubResource, Subscription, get_chain, parse, parse_chain, serialise, serialise_p
-
-az_alnum = text(alphabet=list(string.ascii_letters + string.digits), min_size=1)
-
-az_alnum_lower = text(alphabet=list(string.ascii_lowercase + string.digits), min_size=1)
-
-st_subscription = builds(lambda u: Subscription(str(u)), uuids())
-
-st_rg = builds(lambda sub, name: ResourceGroup(name, sub), st_subscription, az_alnum_lower)
-
-st_resource_base = builds(
-	lambda provider, res_type, name, rg_name, sub: Resource(provider, res_type, name, ResourceGroup(rg_name, sub) if rg_name else None, parent=None, sub=sub),
-	az_alnum_lower,
-	az_alnum_lower,
-	az_alnum_lower,
-	none() | az_alnum_lower,
-	st_subscription,
-)
-
-st_subresource = builds(
-	lambda res_type, name, rg_name, sub: SubResource(res_type, name, ResourceGroup(rg_name, sub) if rg_name else None, parent=None, sub=sub),
-	az_alnum_lower,
-	az_alnum_lower,
-	none() | az_alnum_lower,
-	st_subscription,
-)
-
-
-@composite
-def complex_resource(draw, res_gen) -> Union[Resource, SubResource]:
-	"""Create a resource which may have parents"""
-	child = draw(res_gen)
-	parent = draw(res_gen)
-	if isinstance(child, Resource):
-		return Resource(
-			child.provider,
-			child.res_type,
-			child.name,
-			rg=parent.rg,
-			parent=parent,
-			sub=parent.sub,
-		)
-	if isinstance(child, SubResource):
-		return SubResource(
-			child.res_type,
-			child.name,
-			rg=parent.rg,
-			parent=parent,
-			sub=parent.sub,
-		)
-	else:
-		raise RuntimeError("AAAA")
-
-
-st_resource_complex = recursive(st_resource_base | st_subresource, complex_resource)
-st_resource_any = st_subscription | st_rg | st_resource_base | st_subresource | st_resource_complex
 
 
 class TestRIDParse:

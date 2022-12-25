@@ -4,7 +4,9 @@ from __future__ import annotations
 import abc
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Generator, Iterator, Optional, Sequence, Union
+from typing import Generator, Optional, Sequence, Union
+
+from llamazure.rid.util import _Peekable
 
 
 class AzObj(abc.ABC):
@@ -70,28 +72,7 @@ class SubResource(AzObj):
 		return f"/{self.res_type}/{self.name}"
 
 
-class _Peekable:
-	"""A wrapper for iterators which lets you peek at the next element without consuming it"""
-
-	def __init__(self, iterator: Iterator):
-		self.iterator = iterator
-		self._cache = None
-
-	def peek(self):
-		"""Peek at the next item in the iterator without consuming it"""
-		if not self._cache:
-			self._cache = next(self.iterator)
-		return self._cache
-
-	def __next__(self):
-		if not self._cache:
-			return next(self.iterator)
-		else:
-			out, self._cache = self._cache, None
-			return out
-
-
-def parse(rid: str) -> Optional[AzObj]:
+def parse(rid: str) -> AzObj:
 	"""Parse an Azure resource ID into the Azure Resource it represents and its chain of parents"""
 	*_, resource = parse_gen(rid)
 	return resource
