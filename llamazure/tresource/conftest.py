@@ -1,6 +1,6 @@
 """Test helpers for Tresource"""
 import abc
-from typing import FrozenSet, List, Set, Type, Union
+from typing import FrozenSet, Generic, List, Set, Type, Union
 
 from hypothesis import given
 from hypothesis.strategies import lists
@@ -8,11 +8,11 @@ from hypothesis.strategies import lists
 from llamazure.rid import rid
 from llamazure.rid.conftest import st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.rid.rid import Resource, ResourceGroup, SubResource
-from llamazure.tresource.itresource import AzObjT, DataT, ITresource, ITresourceData, ObjReprT
+from llamazure.tresource.itresource import AzObjT, DataT, ITresource, ITresourceData, ObjReprT, ObjT
 
 
-class ABCTestBuildTree(abc.ABC):
-	"""Test building a TresourceData"""
+class TreeImplSpec(Generic[AzObjT, ObjT, ObjReprT], abc.ABC):
+	"""Information on an implementation of ITresource"""
 
 	@property
 	@abc.abstractmethod
@@ -30,10 +30,6 @@ class ABCTestBuildTree(abc.ABC):
 		"""Convert one of your AzObjT into a rid.AzObj"""
 		...
 
-	def _recover_many(self, objs: FrozenSet[ObjReprT]) -> Set[rid.AzObj]:
-		"""Vectorised `recover`"""
-		return set(self.recover(x) for x in objs)
-
 	@property
 	@abc.abstractmethod
 	def recurse_implicit(self) -> bool:
@@ -46,41 +42,56 @@ class ABCTestBuildTree(abc.ABC):
 		"""
 		...
 
-	def add_to_tree(self, tree: ITresource, obj: AzObjT, data: DataT):
+	def recover_many(self, objs: FrozenSet[ObjReprT]) -> Set[rid.AzObj]:
+		"""Vectorised `recover`"""
+		return set(self.recover(x) for x in objs)
+
+	@staticmethod
+	def add_to_tree(tree: ITresource, obj: AzObjT, data: DataT):
 		if isinstance(tree, ITresourceData):
 			tree.set_data(obj, data)
 		else:
 			tree.add(obj)
 
+
+class ABCTestBuildTree(abc.ABC):
+	"""Test building a TresourceData"""
+
+	@property
+	@abc.abstractmethod
+	def impl(self) -> TreeImplSpec:
+		"""The implementation of this tresource"""
+		...
+
 	@given(lists(st_subscription))
 	def test_build_subscriptions(self, subs):
 		"""Test adding only subscriptions"""
-		tree = self.clz()
+		tree = self.impl.clz()
 
 		for sub in subs:
-			self.add_to_tree(tree, self.conv(sub), hash(sub))
+			self.impl.add_to_tree(tree, self.impl.conv(sub), hash(sub))
 
 		assert len(set(tree.subs())) == len(subs)
-		assert self._recover_many(tree.subs()) == set(subs)
+		assert self.impl.recover_many(tree.subs()) == set(subs)
 
 	@given(lists(st_rg))
 	def test_build_rgs(self, rgs: List[ResourceGroup]):
 		"""Test adding only RGs"""
-		tree: ITresource = self.clz()
+		tree: ITresource = self.impl.clz()
 
 		subs = set()
 
 		for rg in rgs:
 			subs.add(rg.sub)
-			self.add_to_tree(tree, self.conv(rg), hash(rg))
+			self.impl.add_to_tree(tree, self.impl.conv(rg), hash(rg))
 
-		assert set(subs) == self._recover_many(tree.subs())
-		assert set(rgs) == self._recover_many(tree.rgs_flat())
+		assert set(subs) == self.impl.recover_many(tree.subs())
+		assert set(rgs) == self.impl.recover_many(tree.rgs_flat())
 
 	@given(lists(st_resource_base))
 	def test_build_simple_resources(self, ress: List[Resource]):
 		"""Test building a Tresource of simple resources"""
-		tree: ITresource = self.clz()
+		tree: ITresource = self.impl.clz()
 
 		subs = set()
 		rgs = set()
@@ -89,17 +100,17 @@ class ABCTestBuildTree(abc.ABC):
 			subs.add(res.sub)
 			if res.rg:
 				rgs.add(res.rg)
-			self.add_to_tree(tree, self.conv(res), hash(res))
+			self.impl.add_to_tree(tree, self.impl.conv(res), hash(res))
 
-		assert set(subs) == self._recover_many(tree.subs())
-		assert set(rgs) == self._recover_many(tree.rgs_flat())
+		assert set(subs) == self.impl.recover_many(tree.subs())
+		assert set(rgs) == self.impl.recover_many(tree.rgs_flat())
 		# since there is no nesting, there are no implicit resources, and this comparison is valid
-		assert set(ress) == self._recover_many(tree.res_flat())
+		assert set(ress) == self.impl.recover_many(tree.res_flat())
 
 	@given(lists(st_resource_complex))
 	def test_build_complex_resources(self, ress: List[Union[Resource, SubResource]]):
 		"""Test building a Tresource of complex resources with parents"""
-		tree: ITresource = self.clz()
+		tree: ITresource = self.impl.clz()
 
 		subs = set()
 		rgs = set()
@@ -107,7 +118,7 @@ class ABCTestBuildTree(abc.ABC):
 
 		def recurse_register(resource):
 			resources.add(resource)
-			if self.recurse_implicit and resource.parent:
+			if self.impl.recurse_implicit and resource.parent:
 				recurse_register(resource.parent)
 
 		for res in ress:
@@ -115,9 +126,9 @@ class ABCTestBuildTree(abc.ABC):
 			if res.rg:
 				rgs.add(res.rg)
 			recurse_register(res)
-			self.add_to_tree(tree, self.conv(res), hash(res))
+			self.impl.add_to_tree(tree, self.impl.conv(res), hash(res))
 
-		assert set(subs) == self._recover_many(tree.subs())
-		assert set(rgs) == self._recover_many(tree.rgs_flat())
+		assert set(subs) == self.impl.recover_many(tree.subs())
+		assert set(rgs) == self.impl.recover_many(tree.rgs_flat())
 		# since there is nesting, there are implicit resources, and there will be more
-		assert set(resources) == self._recover_many(tree.res_flat())
+		assert set(resources) == self.impl.recover_many(tree.res_flat())

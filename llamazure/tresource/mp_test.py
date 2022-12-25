@@ -1,25 +1,23 @@
 """Test TresourceMP"""
-import dataclasses
 from typing import Type
 
-from llamazure.rid import conv, rid, mp
-from llamazure.rid.mp import AzObj, Path, Resource, Subscription, narrow_assert, ResourceGroup
-from llamazure.tresource.conftest import ABCTestBuildTree
-from llamazure.tresource.itresource import AzObjT, ObjReprT
+from llamazure.rid import conv, mp, rid
+from llamazure.rid.mp import AzObj, Path, Resource, ResourceGroup, Subscription, narrow_assert
+from llamazure.tresource.conftest import ABCTestBuildTree, TreeImplSpec
 from llamazure.tresource.mp import TresourceMP, TresourceMPData
 
 
-class TestBuildTreeMP(ABCTestBuildTree):
+class TreeMPImpl(TreeImplSpec[AzObj, AzObj, Path]):
 	"""Test that building the tree is correct and seamless"""
 
 	@property
 	def clz(self) -> Type:
 		return TresourceMP
 
-	def conv(self, obj: rid.AzObj) -> AzObjT:
+	def conv(self, obj: rid.AzObj) -> AzObj:
 		return conv.rid2mp(obj)
 
-	def recover(self, obj_repr: ObjReprT) -> rid.AzObj:
+	def recover(self, obj_repr: Path) -> rid.AzObj:
 		return rid.parse(obj_repr)
 
 	@property
@@ -27,7 +25,13 @@ class TestBuildTreeMP(ABCTestBuildTree):
 		return False
 
 
-class TestBuildTreeMPData(ABCTestBuildTree):
+class TestBuildTreeMP(ABCTestBuildTree):
+	@property
+	def impl(self) -> TreeImplSpec:
+		return TreeMPImpl()
+
+
+class TreeMPDataImpl(TreeImplSpec):
 	"""Test building a TresourceData"""
 
 	@property
@@ -43,6 +47,14 @@ class TestBuildTreeMPData(ABCTestBuildTree):
 	@property
 	def recurse_implicit(self) -> bool:
 		return False
+
+
+class TestBuildTreeMPData(ABCTestBuildTree):
+	"""Test building a TresourceData"""
+
+	@property
+	def impl(self) -> TreeImplSpec:
+		return TreeMPDataImpl()
 
 
 class TestQuery:

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Generator, NewType, Optional, Protocol, Sequence, Tuple, Union, Type, TypeVar
+from typing import Generator, NewType, Optional, Protocol, Sequence, Tuple, Type, TypeVar, Union
 
 from llamazure.rid.util import SegmentAndPathIterable, _Peekable
 

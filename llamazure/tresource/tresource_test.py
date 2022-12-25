@@ -7,27 +7,35 @@ from hypothesis.strategies import lists
 from llamazure.rid import rid
 from llamazure.rid.conftest import st_resource_any, st_resource_complex
 from llamazure.rid.rid import AzObj, Resource, SubResource, parse_chain, serialise
-from llamazure.tresource.conftest import ABCTestBuildTree
-from llamazure.tresource.itresource import AzObjT, ITresource, ObjReprT
-from llamazure.tresource.tresource import Node, Tresource, TresourceData
+from llamazure.tresource.conftest import ABCTestBuildTree, TreeImplSpec
+from llamazure.tresource.itresource import ITresource
+from llamazure.tresource.tresource import Node, T, Tresource, TresourceData
 
 
-class TestBuildTree(ABCTestBuildTree):
+class TreeImpl(TreeImplSpec[AzObj, AzObj, AzObj]):
 	"""Test that building a tree is correct and seamless"""
 
 	@property
 	def clz(self) -> Type[ITresource]:
 		return Tresource
 
-	def conv(self, obj: rid.AzObj) -> AzObjT:
+	def conv(self, obj: rid.AzObj) -> AzObj:
 		return obj
 
-	def recover(self, obj_repr: ObjReprT) -> rid.AzObj:
+	def recover(self, obj_repr: AzObj) -> rid.AzObj:
 		return obj_repr
 
 	@property
 	def recurse_implicit(self) -> bool:
 		return True
+
+
+class TestBuildTree(ABCTestBuildTree):
+	"""Test that building a tree is correct and seamless"""
+
+	@property
+	def impl(self) -> TreeImplSpec:
+		return TreeImpl()
 
 
 class TestBuildTreeFromChain:
@@ -47,7 +55,7 @@ class TestBuildTreeFromChain:
 		assert single_tree.resources == chain_tree.resources
 
 
-class TestBuildDataTree(ABCTestBuildTree):
+class DataTreeImpl(TreeImplSpec[AzObj, Node[T], AzObj]):
 	"""Test building a TresourceData"""
 
 	@property
@@ -63,6 +71,14 @@ class TestBuildDataTree(ABCTestBuildTree):
 	@property
 	def recurse_implicit(self) -> bool:
 		return True
+
+
+class TestBuildDataTree(ABCTestBuildTree):
+	"""Test building a TresourceData"""
+
+	@property
+	def impl(self) -> TreeImplSpec:
+		return DataTreeImpl()
 
 
 class TestNodesDataTree:
