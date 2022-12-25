@@ -1,4 +1,6 @@
 """Interface definitions for Tresources"""
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import FrozenSet, Generic, Optional, TypeVar
 

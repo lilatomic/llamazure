@@ -132,3 +132,44 @@ class ABCTestBuildTree(abc.ABC):
 		assert set(rgs) == self.impl.recover_many(tree.rgs_flat())
 		# since there is nesting, there are implicit resources, and there will be more
 		assert set(resources) == self.impl.recover_many(tree.res_flat())
+
+
+class ABCTestQuery(abc.ABC):
+	"""
+	Test querying functions of a Tresource
+	# TODO: doesn't distinguish if impl.recurse_implicit
+	"""
+
+	@property
+	@abc.abstractmethod
+	def impl(self) -> TreeImplSpec:
+		"""The implementation of this tresource"""
+		...
+
+	def test_query_tresource(self):
+		"""Test that the query functions return things they are supposed to"""
+		tree: ITresource = self.impl.clz()
+
+		target_rid = "/subscriptions/s0/resourceGroups/r0/providers/p0/t0/n0/providers/p_l0/t_l0/n_l0"
+		other_resource_rid = target_rid.replace("n0", "n1")
+		other_rg_rid = target_rid.replace("r0", "r1")
+		other_sub_rid = target_rid.replace("s0", "s1")
+
+		target = rid.parse_chain(target_rid)
+		other_resource = rid.parse_chain(other_resource_rid)
+		other_rg = rid.parse_chain(other_rg_rid)
+		other_sub = rid.parse_chain(other_sub_rid)
+
+		for obj in [target, other_resource, other_rg, other_sub]:
+			self.impl.add_to_tree(tree, self.impl.conv(obj[-1]), hash(obj))
+
+		assert self.impl.recover_many(tree.where_subscription(self.impl.conv(other_sub[0])).subs()) == {other_sub[0]}
+		assert len(tree.where_subscription(self.impl.conv(target[0])).res_flat()) == 3
+
+		idx_rg = 1
+		assert self.impl.recover_many(tree.where_rg(self.impl.conv(other_rg[idx_rg])).rgs_flat()) == {other_rg[1]}
+		assert len(tree.where_rg(self.impl.conv(target[idx_rg])).res_flat()) == 2
+
+		idx_parent = -2
+		assert self.impl.recover_many(tree.where_parent(self.impl.conv(other_resource[idx_parent])).res_flat()) == {other_resource[-1]}
+		assert len(tree.where_parent(self.impl.conv(target[idx_parent])).res_flat()) == 1
