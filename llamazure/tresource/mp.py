@@ -52,8 +52,13 @@ class TresourceMP(ITresource[AzObj, Path]):
 		return self.where(obj.path)
 
 	def where(self, parent_path: Path) -> TresourceMP:
-		"""Return all objects with this as the start of their Resource ID"""
-		return TresourceMP({k: v for k, v in self.resources.items() if k.startswith(parent_path)})
+		"""
+		Return all objects with this as the start of their Resource ID
+		Excludes a complete match. For example, `where("/subscriptions/0")` will not return the subscription itself.
+		"""
+		o = TresourceMP({k: v for k, v in self.resources.items() if k.startswith(parent_path)})
+		o.resources.pop(parent_path, None)  # remove complete match, if present
+		return o
 
 	def where_subscription(self, sub: Subscription) -> TresourceMP:
 		"""Return all objects with this Subscription as a parent"""
@@ -128,8 +133,13 @@ class TresourceMPData(Generic[T], ITresourceData[AzObj, T, MPData[T], Path]):
 		return self.where(obj.path)
 
 	def where(self, parent_path: Path) -> TresourceMPData:
-		"""Return all objects with this as the start of their Resource ID"""
-		return TresourceMPData({k: v for k, v in self.resources.items() if k.startswith(parent_path)})
+		"""
+		Return all objects with this as the start of their Resource ID
+		Excludes a complete match. For example, `where("/subscriptions/0")` will not return the subscription itself.
+		"""
+		o = TresourceMPData({k: v for k, v in self.resources.items() if k.startswith(parent_path)})
+		o.resources.pop(parent_path, None)  # remove complete match, if present
+		return o
 
 	def where_subscription(self, sub: Subscription) -> TresourceMPData:
 		"""Return all objects with this Subscription as a parent"""

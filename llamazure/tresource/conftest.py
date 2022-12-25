@@ -173,3 +173,15 @@ class ABCTestQuery(abc.ABC):
 		idx_parent = -2
 		assert self.impl.recover_many(tree.where_parent(self.impl.conv(other_resource[idx_parent])).res_flat()) == {other_resource[-1]}
 		assert len(tree.where_parent(self.impl.conv(target[idx_parent])).res_flat()) == 1
+
+	def test_query_excludes_parent(self):
+		"""Tests that the query methods exclude the resoure requested in the `where`"""
+		tree: ITresource = self.impl.clz()
+
+		target_rid = "/subscriptions/s0/resourceGroups/r0/providers/p0/t0/n0/providers/p_l0/t_l0/n_l0"
+		target = rid.parse_chain(target_rid)
+
+		for obj in [target[0], target[-1]]:
+			self.impl.add_to_tree(tree, self.impl.conv(obj), hash(obj))
+
+		assert self.impl.recover_many(tree.where_subscription(self.impl.conv(target[0])).res.keys()) == {target[-1]}
