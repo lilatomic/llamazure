@@ -4,7 +4,7 @@ import dataclasses
 import json
 from typing import Any, Dict, Union
 
-from llamazure.azgraph.models import Res, ResErr
+from llamazure.azgraph.models import Req, Res, ResErr
 
 
 class Encoder(json.JSONEncoder):
@@ -19,11 +19,11 @@ class Encoder(json.JSONEncoder):
 class Decoder:
 	"""Decode Res from JSON from Azure"""
 
-	def decode(self, o: Dict) -> Union[Res, ResErr]:
+	def decode(self, req: Req, o: Dict) -> Union[Res, ResErr]:
 		"""Decode Res from JSON from Azure"""
 		error = o.pop("error", None)
 		if error:
 			return ResErr(**error)
 
 		skip_token = o.pop("$skipToken", None)
-		return Res(**o, skipToken=skip_token)
+		return Res(req=req, **o, skipToken=skip_token)

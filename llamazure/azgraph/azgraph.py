@@ -1,8 +1,11 @@
 """Interface to the Azure Resource Graph"""
 from __future__ import annotations
 
+import dataclasses
 import json
-from typing import Tuple
+import operator
+from functools import reduce
+from typing import Optional, Tuple
 
 import requests
 
@@ -36,12 +39,29 @@ class Graph:
 		"""Make a graph query"""
 		return self.query(Req(q, self.subscriptions)).data
 
-	def query(self, req: Req) -> Res:
-		"""Make a graph query"""
+	def query_single(self, req: Req) -> Res:
+		"""Make a graph query for a single page"""
 		raw = requests.post(
 			"https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01",
 			headers={"Authorization": f"Bearer {self.token.token}", "Content-Type": "application/json"},
 			data=json.dumps(req, cls=codec.Encoder),
 		).json()
 
-		return codec.Decoder().decode(raw)
+		return codec.Decoder().decode(req, raw)
+
+	def query(self, req: Req) -> Res:
+		"""Make a graph query"""
+		ress = []
+		res = self.query_single(req)
+		ress.append(res)
+		while res.skipToken:
+			res = self._query_next(req, res)
+			ress.append(res)
+		return reduce(operator.add, ress)
+
+	def _query_next(self, req: Req, last: Res) -> Optional[Res]:
+		"""Query the next page in a paginated query"""
+		options = req.options.copy()
+		options["$skipToken"] = last.skipToken
+		next_req = dataclasses.replace(req, options=options)
+		return self.query_single(next_req)

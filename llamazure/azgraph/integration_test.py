@@ -14,7 +14,7 @@ def run():
 
 	g = Graph.from_credential(credential)
 
-	print(g.q("Resources | project name, type | limit 5"))
+	print(g.q("Resources | project id, name, type, location | limit 5"))
 
 
 if __name__ == "__main__":
