@@ -1,34 +1,13 @@
 """Interface to the Azure Resource Graph"""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+import json
+from typing import Tuple
 
 import requests
 
-
-@dataclass(frozen=True)
-class Req:
-	"""Azure Resource Graph request"""
-
-	query: str
-	subscriptions: Tuple[str]
-
-	facets: Tuple = tuple()
-	managementGroupId: Optional[str] = None
-	options: Any = None
-
-
-@dataclass(frozen=True)
-class Res:
-	"""Azure Resource Graph response"""
-
-	skipToken: str
-	count: int
-	data: Any
-	facets: Tuple
-	resultTruncated: Any
-	totalRecords: int
+from llamazure.azgraph import codec
+from llamazure.azgraph.models import Req, Res
 
 
 class Graph:
@@ -51,7 +30,7 @@ class Graph:
 			"https://management.azure.com/subscriptions?api-version=2020-01-01",
 			headers={"Authorization": f"Bearer {token.token}", "Content-Type": "application/json"},
 		).json()
-		return tuple(s["id"] for s in raw["value"])
+		return tuple(s["subscriptionId"] for s in raw["value"])
 
 	def q(self, q: str):
 		"""Make a graph query"""
@@ -62,7 +41,7 @@ class Graph:
 		raw = requests.post(
 			"https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01",
 			headers={"Authorization": f"Bearer {self.token.token}", "Content-Type": "application/json"},
-			json={"subscriptions": req.subscriptions, "query": req.query},
+			data=json.dumps(req, cls=codec.Encoder),
 		).json()
 
-		return Res(**raw)
+		return codec.Decoder().decode(raw)

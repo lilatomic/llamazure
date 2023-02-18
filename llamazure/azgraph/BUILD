@@ -27,3 +27,8 @@ python_distribution(
 		long_description_content_type="text/markdown",
 	),
 )
+
+pex_binary(
+    name="integration_test",
+    entry_point="integration_test.py",
+)
