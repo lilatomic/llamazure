@@ -4,7 +4,6 @@ python_sources(
 
 python_tests(
 	name="tests",
-	dependencies=["cicd:secrets"],
 )
 
 python_distribution(
