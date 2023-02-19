@@ -29,6 +29,6 @@ python_distribution(
 )
 
 pex_binary(
-    name="integration_test",
-    entry_point="integration_test.py",
+	name="integration_test",
+	entry_point="integration_test.py",
 )
