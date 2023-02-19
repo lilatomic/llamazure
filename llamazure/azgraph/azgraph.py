@@ -14,7 +14,27 @@ from llamazure.azgraph.models import Req, Res
 
 
 class Graph:
-	"""Access the Azure Resource Graph"""
+	"""
+	Access the Azure Resource Graph
+
+	The easiest way to instantiate this is with the `from_credential` method.
+
+	>>> from azure.identity import DefaultAzureCredential
+	>>> credential = DefaultAzureCredential()
+	>>> graph = Graph(credential)
+
+	Making queries is easiest with the `q` method:
+	>>> graph.q("Resources | project id, name, type, location | limit 5")
+	[{'id': '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg0/providers/Microsoft.Storage/storageAccounts/sa0', 'name': 'sa0', 'type': 'microsoft.storage/storageaccounts', 'location': 'canadacentral'}]
+
+	If you want to provide options to the query, use a `Req` and the `query` function
+
+	>>> from llamazure.azgraph.models import Req, Res
+	>>> graph.query(Req(
+	... 	query="Resources | project id, name, type, location | limit 5",
+	... 	subscriptions=("00000000-0000-0000-0000-000000000001",)
+	... ))
+	"""
 
 	def __init__(self, token, subscriptions: Tuple[str]):
 		self.token = token
@@ -63,5 +83,10 @@ class Graph:
 		"""Query the next page in a paginated query"""
 		options = req.options.copy()
 		options["$skipToken"] = last.skipToken
+
+		# "$skip" overrides "$skipToken", so we need to remove it.
+		# This is fine, since the original skip amount is encoded into the
+		options.pop("$skip", None)
+
 		next_req = dataclasses.replace(req, options=options)
 		return self.query_single(next_req)
