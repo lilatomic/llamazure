@@ -17,6 +17,7 @@ def run():
 	g = Graph.from_credential(credential)
 	run_simple(g)
 	run_paginated(g)
+	run_error(g)
 
 
 def run_simple(g: Graph):
@@ -36,6 +37,11 @@ def run_paginated(g: Graph):
 			)
 		),
 	)
+
+
+def run_error(g: Graph):
+	"""Run a query that results in an error"""
+	print("error", g.q("Resources | syntax error"))
 
 
 def test_shim():

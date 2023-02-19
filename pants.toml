@@ -12,6 +12,9 @@ backend_packages = [
 use_deprecated_directory_cli_args_semantics = false # remove 2.14
 [source]
 
+[python]
+interpreter_constraints = ["CPython>=3.8"]
+
 [pylint]
 config = ".pylintrc"
 

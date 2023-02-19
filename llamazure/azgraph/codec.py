@@ -23,7 +23,9 @@ class Decoder:
 		"""Decode Res from JSON from Azure"""
 		error = o.pop("error", None)
 		if error:
-			return ResErr(**error)
+			details_json = error.pop("details", [])
+			details = tuple(detail_json for detail_json in details_json)
+			return ResErr(**error, details=details)
 
 		skip_token = o.pop("$skipToken", None)
 		return Res(req=req, **o, skipToken=skip_token)

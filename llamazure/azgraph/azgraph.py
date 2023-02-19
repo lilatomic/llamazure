@@ -70,19 +70,19 @@ class Graph:
 			return res
 		return res.data
 
-	def _exec_query(self, req):
+	def _exec_query(self, req) -> ResMaybe:
 		raw = requests.post(
 			"https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01",
 			headers={"Authorization": f"Bearer {self.token.token}", "Content-Type": "application/json"},
 			data=json.dumps(req, cls=codec.Encoder),
 		).json()
-		return raw
+		res = codec.Decoder().decode(req, raw)
+		return res
 
 	def query_single(self, req: Req) -> ResMaybe:
 		"""Make a graph query for a single page"""
-		raw = self._exec_query(req)
+		res = self._exec_query(req)
 
-		res = codec.Decoder().decode(req, raw)
 		if isinstance(res, ResErr):
 			retries = 0
 			while retries < self.retry_policy.retries and isinstance(res, ResErr):

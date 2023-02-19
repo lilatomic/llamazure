@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, TypedDict, Union
 
 
 @dataclass(frozen=True)
@@ -11,7 +11,7 @@ class Req:
 	"""Azure Resource Graph request"""
 
 	query: str
-	subscriptions: Tuple[str]
+	subscriptions: Tuple[str, ...]
 
 	facets: Tuple = tuple()
 	managementGroupId: Optional[str] = None
@@ -44,7 +44,14 @@ class ResErr:
 
 	code: str
 	message: str
-	details: Any
+	details: Tuple[ErrorDetails, ...]
+
+
+class ErrorDetails(TypedDict):
+	"""Error details. TypedDict because extra parameters are supplied"""
+
+	code: str
+	message: str
 
 
 ResMaybe = Union[Res, ResErr]
