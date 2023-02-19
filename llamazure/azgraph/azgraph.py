@@ -5,12 +5,19 @@ import dataclasses
 import json
 import operator
 from functools import reduce
-from typing import Optional, Tuple, cast
+from typing import Any, Tuple, Union, cast
 
 import requests
 
 from llamazure.azgraph import codec
-from llamazure.azgraph.models import Req, Res
+from llamazure.azgraph.models import Req, Res, ResErr, ResMaybe
+
+
+@dataclasses.dataclass
+class RetryPolicy:
+	"""Parameters and strategies for retrying Azure Resource Graph queries"""
+
+	retries: int = 0  # number of times to retry. This is in addition to the initial try
 
 
 class Graph:
@@ -36,9 +43,10 @@ class Graph:
 	... ))
 	"""
 
-	def __init__(self, token, subscriptions: Tuple[str]):
+	def __init__(self, token, subscriptions: Tuple[str], retry_policy: RetryPolicy = RetryPolicy()):
 		self.token = token
 		self.subscriptions = subscriptions
+		self.retry_policy = retry_policy
 
 	@classmethod
 	def from_credential(cls, credential) -> Graph:
@@ -55,31 +63,49 @@ class Graph:
 		).json()
 		return cast(Tuple[str], tuple(s["subscriptionId"] for s in raw["value"]))
 
-	def q(self, q: str):
+	def q(self, q: str) -> Union[Any, ResErr]:
 		"""Make a graph query"""
-		return self.query(Req(q, self.subscriptions)).data
+		res = self.query(Req(q, self.subscriptions))
+		if isinstance(res, ResErr):
+			return res
+		return res.data
 
-	def query_single(self, req: Req) -> Res:
-		"""Make a graph query for a single page"""
+	def _exec_query(self, req):
 		raw = requests.post(
 			"https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01",
 			headers={"Authorization": f"Bearer {self.token.token}", "Content-Type": "application/json"},
 			data=json.dumps(req, cls=codec.Encoder),
 		).json()
+		return raw
 
-		return codec.Decoder().decode(req, raw)
+	def query_single(self, req: Req) -> ResMaybe:
+		"""Make a graph query for a single page"""
+		raw = self._exec_query(req)
 
-	def query(self, req: Req) -> Res:
+		res = codec.Decoder().decode(req, raw)
+		if isinstance(res, ResErr):
+			retries = 0
+			while retries < self.retry_policy.retries and isinstance(res, ResErr):
+				retries += 1
+				res = self._exec_query(req)
+		return res
+
+	def query(self, req: Req) -> ResMaybe:
 		"""Make a graph query"""
 		ress = []
 		res = self.query_single(req)
+		if isinstance(res, ResErr):
+			return res
+
 		ress.append(res)
 		while res.skipToken:
 			res = self._query_next(req, res)
+			if isinstance(res, ResErr):
+				return res
 			ress.append(res)
 		return reduce(operator.add, ress)
 
-	def _query_next(self, req: Req, last: Res) -> Optional[Res]:
+	def _query_next(self, req: Req, last: Res) -> ResMaybe:
 		"""Query the next page in a paginated query"""
 		options = req.options.copy()
 		options["$skipToken"] = last.skipToken

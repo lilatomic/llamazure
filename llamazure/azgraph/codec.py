@@ -2,9 +2,9 @@
 
 import dataclasses
 import json
-from typing import Any, Dict, Union
+from typing import Any, Dict
 
-from llamazure.azgraph.models import Req, Res, ResErr
+from llamazure.azgraph.models import Req, Res, ResErr, ResMaybe
 
 
 class Encoder(json.JSONEncoder):
@@ -19,7 +19,7 @@ class Encoder(json.JSONEncoder):
 class Decoder:
 	"""Decode Res from JSON from Azure"""
 
-	def decode(self, req: Req, o: Dict) -> Union[Res, ResErr]:
+	def decode(self, req: Req, o: Dict) -> ResMaybe:
 		"""Decode Res from JSON from Azure"""
 		error = o.pop("error", None)
 		if error:

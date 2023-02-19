@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 
 @dataclass(frozen=True)
@@ -45,3 +45,6 @@ class ResErr:
 	code: str
 	message: str
 	details: Any
+
+
+ResMaybe = Union[Res, ResErr]
