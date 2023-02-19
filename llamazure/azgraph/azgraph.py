@@ -5,7 +5,7 @@ import dataclasses
 import json
 import operator
 from functools import reduce
-from typing import Optional, Tuple
+from typing import Optional, Tuple, cast
 
 import requests
 
@@ -53,7 +53,7 @@ class Graph:
 			"https://management.azure.com/subscriptions?api-version=2020-01-01",
 			headers={"Authorization": f"Bearer {token.token}", "Content-Type": "application/json"},
 		).json()
-		return tuple(s["subscriptionId"] for s in raw["value"])
+		return cast(Tuple[str], tuple(s["subscriptionId"] for s in raw["value"]))
 
 	def q(self, q: str):
 		"""Make a graph query"""

@@ -18,20 +18,30 @@ def run():
 	run_simple(g)
 	run_paginated(g)
 
+
 def run_simple(g: Graph):
 	"""Run simple query"""
 	print("simple", g.q("Resources | project id, name, type, location | limit 5"))
 
+
 def run_paginated(g: Graph):
 	"""Run a paginted request. Forces smol pagination"""
-	print("paginated", g.query(Req(
-		query="Resources | project id",
-		subscriptions=g.subscriptions,
-		options={
-			"$top": 3,
-			"$skip": 1,
-		}
-	)))
+	print(
+		"paginated",
+		g.query(
+			Req(
+				query="Resources | project id",
+				subscriptions=g.subscriptions,
+				options={"$top": 3, "$skip": 1},
+			)
+		),
+	)
+
+
+def test_shim():
+	"""Make pytest succeed"""
+	...
+
 
 if __name__ == "__main__":
 	run()
