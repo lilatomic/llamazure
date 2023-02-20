@@ -1,4 +1,5 @@
 """Tests for the Azure Resource Graph"""
+# pylint: disable=redefined-outer-name
 
 # pylint: disable=protected-access
 from unittest.mock import Mock
@@ -104,8 +105,3 @@ class TestPaginated:
 
 		assert isinstance(res, ResErr)
 		assert g._exec_query.call_count == 3 + self.normal_retry_policy.retries
-
-
-def test_shim():
-	"""Make pytest succeed"""
-	...

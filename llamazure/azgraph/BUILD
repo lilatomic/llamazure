@@ -14,6 +14,7 @@ python_tests(
 
 python_distribution(
 	name="llamazure.azgraph",
+	repositories=["@llamazure.azgraph"],
 	dependencies=[":azgraph"],
 	long_description_path="llamazure/azgraph/readme.md",
 	provides=python_artifact(

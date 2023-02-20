@@ -90,6 +90,18 @@ class Graph:
 				res = self._exec_query(req)
 		return res
 
+	def query_next(self, req: Req, previous: Res) -> ResMaybe:
+		"""Query the next page in a paginated query"""
+		options = req.options.copy()
+		options["$skipToken"] = previous.skipToken
+
+		# "$skip" overrides "$skipToken", so we need to remove it.
+		# This is fine, since the original skip amount is encoded into the
+		options.pop("$skip", None)
+
+		next_req = dataclasses.replace(req, options=options)
+		return self.query_single(next_req)
+
 	def query(self, req: Req) -> ResMaybe:
 		"""Make a graph query"""
 		ress = []
@@ -99,20 +111,8 @@ class Graph:
 
 		ress.append(res)
 		while res.skipToken:
-			res = self._query_next(req, res)
+			res = self.query_next(req, res)
 			if isinstance(res, ResErr):
 				return res
 			ress.append(res)
 		return reduce(operator.add, ress)
-
-	def _query_next(self, req: Req, last: Res) -> ResMaybe:
-		"""Query the next page in a paginated query"""
-		options = req.options.copy()
-		options["$skipToken"] = last.skipToken
-
-		# "$skip" overrides "$skipToken", so we need to remove it.
-		# This is fine, since the original skip amount is encoded into the
-		options.pop("$skip", None)
-
-		next_req = dataclasses.replace(req, options=options)
-		return self.query_single(next_req)
