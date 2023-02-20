@@ -44,9 +44,9 @@ jobs:
         run: |
           ./pants test :: -- -m "not integration"
         if: success() || failure()
-      - name: Test
+      - name: Test Intregration
         run: |
-          ./pants test :: -- -m "integration"
+          ./pants --tag="integration" test --output=all :: -- -m integration
         env:
           integration_test_secrets: ${{secrets.integration_test_secrets}}
       - name: Package
