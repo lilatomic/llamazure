@@ -41,6 +41,16 @@ class TestRetries:
 		assert res == self.successful_res
 		assert g._exec_query.call_count == 2
 
+	def test_many_errors(self):
+		"""Test that a multiple failures on the same query are retried"""
+		g = null_graph(self.normal_retry_policy)
+		g._exec_query = Mock(side_effect=[self.failed_res, self.failed_res, self.failed_res, self.successful_res])
+
+		res = g.query(self.empty_req)
+
+		assert res == self.successful_res
+		assert g._exec_query.call_count == 4
+
 	def test_too_many_errors(self):
 		"""Test that exceeding the retries returns the error"""
 		g = null_graph(self.normal_retry_policy)
@@ -88,12 +98,12 @@ class TestPaginated:
 	def test_failure_within_pagination(self):
 		"""Test that a failure exceeding retries causes the failure to be propagated"""
 		g = null_graph(self.normal_retry_policy)
-		g._exec_query = Mock(side_effect=[self.res_pagination_cont] + [self.failed_res] * 4 + [self.res_pagination_end])
+		g._exec_query = Mock(side_effect=[self.res_pagination_cont] * 2 + [self.failed_res] * 4 + [self.res_pagination_end])
 
 		res = g.query(self.empty_req)
 
 		assert isinstance(res, ResErr)
-		assert g._exec_query.call_count == 1 + 1 + self.normal_retry_policy.retries
+		assert g._exec_query.call_count == 3 + self.normal_retry_policy.retries
 
 
 def test_shim():
