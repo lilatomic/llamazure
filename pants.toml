@@ -1,5 +1,5 @@
 [GLOBAL]
-pants_version = "2.13.0"
+pants_version = "2.14.0"
 backend_packages = [
 	"pants.backend.python",
 	"pants.backend.python.lint.black",
@@ -10,7 +10,6 @@ backend_packages = [
 ]
 pants_ignore = ["!cicd/secrets.yml"]
 
-use_deprecated_directory_cli_args_semantics = false # remove 2.14
 [source]
 
 [python]
