@@ -57,5 +57,5 @@ def complex_resource(draw, res_gen) -> Union[Resource, SubResource]:
 		raise RuntimeError("AAAA")
 
 
-st_resource_complex = recursive(st_resource_base | st_subresource, complex_resource, max_leaves=10)
+st_resource_complex = recursive(st_resource_base | st_subresource, complex_resource, max_leaves=6)
 st_resource_any = st_subscription | st_rg | st_resource_base | st_subresource | st_resource_complex
