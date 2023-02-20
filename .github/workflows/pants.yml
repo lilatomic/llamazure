@@ -42,8 +42,17 @@ jobs:
         if: success() || failure()
       - name: Test
         run: |
-          ./pants test ::
+          ./pants test :: -- -m "not integration"
         if: success() || failure()
+      - run: 'echo "$integration_test_secrets" > cicd/secrets.yml'
+        shell: bash
+        env:
+          integration_test_secrets: ${{secrets.integration_test_secrets}}
+      - name: Test
+        run: |
+          ./pants test :: -- -m "integration"
+        if: success() || failure()
+      - run: 'rm -f cicd/secrets.yml'
       - name: Package
         run: |
           ./pants package ::

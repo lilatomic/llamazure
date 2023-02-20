@@ -29,3 +29,9 @@ module = [
     "knack.*",
 ]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: integration tests",
+]
+addopts = "-m 'not integration'"

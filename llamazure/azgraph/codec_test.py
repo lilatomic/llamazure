@@ -1,13 +1,24 @@
 """Test encoding Req and decoding Res and ResErr"""
+import json
 
-from llamazure.azgraph.codec import Decoder
+from llamazure.azgraph.codec import Decoder, Encoder
 from llamazure.azgraph.models import Req, Res, ResErr
+
+
+class TestEncoder:
+	"""Test the Encoder"""
+
+	empty_req = Req("", ("00000000-0000-0000-0000-000000000000",))
+
+	def test_encode(self):
+		enc = json.dumps(self.empty_req, cls=Encoder)
+		assert enc == '{"query": "", "subscriptions": ["00000000-0000-0000-0000-000000000000"], "facets": [], "managementGroupId": null, "options": {}}'
 
 
 class TestDecoder:
 	"""Test the Decoder"""
 
-	empty_req = Req("", tuple("00000000-0000-0000-0000-000000000000"))
+	empty_req = Req("", ("00000000-0000-0000-0000-000000000000",))
 
 	def test_decode_syntax_error(self):
 		body = {

@@ -6,6 +6,13 @@ python_tests(
 	name="tests",
 )
 
+python_tests(
+	name="integration-tests",
+	sources=["integration_test.py"],
+	tags=["integration"],
+	dependencies=["cicd:secrets.yml"],
+)
+
 python_distribution(
 	name="llamazure.azgraph",
 	dependencies=[":azgraph"],
@@ -26,9 +33,4 @@ python_distribution(
 		license="Round Robin 2.0.0",
 		long_description_content_type="text/markdown",
 	),
-)
-
-pex_binary(
-	name="integration_test",
-	entry_point="integration_test.py",
 )

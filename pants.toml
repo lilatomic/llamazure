@@ -8,6 +8,7 @@ backend_packages = [
 	"pants.backend.python.lint.pylint",
 	"pants.backend.python.typecheck.mypy"
 ]
+pants_ignore = ["!cicd/secrets.yml"]
 
 use_deprecated_directory_cli_args_semantics = false # remove 2.14
 [source]
