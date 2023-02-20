@@ -39,6 +39,20 @@ def test_simple(graph: Graph):
 
 
 @pytest.mark.integration
+def test_full(graph: Graph):
+	"""Run simple query using the full query interface"""
+	res = graph.query(Req(
+		"Resources | project id, name, type, location | limit 1",
+		subscriptions=graph.subscriptions,
+		options={"$skip": 1},
+
+	))
+	print_output("full", res)
+	matches_type = isinstance(res, Res)
+	assert matches_type
+
+
+@pytest.mark.integration
 def test_paginated(graph: Graph):
 	"""Run a paginted request. Forces smol pagination"""
 	res = graph.query(
