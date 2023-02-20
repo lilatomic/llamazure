@@ -1,4 +1,6 @@
 """Integration test against a real, live Azure"""
+# pylint: disable=redefined-outer-name
+
 import os
 from typing import Any
 
@@ -41,12 +43,13 @@ def test_simple(graph: Graph):
 @pytest.mark.integration
 def test_full(graph: Graph):
 	"""Run simple query using the full query interface"""
-	res = graph.query(Req(
-		"Resources | project id, name, type, location | limit 1",
-		subscriptions=graph.subscriptions,
-		options={"$skip": 1},
-
-	))
+	res = graph.query(
+		Req(
+			"Resources | project id, name, type, location | limit 1",
+			subscriptions=graph.subscriptions,
+			options={"$skip": 1},
+		)
+	)
 	print_output("full", res)
 	matches_type = isinstance(res, Res)
 	assert matches_type
