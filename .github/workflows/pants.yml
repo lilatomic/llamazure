@@ -44,15 +44,11 @@ jobs:
         run: |
           ./pants test :: -- -m "not integration"
         if: success() || failure()
-      - run: 'echo "$integration_test_secrets" > cicd/secrets.yml'
-        shell: bash
-        env:
-          integration_test_secrets: ${{secrets.integration_test_secrets}}
       - name: Test
         run: |
           ./pants test :: -- -m "integration"
-        if: success() || failure()
-      - run: 'rm -f cicd/secrets.yml'
+        env:
+          integration_test_secrets: ${{secrets.integration_test_secrets}}
       - name: Package
         run: |
           ./pants package ::

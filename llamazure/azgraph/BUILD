@@ -10,7 +10,6 @@ python_tests(
 	name="integration-tests",
 	sources=["integration_test.py"],
 	tags=["integration"],
-	dependencies=["cicd:secrets.yml"],
 )
 
 python_distribution(

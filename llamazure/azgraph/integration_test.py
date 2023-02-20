@@ -9,6 +9,7 @@ from azure.identity import ClientSecretCredential
 from llamazure.azgraph.azgraph import Graph
 from llamazure.azgraph.models import Req, Res, ResErr
 
+
 def print_output(name: str, output: Any):
 	should_print = os.environ.get("INTEGRATION_PRINT_OUTPUT", "False") == "True"
 	if should_print:
@@ -19,8 +20,8 @@ def print_output(name: str, output: Any):
 def graph():
 	"""Run integration test"""
 
-	with open("cicd/secrets.yml", encoding="utf-8") as secrets_file:
-		client = yaml.safe_load(secrets_file.read())["azgraph"]
+	secrets = yaml.safe_load(os.environ.get("integration_test_secrets"))
+	client = secrets["azgraph"]
 
 	credential = ClientSecretCredential(tenant_id=client["tenant"], client_id=client["appId"], client_secret=client["password"])
 
@@ -41,11 +42,13 @@ def test_simple(graph: Graph):
 def test_paginated(graph: Graph):
 	"""Run a paginted request. Forces smol pagination"""
 	res = graph.query(
-		Req(query="Resources | project id", subscriptions=graph.subscriptions, options={"$top": 3, "$skip": 1}, ))
-	print_output(
-		"paginated",
-		res
+		Req(
+			query="Resources | project id",
+			subscriptions=graph.subscriptions,
+			options={"$top": 3, "$skip": 1},
+		)
 	)
+	print_output("paginated", res)
 	matches_type = isinstance(res, Res)
 	assert matches_type
 
