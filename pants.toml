@@ -1,5 +1,5 @@
 [GLOBAL]
-pants_version = "2.14.0"
+pants_version = "2.15.0"
 backend_packages = [
 	"pants.backend.python",
 	"pants.backend.experimental.python",
@@ -25,7 +25,7 @@ config = ".flake8"
 [black]
 args = ["--use-tabs"]
 console_script = "tan"
-version = "tan==21.14"
+version = "tan==22.12.1"
 lockfile = "cicd/tan.lockfile"
 extra_requirements = ["click!=8.1.*", "typing-extensions>=3.10.0.0"]
 
