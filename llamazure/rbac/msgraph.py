@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import requests
 
+from llamazure.rbac import codec
+
 
 class Graph:
 	"""
@@ -25,5 +27,6 @@ class Graph:
 		raw = requests.get(
 			f"https://graph.microsoft.com/v1.0/{req}",
 			headers={"Authorization": f"Bearer {self.token.token}"}
-		)
-		return raw
+		).json()
+		res = codec.Decoder().decode(req, raw)
+		return res
