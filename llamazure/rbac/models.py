@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Any, Optional, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,8 @@ class ResErr:
 
 	code: str
 	message: str
-	innererror: Optional[ResErr]
+	innerError: Optional[ResErr]
+	error_metadata: Optional[dict] = None  # the info crammed into the innerError field that is not actually an error
 
 
 ResMaybe = Union[Res, ResErr]

@@ -8,7 +8,7 @@ from typing import Any, Union
 import requests
 
 from llamazure.rbac import codec
-from llamazure.rbac.models import Req, ResMaybe, ResErr, Res
+from llamazure.rbac.models import Req, Res, ResErr, ResMaybe
 
 
 @dataclasses.dataclass
