@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import operator
+from functools import reduce
 from typing import Any, Union
 
 import requests
 
 from llamazure.rbac import codec
-from llamazure.rbac.models import Req, ResMaybe, ResErr
+from llamazure.rbac.models import Req, ResMaybe, ResErr, Res
 
 
 class Graph:
@@ -36,6 +38,31 @@ class Graph:
 		res = codec.Decoder().decode(req, raw)
 		return res
 
+	def query_single(self, req: Req) -> ResMaybe:
+		"""Make a graph query for a single page"""
+		return self._exec_query(req)
+
+	def query_next(self, req: Req, previous: Res) -> ResMaybe:
+		"""Query the next page in a paginated query"""
+		# The @odata.nextLink contains the whole link, so we just call it without modifying params
+		raw = requests.get(
+			previous.odata["@odata.nextLink"],
+			headers={"Authorization": f"Bearer {self.token.token}"},
+		).json()
+		res = codec.Decoder().decode(req, raw)
+		return res
+
 	def query(self, req: Req) -> ResMaybe:
 		"""Make a graph query"""
-		return self._exec_query(req)
+		ress = []
+		res = self.query_single(req)
+		if isinstance(res, ResErr):
+			return res
+
+		ress.append(res)
+		while "@odata.nextLink" in res.odata:
+			res = self.query_next(req, res)
+			if isinstance(res, ResErr):
+				return res
+			ress.append(res)
+		return reduce(operator.add, ress)

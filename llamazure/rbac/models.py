@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import dataclasses
+from dataclasses import dataclass, field
 from typing import Any, Optional, Dict, Union
 
 
@@ -9,7 +10,8 @@ class Req:
 	"""Microsoft Graph request"""
 
 	query: str
-	top: Optional[int] = None
+
+	options: Dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -20,6 +22,11 @@ class Res:
 
 	odata: Dict[str, Any]
 	value: Any
+
+	def __add__(self, other):
+		if not isinstance(other, Res):
+			raise TypeError(type(other))
+		return dataclasses.replace(other, value=self.value + other.value)
 
 
 @dataclass(frozen=True)

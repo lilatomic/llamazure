@@ -9,12 +9,7 @@ class Encoder:
 	"""Encode Req for query params for Azure"""
 
 	def encode(self, req: Req):
-		params = {
-			"$top": req.top
-		}
-		params = {k: v for k, v in params.items() if v is not None}
-
-		return req.query, params
+		return req.query, req.options
 
 
 class Decoder:
