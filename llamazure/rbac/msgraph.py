@@ -3,6 +3,7 @@ from __future__ import annotations
 import requests
 
 from llamazure.rbac import codec
+from llamazure.rbac.models import Req
 
 
 class Graph:
@@ -21,12 +22,18 @@ class Graph:
 
 	def q(self, q: str):
 		"""Make a graph query"""
-		return self._exec_query(q)
+		return self._exec_query(Req(q))
 
-	def _exec_query(self, req):
+	def _exec_query(self, req: Req):
+		path, params = codec.Encoder().encode(req)
 		raw = requests.get(
-			f"https://graph.microsoft.com/v1.0/{req}",
-			headers={"Authorization": f"Bearer {self.token.token}"}
+			f"https://graph.microsoft.com/v1.0/{path}",
+			headers={"Authorization": f"Bearer {self.token.token}"},
+			params=params,
 		).json()
 		res = codec.Decoder().decode(req, raw)
 		return res
+
+	def query(self, req: Req):
+		"""Make a graph query"""
+		return self._exec_query(req)

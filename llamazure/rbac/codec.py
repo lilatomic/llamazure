@@ -1,20 +1,37 @@
 """Codec for serialising and deserialising for Azure"""
 
-import dataclasses
 from typing import Any, Dict
 
-from llamazure.rbac.models import Res
+from llamazure.rbac.models import Res, Req
+
+
+class Encoder:
+	"""Encode Req for query params for Azure"""
+
+	def encode(self, req: Req):
+		params = {
+			"$top": req.top
+		}
+		params = {k: v for k, v in params.items() if v is not None}
+
+		return req.query, params
 
 
 class Decoder:
 	"""Decode Res from JSON from Azure"""
 
-	def decode(self, req: str, o: Dict):
+	def decode(self, req: Req, o: Dict[str, Any]):
 		"""Decode Res from JSON from Azure"""
+		odata = {}
+		data = {}
+		for k,v in o.items():
+			if k.startswith("@odata"):
+				odata[k] = v
+			else:
+				data[k] = v
 
-		odata_context = o.pop("@odata.context")
 		return Res(
 			req=req,
-			odata_context=odata_context,
-			**o,
+			odata=odata,
+			**data,
 		)
