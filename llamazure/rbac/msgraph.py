@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import operator
 from functools import reduce
 from typing import Any, Union
@@ -10,13 +11,21 @@ from llamazure.rbac import codec
 from llamazure.rbac.models import Req, ResMaybe, ResErr, Res
 
 
+@dataclasses.dataclass
+class RetryPolicy:
+	"""Parameters and strategies for retrying Azure Resource Graph queries"""
+
+	retries: int = 0  # number of times to retry. This is in addition to the initial try
+
+
 class Graph:
 	"""
 	Access the Microsoft Graph
 	"""
 
-	def __init__(self, token):
+	def __init__(self, token, retry_policy: RetryPolicy = RetryPolicy()):
 		self.token = token
+		self.retry_policy = retry_policy
 
 	@classmethod
 	def from_credential(cls, credential) -> Graph:
@@ -40,7 +49,14 @@ class Graph:
 
 	def query_single(self, req: Req) -> ResMaybe:
 		"""Make a graph query for a single page"""
-		return self._exec_query(req)
+		res = self._exec_query(req)
+
+		if isinstance(res, ResErr):
+			retries = 0
+			while retries < self.retry_policy.retries and isinstance(res, ResErr):
+				retries += 1
+				res = self._exec_query(req)
+		return res
 
 	def query_next(self, req: Req, previous: Res) -> ResMaybe:
 		"""Query the next page in a paginated query"""
