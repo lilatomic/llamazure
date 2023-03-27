@@ -1,8 +1,8 @@
 """Codec for serialising and deserialising for Azure"""
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from llamazure.rbac.models import Res, Req
+from llamazure.rbac.models import Res, Req, ResMaybe, ResErr
 
 
 class Encoder:
@@ -20,8 +20,12 @@ class Encoder:
 class Decoder:
 	"""Decode Res from JSON from Azure"""
 
-	def decode(self, req: Req, o: Dict[str, Any]):
+	def decode(self, req: Req, o: Dict[str, Any]) -> ResMaybe:
 		"""Decode Res from JSON from Azure"""
+		error = self.deserialise_error(o.pop("error", None))
+		if error:
+			return error
+
 		odata = {}
 		data = {}
 		for k,v in o.items():
@@ -35,3 +39,9 @@ class Decoder:
 			odata=odata,
 			**data,
 		)
+
+	def deserialise_error(self, o: Optional[Dict[str, Any]]) -> Optional[ResErr]:
+		if o is None:
+			return None
+		inner_error = self.deserialise_error(o.pop("innererror", None))
+		return ResErr(o["code"], o["message"], inner_error)
