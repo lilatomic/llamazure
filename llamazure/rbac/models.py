@@ -1,8 +1,17 @@
 from __future__ import annotations
 
 import dataclasses
+from abc import ABC
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Union
+
+
+class MicrosoftGraphException(RuntimeError):
+	err: ResErr
+
+	def __init__(self, err: ResErr):
+		super().__init__("Error querying the Microsoft Graph")
+		self.err = err
 
 
 @dataclass(frozen=True)
@@ -40,5 +49,8 @@ class ResErr:
 	innerError: Optional[ResErr]
 	error_metadata: Optional[dict] = None  # the info crammed into the innerError field that is not actually an error
 
+
+	def exception(self) -> Exception:
+		return MicrosoftGraphException(self)
 
 ResMaybe = Union[Res, ResErr]
