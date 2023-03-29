@@ -26,3 +26,8 @@ class Groups:
 
 	def list(self, opts: QueryOpts = QueryOpts()):
 		return get_or_raise(self.g.query(Req("groups", options=opts)))
+
+	def list_with_members(self, opts: QueryOpts = QueryOpts()):
+		new_opts = dataclasses.replace(opts)
+		new_opts.expand.add("members")
+		return self.list(new_opts)
