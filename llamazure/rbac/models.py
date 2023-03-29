@@ -14,13 +14,31 @@ class MicrosoftGraphException(RuntimeError):
 		self.err = err
 
 
+@dataclass
+class QueryOpts:
+	"""
+	Options for querying the Microsoft Graph
+
+	https://learn.microsoft.com/en-us/graph/query-parameters?tabs=http
+	"""
+	count: Optional[str] = None
+	expand: set = field(default_factory=set)
+	filter: Optional[str] = None
+	format: Optional[str] = None
+	orderby: Optional[str] = None
+	search: Optional[str] = None
+	select: Optional[str] = None
+	skip: Optional[str] = None
+	top: Optional[str] = None
+
+
 @dataclass(frozen=True)
 class Req:
 	"""Microsoft Graph request"""
 
 	query: str
 
-	options: Dict = field(default_factory=dict)
+	options: QueryOpts = field(default_factory=QueryOpts)
 
 
 @dataclass(frozen=True)
@@ -49,8 +67,8 @@ class ResErr:
 	innerError: Optional[ResErr]
 	error_metadata: Optional[dict] = None  # the info crammed into the innerError field that is not actually an error
 
-
 	def exception(self) -> Exception:
 		return MicrosoftGraphException(self)
+
 
 ResMaybe = Union[Res, ResErr]

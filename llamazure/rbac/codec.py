@@ -1,15 +1,22 @@
 """Codec for serialising and deserialising for Azure"""
-
+import dataclasses
 from typing import Any, Dict, Optional, Union
 
-from llamazure.rbac.models import Req, Res, ResErr, ResMaybe
+from llamazure.rbac.models import QueryOpts, Req, Res, ResErr, ResMaybe
 
 
 class Encoder:
 	"""Encode Req for query params for Azure"""
 
 	def encode(self, req: Req):
-		return req.query, req.options
+		return req.query, self.encode_opts(req.options)
+
+	@staticmethod
+	def encode_opts(opts: QueryOpts) -> Dict:
+		params = {}
+		for k, v in dataclasses.asdict(opts).items():
+			params[f"${k}"] = v
+		return params
 
 
 class Decoder:

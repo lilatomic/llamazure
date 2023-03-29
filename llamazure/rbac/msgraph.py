@@ -43,8 +43,8 @@ class Graph:
 			url,
 			headers={"Authorization": f"Bearer {self.token.token}"},
 			params=params,
-		).json()
-		res = codec.Decoder().decode(req, raw)
+		)
+		res = codec.Decoder().decode(req, raw.json())
 		return res
 
 	def _exec_query(self, req: Req) -> ResMaybe:

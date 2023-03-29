@@ -1,6 +1,7 @@
-from typing import List, Any
+import dataclasses
+from typing import Any, List
 
-from llamazure.rbac.models import Req, ResMaybe, Res
+from llamazure.rbac.models import QueryOpts, Req, Res, ResMaybe
 from llamazure.rbac.msgraph import Graph
 
 
@@ -15,7 +16,7 @@ class Users:
 	def __init__(self, graph: Graph):
 		self.g = graph
 
-	def list(self, **opts) -> List:
+	def list(self, opts: QueryOpts = QueryOpts()) -> List:
 		return get_or_raise(self.g.query(Req("users", options=opts)))
 
 
@@ -23,5 +24,5 @@ class Groups:
 	def __init__(self, graph: Graph):
 		self.g = graph
 
-	def list(self, **opts):
+	def list(self, opts: QueryOpts = QueryOpts()):
 		return get_or_raise(self.g.query(Req("groups", options=opts)))
