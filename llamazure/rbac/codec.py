@@ -34,6 +34,7 @@ class Decoder:
 		return Res(
 			req=req,
 			odata=odata,
+			nextLink=odata.get("@odata.nextLink", None),
 			**data,
 		)
 

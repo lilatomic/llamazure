@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 import operator
+import urllib.parse
 from functools import reduce
-from typing import Any, Union
+from typing import Any, Dict, Optional, Union
 
 import requests
 
@@ -37,14 +38,22 @@ class Graph:
 		"""Make a graph query"""
 		return self._exec_query(Req(q))
 
-	def _exec_query(self, req: Req) -> ResMaybe:
-		path, params = codec.Encoder().encode(req)
+	def _make_http_request(self, req: Req, url: str, params: Optional[Dict] = None) -> ResMaybe:
 		raw = requests.get(
-			f"https://graph.microsoft.com/v1.0/{path}",
+			url,
 			headers={"Authorization": f"Bearer {self.token.token}"},
 			params=params,
 		).json()
 		res = codec.Decoder().decode(req, raw)
+		return res
+
+	def _exec_query(self, req: Req) -> ResMaybe:
+		path, params = codec.Encoder().encode(req)
+		if not urllib.parse.urlparse(req.query).netloc:
+			url = f"https://graph.microsoft.com/v1.0/{path}"
+		else:
+			url = path
+		res = self._make_http_request(req, url, params)
 		return res
 
 	def query_single(self, req: Req) -> ResMaybe:
@@ -60,12 +69,12 @@ class Graph:
 
 	def query_next(self, req: Req, previous: Res) -> ResMaybe:
 		"""Query the next page in a paginated query"""
+		if previous.nextLink is None:
+			raise StopIteration("nextLink is None, no more pages to iterage")
+
 		# The @odata.nextLink contains the whole link, so we just call it without modifying params
-		raw = requests.get(
-			previous.odata["@odata.nextLink"],
-			headers={"Authorization": f"Bearer {self.token.token}"},
-		).json()
-		res = codec.Decoder().decode(req, raw)
+		next_req = Req(previous.nextLink)
+		res = self.query_single(next_req)
 		return res
 
 	def query(self, req: Req) -> ResMaybe:
@@ -76,7 +85,7 @@ class Graph:
 			return res
 
 		ress.append(res)
-		while "@odata.nextLink" in res.odata:
+		while res.nextLink is not None:
 			res = self.query_next(req, res)
 			if isinstance(res, ResErr):
 				return res

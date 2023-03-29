@@ -15,6 +15,10 @@ pants_ignore = ["!cicd/secrets.yml"]
 
 [python]
 interpreter_constraints = ["CPython>=3.8"]
+enable_resolves = true
+
+[python.resolves]
+python-default = "cicd/python-default.lock"
 
 [pylint]
 config = ".pylintrc"

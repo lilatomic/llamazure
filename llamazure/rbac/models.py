@@ -23,6 +23,8 @@ class Res:
 	odata: Dict[str, Any]
 	value: Any
 
+	nextLink: Optional[str] = None
+
 	def __add__(self, other):
 		if not isinstance(other, Res):
 			raise TypeError(type(other))
