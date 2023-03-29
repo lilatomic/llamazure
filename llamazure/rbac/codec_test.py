@@ -1,5 +1,5 @@
 from llamazure.rbac import codec
-from llamazure.rbac.models import Req, ResErr, Res
+from llamazure.rbac.models import Req, Res, ResErr
 
 
 class TestEncoder:
@@ -8,7 +8,7 @@ class TestEncoder:
 	def test_encode(self):
 		req = Req("empty", options={"$top": 5})
 		enc = codec.Encoder().encode(req)
-		assert enc == req.query, req.options
+		assert enc == (req.query, req.options)
 
 
 class TestDecoder:
