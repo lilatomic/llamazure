@@ -9,7 +9,6 @@
 //     "CPython>=3.8"
 //   ],
 //   "generated_with_requirements": [
-//     "click!=8.1.*",
 //     "tan==22.12.1",
 //     "typing-extensions>=3.10.0.0"
 //   ],
@@ -33,13 +32,13 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "6a7a62563bbfabfda3a38f3023a1db4a35978c0abd76f6c9605ecd6554d6d9b1",
-              "url": "https://files.pythonhosted.org/packages/4a/a8/0b2ced25639fb20cc1c9784de90a8c25f9504a7f18cd8b5397bd61696d7d/click-8.0.4-py3-none-any.whl"
+              "hash": "bb4d8133cb15a609f44e8213d9b391b0809795062913b383c62be0ee95b1db48",
+              "url": "https://files.pythonhosted.org/packages/c2/f1/df59e28c642d583f7dacffb1e0965d0e00b218e0186d7858ac5233dce840/click-8.1.3-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
-              "hash": "8458d7b1287c5fb128c90e23381cf99dcde74beaf6c7ff6384ce84d6fe090adb",
-              "url": "https://files.pythonhosted.org/packages/dd/cf/706c1ad49ab26abed0b77a2f867984c1341ed7387b8030a6aa914e2942a0/click-8.0.4.tar.gz"
+              "hash": "7682dc8afb30297001674575ea00d1814d808d6a36af415a82bd481d37ba7b8e",
+              "url": "https://files.pythonhosted.org/packages/59/87/84326af34517fca8c58418d148f2403df25303e02736832403587318e9e8/click-8.1.3.tar.gz"
             }
           ],
           "project_name": "click",
@@ -47,8 +46,8 @@
             "colorama; platform_system == \"Windows\"",
             "importlib-metadata; python_version < \"3.8\""
           ],
-          "requires_python": ">=3.6",
-          "version": "8.0.4"
+          "requires_python": ">=3.7",
+          "version": "8.1.3"
         },
         {
           "artifacts": [
@@ -90,30 +89,30 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "ebe11c0d7a805086e99506aa331612429a72ca7cd52a1f0d277dc4adc20cb10e",
-              "url": "https://files.pythonhosted.org/packages/b2/f3/4fb5fae710fc9f22a42cd90dc0547da18ec83e2e139294ab94f04c449cf5/platformdirs-3.2.0-py3-none-any.whl"
+              "hash": "e2378146f1964972c03c085bb5662ae80b2b8c06226c54b2ff4aa9483e8a13a5",
+              "url": "https://files.pythonhosted.org/packages/89/7e/c6ff9ddcf93b9b36c90d88111c4db354afab7f9a58c7ac3257fa717f1268/platformdirs-3.5.1-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
-              "hash": "d5b638ca397f25f979350ff789db335903d7ea010ab28903f57b27e1b16c2b08",
-              "url": "https://files.pythonhosted.org/packages/15/04/3f882b46b454ab374ea75425c6f931e499150ec1385a73e55b3f45af615a/platformdirs-3.2.0.tar.gz"
+              "hash": "412dae91f52a6f84830f39a8078cecd0e866cb72294a5c66808e74d5e88d251f",
+              "url": "https://files.pythonhosted.org/packages/9c/0e/ae9ef1049d4b5697e79250c4b2e72796e4152228e67733389868229c92bb/platformdirs-3.5.1.tar.gz"
             }
           ],
           "project_name": "platformdirs",
           "requires_dists": [
             "appdirs==1.4.4; extra == \"test\"",
             "covdefaults>=2.3; extra == \"test\"",
-            "furo>=2022.12.7; extra == \"docs\"",
+            "furo>=2023.3.27; extra == \"docs\"",
             "proselint>=0.13; extra == \"docs\"",
             "pytest-cov>=4; extra == \"test\"",
             "pytest-mock>=3.10; extra == \"test\"",
-            "pytest>=7.2.2; extra == \"test\"",
-            "sphinx-autodoc-typehints!=1.23.4,>=1.22; extra == \"docs\"",
-            "sphinx>=6.1.3; extra == \"docs\"",
+            "pytest>=7.3.1; extra == \"test\"",
+            "sphinx-autodoc-typehints!=1.23.4,>=1.23; extra == \"docs\"",
+            "sphinx>=6.2.1; extra == \"docs\"",
             "typing-extensions>=4.5; python_version < \"3.8\""
           ],
           "requires_python": ">=3.7",
-          "version": "3.2.0"
+          "version": "3.5.1"
         },
         {
           "artifacts": [
@@ -187,11 +186,10 @@
     }
   ],
   "path_mappings": {},
-  "pex_version": "2.1.111",
+  "pex_version": "2.1.134",
   "pip_version": "20.3.4-patched",
   "prefer_older_binary": false,
   "requirements": [
-    "click!=8.1.*",
     "tan==22.12.1",
     "typing-extensions>=3.10.0.0"
   ],
