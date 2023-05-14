@@ -15,7 +15,8 @@ class Encoder:
 	def encode_opts(opts: QueryOpts) -> Dict:
 		params = {}
 		for k, v in dataclasses.asdict(opts).items():
-			params[f"${k}"] = v
+			if v:
+				params[f"${k}"] = v
 		return params
 
 
@@ -24,8 +25,6 @@ class Decoder:
 
 	def decode(self, req: Req, o: Dict[str, Any]) -> ResMaybe:
 		"""Decode Res from JSON from Azure"""
-		print(">>>>>>", o)
-
 		error = self.deserialise_error(o.pop("error", None))
 		if error:
 			return error

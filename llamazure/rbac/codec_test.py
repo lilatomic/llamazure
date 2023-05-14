@@ -1,14 +1,14 @@
 from llamazure.rbac import codec
-from llamazure.rbac.models import Req, Res, ResErr
+from llamazure.rbac.models import QueryOpts, Req, Res, ResErr
 
 
 class TestEncoder:
 	"""Test the Encoder"""
 
 	def test_encode(self):
-		req = Req("empty", options={"$top": 5})
+		req = Req("empty", options=QueryOpts(top=5))
 		enc = codec.Encoder().encode(req)
-		assert enc == (req.query, req.options)
+		assert enc == (req.query, {"$top": 5})
 
 
 class TestDecoder:

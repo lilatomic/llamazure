@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import dataclasses
-from abc import ABC
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Union
 
@@ -21,6 +20,7 @@ class QueryOpts:
 
 	https://learn.microsoft.com/en-us/graph/query-parameters?tabs=http
 	"""
+
 	count: Optional[str] = None
 	expand: set = field(default_factory=set)
 	filter: Optional[str] = None
@@ -29,7 +29,7 @@ class QueryOpts:
 	search: Optional[str] = None
 	select: Optional[str] = None
 	skip: Optional[str] = None
-	top: Optional[str] = None
+	top: Optional[int] = None
 
 
 @dataclass(frozen=True)

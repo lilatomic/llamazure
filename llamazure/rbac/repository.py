@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict
 
 from llamazure.rbac.resources import Groups, Users
 
+GroupsT = Dict
+UsersT = Dict
+
 
 class Repository:
-	def __init__(self, users: Dict, groups: Dict):
+	def __init__(self, users: Dict[str, UsersT], groups: Dict[str, GroupsT]):
 		self.users = users
 		self.groups = groups
 
@@ -20,7 +23,13 @@ class Repository:
 		repository = Repository.initialise(Users(graph), Groups(graph))
 		```
 		"""
+
+		keyed_users = {user["id"]: user for user in users.list_with_memberOf()}
+		keyed_groups = {group["id"]: group for group in groups.list_with_memberships()}
+
 		return cls(
-			{user["id"]: user for user in users.list()},
-			{group["id"]: group for group in groups.list_with_members()},
+			*(
+				keyed_users,
+				keyed_groups,
+			)
 		)
