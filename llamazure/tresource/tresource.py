@@ -93,7 +93,7 @@ class Node(INode[AzObj, T]):
 		"""
 		self.children[slug] = node
 
-	def add_child_resource(self, res: AzObj, data: T = None):
+	def add_child_resource(self, res: AzObj, data: Optional[T] = None):
 		"""Create a Node for a resource and add it as a child of this Node"""
 		self.children[res.slug()] = Node(res, data)
 
