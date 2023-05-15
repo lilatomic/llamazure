@@ -37,6 +37,9 @@ class Res:
 		# using `other` here ensures that we get the skipToken and other stuff more up-to-date
 		return dataclasses.replace(other, count=self.count + other.count, data=self.data + other.data)
 
+	def to_optional(self) -> Optional[Any]:
+		return self.data
+
 
 @dataclass(frozen=True)
 class ResErr:
@@ -45,6 +48,9 @@ class ResErr:
 	code: str
 	message: str
 	details: Tuple[ErrorDetails, ...]
+
+	def to_optional(self) -> Optional[Any]:
+		return None
 
 
 class ErrorDetails(TypedDict):
