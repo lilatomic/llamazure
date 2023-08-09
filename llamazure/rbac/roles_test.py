@@ -5,7 +5,8 @@ import pytest as pytest
 import yaml
 from azure.identity import ClientSecretCredential
 
-from llamazure.rbac.roles import AzRest, RoleDefs
+from llamazure.azrest.azrest import AzRest
+from llamazure.rbac.roles import RoleDefs
 
 
 @pytest.fixture
