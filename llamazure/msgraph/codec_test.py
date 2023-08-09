@@ -1,5 +1,5 @@
-from llamazure.rbac import codec
-from llamazure.rbac.models import QueryOpts, Req, Res, ResErr
+from llamazure.msgraph import codec
+from llamazure.msgraph.models import QueryOpts, Req, Res, ResErr
 
 
 class TestEncoder:

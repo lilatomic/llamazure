@@ -4,8 +4,8 @@
 
 from unittest.mock import Mock
 
-from llamazure.rbac.models import Req, Res, ResErr
-from llamazure.rbac.msgraph import Graph, RetryPolicy
+from llamazure.msgraph.models import Req, Res, ResErr
+from llamazure.msgraph.msgraph import Graph, RetryPolicy
 
 
 def null_graph(retry_policy: RetryPolicy) -> Graph:

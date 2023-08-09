@@ -2,8 +2,8 @@ import dataclasses
 from copy import copy
 from typing import Any, List
 
-from llamazure.rbac.models import QueryOpts, Req, Res, ResMaybe
-from llamazure.rbac.msgraph import Graph
+from llamazure.msgraph.models import QueryOpts, Req, Res, ResMaybe
+from llamazure.msgraph.msgraph import Graph
 
 
 def get_or_raise(res_maybe: ResMaybe) -> Any:

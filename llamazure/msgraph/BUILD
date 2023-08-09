@@ -1,5 +1,5 @@
 python_sources(
-	name="rbac",
+	name="msgraph",
 )
 
 python_tests(
@@ -7,13 +7,13 @@ python_tests(
 )
 
 python_distribution(
-	name="llamazure.rbac",
-	dependencies=[":rbac"],
-	long_description_path="llamazure/rbac/readme.md",
+	name="llamazure.rid",
+	dependencies=[":msgraph"],
+	long_description_path="llamazure/msgraph/readme.md",
 	provides=python_artifact(
-		name="llamazure.rbac",
+		name="llamazure.msgraph",
 		version="0.0.1",
-		description="Azure roles, users, and assignments",
+		description="Microsoft Graph client",
 		author="Daniel Goldman",
 		classifiers=[
 			"Development Status :: 3 - Alpha",

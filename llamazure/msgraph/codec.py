@@ -2,7 +2,7 @@
 import dataclasses
 from typing import Any, Dict, Optional, Union
 
-from llamazure.rbac.models import QueryOpts, Req, Res, ResErr, ResMaybe
+from llamazure.msgraph.models import QueryOpts, Req, Res, ResErr, ResMaybe
 
 
 class Encoder:
