@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from llamazure.azrest.azrest import AzRest
 
@@ -21,13 +21,14 @@ class Permission(BaseModel):
 class RoleDefinition(BaseModel):
 	class Properties(BaseModel):
 		roleName: str
+		type_: str = Field(alias="type")
 		description: str
 		permissions: List[Permission]
 		assignableScopes: List[str]
 
-	rid: str
+	rid: str = Field(alias="id")
 	name: str
-	type_: str
+	type_: str = Field(alias="type")
 	properties: Properties
 
 
@@ -46,11 +47,13 @@ class RoleDefinitions:
 
 	def Get(self, scope: str, roleDefinitionId: str):
 		slug = f"/{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}"
-		return self.azrest.get(slug, self.apiv)
+		ret = self.azrest.get(slug, self.apiv)
+		return RoleDefinition(**ret)
 
 	def GetById(self, roleId: str):
-		slug = f"/{roleId}?disambiguation_dummy"
-		return self.azrest.get(slug, self.apiv)
+		slug = f"{roleId}"
+		ret = self.azrest.get(slug, self.apiv)
+		return RoleDefinition(**ret)
 
 	def CreateOrUpdate(self, scope, roleDefinitionId: str, roleDefinition: RoleDefinition):
 		slug = f"/{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}"

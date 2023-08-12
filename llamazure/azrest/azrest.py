@@ -24,7 +24,7 @@ class AzRest:
 	def call(self, req: requests.Request) -> Any:
 		"""Make the request to Azure"""
 		req.headers["Authorization"] = f"Bearer {self.token.token}"  # TODO: push down into self.session
-		return self.session.send(req.prepare()).json()["value"]  # TODO: write yet another fun interface to Azure
+		return self.session.send(req.prepare()).json()  # TODO: write yet another fun interface to Azure
 
 	def get(self, slug: str, apiv: str) -> Any:
 		return self.call(requests.Request("GET", urljoin(self.base_url, slug), params={"api-version": apiv}))
