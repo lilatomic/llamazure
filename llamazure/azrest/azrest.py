@@ -4,6 +4,7 @@ from typing import Any
 from urllib.parse import urljoin
 
 import requests
+from pydantic import BaseModel
 
 
 class AzRest:
@@ -25,5 +26,11 @@ class AzRest:
 		req.headers["Authorization"] = f"Bearer {self.token.token}"  # TODO: push down into self.session
 		return self.session.send(req.prepare()).json()["value"]  # TODO: write yet another fun interface to Azure
 
-	def get(self, slug: str) -> Any:
-		return self.call(requests.Request("GET", urljoin(self.base_url, slug)))
+	def get(self, slug: str, apiv: str) -> Any:
+		return self.call(requests.Request("GET", urljoin(self.base_url, slug), params={"api-version": apiv}))
+
+	def delete(self, slug: str, apiv: str) -> Any:
+		return self.call(requests.Request("DELETE", urljoin(self.base_url, slug), params={"api-version": apiv}))
+
+	def put(self, slug: str, apiv: str, body: BaseModel) -> Any:
+		return self.call(requests.Request("PUT", urljoin(self.base_url, slug), params={"api-version": apiv}, json=body))
