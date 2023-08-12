@@ -12,23 +12,22 @@ RoleAsnT = Dict
 
 
 class Permission(BaseModel):
-	actions: List[str]
-	notActions: List[str]
-	dataActions: List[str]
-	notDataActions: List[str]
+	actions: List[str] = []
+	notActions: List[str] = []
+	dataActions: List[str] = []
+	notDataActions: List[str] = []
 
 
 class RoleDefinition(BaseModel):
 	class Properties(BaseModel):
 		roleName: str
-		type_: str = Field(alias="type")
+		type_: str = Field(alias="type", default="CustomRole")
 		description: str
 		permissions: List[Permission]
-		assignableScopes: List[str]
+		assignableScopes: List[str] = []
 
-	rid: str = Field(alias="id")
-	name: str
-	type_: str = Field(alias="type")
+	rid: str = Field(alias="id", default=None)
+	name: str = None
 	properties: Properties
 
 
