@@ -66,6 +66,67 @@ class AzRoleDefinitions:
 		return [RoleDefinition(**e) for e in ret["value"]]
 
 
+class RoleAssignment(BaseModel):
+	class Properties(BaseModel):
+		roleDefinitionId: str
+		principalId: str
+		principalType: str
+		scope: str
+	rid: str = Field(alias="id", default=None)
+	name: str = None
+	properties: Properties
+
+
+class AzRoleAssignments:
+	"""Interact with Azure RoleAssignments"""
+
+	provider_type = "Microsoft.Authorization/roleAssignments"
+	apiv = "2022-04-01"
+
+	def __init__(self, azrest: AzRest):
+		self.azrest = azrest
+
+	def ListForSubscription(self, subscriptionId: str) -> List[RoleAssignment]:
+		slug = f"subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleAssignments"
+		return [RoleAssignment(**e) for e in self.azrest.get(slug, self.apiv)["value"]]
+
+	def ListForResourceGroup(self, subscriptionId: str, resourceGroupName: str) -> List[RoleAssignment]:
+		slug = f"subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Authorization/roleAssignments"
+		return [RoleAssignment(**e) for e in self.azrest.get(slug, self.apiv)["value"]]
+
+	def ListForResource(self, subscriptionId: str, resourceGroupName: str, resourceProviderNamespace: str, resourceType: str, resourceName: str) -> List[RoleAssignment]:
+		slug = f"subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}/providers/Microsoft.Authorization/roleAssignments"
+		return [RoleAssignment(**e) for e in self.azrest.get(slug, self.apiv)["value"]]
+
+	def Get(self, scope: str, roleAssignmentName: str) -> RoleAssignment:
+		slug = f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}"
+		return RoleAssignment(**self.azrest.get(slug, self.apiv))
+
+	def Create(self, scope: str, roleAssignmentName: str, roleAssignment: RoleAssignment) -> RoleAssignment:
+		slug = f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}"
+		return RoleAssignment(**self.azrest.put(slug, self.apiv, roleAssignment))
+
+	def Delete(self, scope: str, roleAssignmentName: str):
+		slug = f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}"
+		return self.azrest.delete(slug, self.apiv)
+
+	def ListForScope(self, scope: str) -> List[RoleAssignment]:
+		slug = f"{scope}/providers/Microsoft.Authorization/roleAssignments"
+		return [RoleAssignment(**e) for e in self.azrest.get(slug, self.apiv)["value"]]
+
+	def GetById(self, roleAssignmentId: str) -> RoleAssignment:
+		slug = f"/{roleAssignmentId}"
+		return RoleAssignment(**self.azrest.get(slug, self.apiv))
+
+	def CreateById(self, roleAssignmentId: str, roleAssignment: RoleAssignment) -> RoleAssignment:
+		slug = f"/{roleAssignmentId}"
+		return RoleAssignment(**self.azrest.put(slug, self.apiv, roleAssignment))
+
+	def DeleteById(self, roleAssignmentId: str):
+		slug = f"/{roleAssignmentId}"
+		return self.azrest.delete(slug, self.apiv)
+
+
 class RoleDefinitions(AzRoleDefinitions):
 	"""More helpful role operations"""
 
@@ -105,7 +166,6 @@ class RoleDefinitions(AzRoleDefinitions):
 		"""Delete a RoleDefinition from all the places it exists"""
 
 		for scope in role.properties.assignableScopes:
-			print(f"delete {scope} {role}")
 			self.Delete(scope, role.name)
 
 	def delete_by_name(self, name: str):
@@ -116,3 +176,40 @@ class RoleDefinitions(AzRoleDefinitions):
 			return
 		self.delete(role)
 
+
+class RoleAssignments(AzRoleAssignments):
+
+	def list_for_role_at_scope(self, role_definition: RoleDefinition, scope: str) -> List[RoleAssignment]:
+		asns_at_scope = self.ListForScope(scope)
+		asns = [e for e in asns_at_scope if e.properties.roleDefinitionId == role_definition.rid]
+		return asns
+
+	def list_for_role(self, role_definition: RoleDefinition) -> List[RoleAssignment]:
+		"""Find assignments of a role at all scopes"""
+		asns = []
+		for scope in role_definition.properties.assignableScopes:
+			asns_at_scope = self.ListForScope(scope)
+			asns += [e for e in asns_at_scope if e.properties.roleDefinitionId == role_definition.rid]
+		return asns
+
+	def put(self, assignment: RoleAssignment.Properties) -> RoleAssignment:
+		"""Create or update a role assignment"""
+
+		existing = next((e for e in self.ListForScope(assignment.scope) if e.properties.roleDefinitionId == assignment.roleDefinitionId), None)
+		if existing:
+			target = existing.model_copy(update={"properties": assignment})
+		else:
+			name = str(uuid4())
+			target = RoleAssignment(name=name, properties=assignment)
+
+		res = self.Create(target.properties.scope, target.name, target)
+		return res
+
+	def remove_all_assignments(self, role_definition: RoleDefinition):
+		"""
+		Remove all assignments attached to a role.
+		Useful for running before deleting a role
+		"""
+		asns = self.list_for_role(role_definition)
+		for asn in asns:
+			self.DeleteById(asn.rid)
