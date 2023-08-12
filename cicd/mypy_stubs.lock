@@ -32,31 +32,31 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "5aed5aa66bd2d2e158f75dda22b059570ede988559f030cf294871d3b647e3e8",
-              "url": "https://files.pythonhosted.org/packages/88/93/a98be346729157d9f085fd68e58fcbba823188829ac8488a9d7f12614e53/types_PyYAML-6.0.12.9-py3-none-any.whl"
+              "hash": "a461508f3096d1d5810ec5ab95d7eeecb651f3a15b71959999988942063bf01d",
+              "url": "https://files.pythonhosted.org/packages/da/14/7ee3c82b073aa56ba51a7c61e1c37045171fde3d7e60a6e2b1763bdb455c/types_PyYAML-6.0.12.11-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
-              "hash": "c51b1bd6d99ddf0aa2884a7a328810ebf70a4262c292195d3f4f9a0005f9eeb6",
-              "url": "https://files.pythonhosted.org/packages/05/6f/f19081de5ba81864f89e354560a60637822f7d6d54d9a2a907785e9b5cc4/types-PyYAML-6.0.12.9.tar.gz"
+              "hash": "7d340b19ca28cddfdba438ee638cd4084bde213e501a3978738543e27094775b",
+              "url": "https://files.pythonhosted.org/packages/04/c0/7358cce7f79f1b369ebbe57da67d5f538ea81ce5b9c97093121bfc973f09/types-PyYAML-6.0.12.11.tar.gz"
             }
           ],
           "project_name": "types-pyyaml",
           "requires_dists": [],
           "requires_python": null,
-          "version": "6.0.12.9"
+          "version": "6.0.12.11"
         },
         {
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "c6cf08e120ca9f0dc4fa4e32c3f953c3fba222bcc1db6b97695bce8da1ba9864",
-              "url": "https://files.pythonhosted.org/packages/fa/c7/024171d587afe75934a6f779922d24fcc6dd468e947c74598eb17840e229/types_requests-2.30.0.0-py3-none-any.whl"
+              "hash": "56d181c85b5925cbc59f4489a57e72a8b2166f18273fd8ba7b6fe0c0b986f12a",
+              "url": "https://files.pythonhosted.org/packages/06/9b/04bb62f11a6824df5d4568439cf0715118c265d0ffbebeb7cf4b8c9caa15/types_requests-2.31.0.2-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
-              "hash": "dec781054324a70ba64430ae9e62e7e9c8e4618c185a5cb3f87a6738251b5a31",
-              "url": "https://files.pythonhosted.org/packages/3b/a7/7d6dab83a48eff91ff75e21b2aaefd7419a29d5b1b1b8025d4a78ade0017/types-requests-2.30.0.0.tar.gz"
+              "hash": "6aa3f7faf0ea52d728bb18c0a0d1522d9bfd8c72d26ff6f61bfc3d06a411cf40",
+              "url": "https://files.pythonhosted.org/packages/44/70/60c1e24806a2cd1b64867a15a1100e5ad6423c8ce250ebc04dd519162487/types-requests-2.31.0.2.tar.gz"
             }
           ],
           "project_name": "types-requests",
@@ -64,32 +64,32 @@
             "types-urllib3"
           ],
           "requires_python": null,
-          "version": "2.30.0.0"
+          "version": "2.31.0.2"
         },
         {
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "5dbd1d2bef14efee43f5318b5d36d805a489f6600252bb53626d4bfafd95e27c",
-              "url": "https://files.pythonhosted.org/packages/08/6d/98b51f9776747e1e270919aa02298ce6a7d2d4d78a3349b47666deb61c4c/types_urllib3-1.26.25.13-py3-none-any.whl"
+              "hash": "9683bbb7fb72e32bfe9d2be6e04875fbe1b3eeec3cbb4ea231435aa7fd6b4f0e",
+              "url": "https://files.pythonhosted.org/packages/11/7b/3fc711b2efea5e85a7a0bbfe269ea944aa767bbba5ec52f9ee45d362ccf3/types_urllib3-1.26.25.14-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
-              "hash": "3300538c9dc11dad32eae4827ac313f5d986b8b21494801f1bf97a1ac6c03ae5",
-              "url": "https://files.pythonhosted.org/packages/27/2a/cb418a2a03a31b8e0daea5e13edcc4ef1408ebb457f2cc833f1c3f30a0fa/types-urllib3-1.26.25.13.tar.gz"
+              "hash": "229b7f577c951b8c1b92c1bc2b2fdb0b49847bd2af6d1cc2a2e3dd340f3bda8f",
+              "url": "https://files.pythonhosted.org/packages/73/de/b9d7a68ad39092368fb21dd6194b362b98a1daeea5dcfef5e1adb5031c7e/types-urllib3-1.26.25.14.tar.gz"
             }
           ],
           "project_name": "types-urllib3",
           "requires_dists": [],
           "requires_python": null,
-          "version": "1.26.25.13"
+          "version": "1.26.25.14"
         }
       ],
       "platform_tag": null
     }
   ],
   "path_mappings": {},
-  "pex_version": "2.1.134",
+  "pex_version": "2.1.137",
   "pip_version": "20.3.4-patched",
   "prefer_older_binary": false,
   "requirements": [
