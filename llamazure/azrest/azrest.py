@@ -32,11 +32,11 @@ class AzRest:
 		if not res.ok:
 			raise AzureError(res.json())
 
-		return res.json()
+		return res
 
 	def get(self, slug: str, apiv: str) -> Any:
 		"""GET request"""
-		return self.call(requests.Request("GET", self.base_url + slug, params={"api-version": apiv}))
+		return self.call(requests.Request("GET", self.base_url + slug, params={"api-version": apiv})).json()
 
 	def delete(self, slug: str, apiv: str) -> Any:
 		"""DELETE request"""
@@ -44,4 +44,4 @@ class AzRest:
 
 	def put(self, slug: str, apiv: str, body: BaseModel) -> Any:
 		"""PUT request, serialising the body"""
-		return self.call(requests.Request("PUT", self.base_url + slug, params={"api-version": apiv}, data=body.model_dump_json(), headers={"Content-Type": "application/json"}))
+		return self.call(requests.Request("PUT", self.base_url + slug, params={"api-version": apiv}, data=body.model_dump_json(), headers={"Content-Type": "application/json"})).json()

@@ -1,7 +1,6 @@
 """Azure Role Definitions and Assignments"""
 from __future__ import annotations
 
-from functools import cached_property
 from typing import Dict, List
 from uuid import uuid4
 
@@ -68,19 +67,24 @@ class AzRoleDefinitions:
 
 
 class RoleDefinitions(AzRoleDefinitions):
-	@cached_property
-	def cached(self) -> List[RoleDefinition]:
-		return self.List("")
+	"""More helpful role operations"""
 
-	@cached_property
-	def by_name(self):
-		return {e.properties.roleName: e for e in self.cached}
+	def by_name(self, scope: str):
+		return {e.properties.roleName: e for e in self.List(scope)}
 
-	def get_by_name(self, name: str) -> RoleDefinition:
-		return self.by_name[name]
+	def list_all_custom(self):
+		"""Custom roles may not appear at the root level if they aren't defined there unless you use a custom filter"""
+		slug = "/providers/Microsoft.Authorization/roleDefinitions?$filter=type+eq+\'CustomRole\'"
+		ret = self.azrest.get(slug, self.apiv)
+		return [RoleDefinition(**e) for e in ret["value"]]
+
+	def get_by_name(self, name: str, scope: str = "/") -> RoleDefinition:
+		return self.by_name(scope)[name]
 
 	def put(self, role: RoleDefinition.Properties, scope: str = "/") -> RoleDefinition:
-		existing_role: RoleDefinition = self.by_name.get(role.roleName, None)
+		"""Create or update a RoleDefinition, handling all the edge cases"""
+
+		existing_role: RoleDefinition = self.by_name(scope).get(role.roleName, None)
 		if existing_role:
 			target_role = existing_role.model_copy(update={"properties": role})
 			# copy assignable scopes
@@ -94,4 +98,21 @@ class RoleDefinitions(AzRoleDefinitions):
 		if scope not in target_role.properties.assignableScopes:
 			target_role.properties.assignableScopes.append(scope)
 
-		return self.CreateOrUpdate(scope, target_role.name, target_role)
+		res = self.CreateOrUpdate(scope, target_role.name, target_role)
+		return res
+
+	def delete(self, role: RoleDefinition):
+		"""Delete a RoleDefinition from all the places it exists"""
+
+		for scope in role.properties.assignableScopes:
+			print(f"delete {scope} {role}")
+			self.Delete(scope, role.name)
+
+	def delete_by_name(self, name: str):
+		"""Delete a RoleDefinition by name from all the places it exists"""
+
+		role = next((e for e in self.list_all_custom() if e.properties.roleName == name), None)
+		if not role:
+			return
+		self.delete(role)
+
