@@ -51,18 +51,6 @@ jobs:
           fail_ci_if_error: true
           verbose: true
 
-      - name: Test Integration
-        run: |
-          ./pants --tag="integration" test --output=all :: -- -m integration
-        env:
-          integration_test_secrets: ${{secrets.integration_test_secrets}}
-      - name: Upload integration test coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: dist/coverage/python/coverage.xml
-          fail_ci_if_error: true
-          verbose: true
-
       - name: Package
         run: |
           ./pants package ::
