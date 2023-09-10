@@ -1,3 +1,4 @@
+"""Access the Azure HTTP API"""
 from __future__ import annotations
 
 from typing import Any
@@ -7,11 +8,15 @@ from pydantic import BaseModel
 
 
 class AzureError(Exception):
+	"""An Azure-specific error"""
+
 	def __init__(self, json):
 		self.json = json
 
 
 class AzRest:
+	"""Access the Azure HTTP API"""
+
 	def __init__(self, token, session: requests.Session, base_url: str = "https://management.azure.com"):
 		self.token = token
 		self.session = session
@@ -44,4 +49,6 @@ class AzRest:
 
 	def put(self, slug: str, apiv: str, body: BaseModel) -> Any:
 		"""PUT request, serialising the body"""
-		return self.call(requests.Request("PUT", self.base_url + slug, params={"api-version": apiv}, data=body.model_dump_json(), headers={"Content-Type": "application/json"})).json()
+		return self.call(
+			requests.Request("PUT", self.base_url + slug, params={"api-version": apiv}, data=body.model_dump_json(), headers={"Content-Type": "application/json"})
+		).json()

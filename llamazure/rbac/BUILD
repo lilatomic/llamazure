@@ -6,6 +6,16 @@ python_tests(
 	name="tests",
 )
 
+python_tests(
+	name="integration-tests",
+	sources=["integration_test.py"],
+	tags=["integration"],
+)
+
+python_test_utils(
+    name="test_utils",
+)
+
 python_distribution(
 	name="llamazure.rbac",
 	dependencies=[":rbac"],

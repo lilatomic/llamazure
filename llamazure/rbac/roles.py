@@ -28,7 +28,7 @@ class RoleDefinition(BaseModel):
 		assignableScopes: List[str] = []
 
 	rid: str = Field(alias="id", default=None)
-	name: str = None
+	name: str
 	properties: Properties
 
 
@@ -72,8 +72,9 @@ class RoleAssignment(BaseModel):
 		principalId: str
 		principalType: str
 		scope: str
+
 	rid: str = Field(alias="id", default=None)
-	name: str = None
+	name: str
 	properties: Properties
 
 
@@ -135,7 +136,7 @@ class RoleDefinitions(AzRoleDefinitions):
 
 	def list_all_custom(self):
 		"""Custom roles may not appear at the root level if they aren't defined there unless you use a custom filter"""
-		slug = "/providers/Microsoft.Authorization/roleDefinitions?$filter=type+eq+\'CustomRole\'"
+		slug = "/providers/Microsoft.Authorization/roleDefinitions?$filter=type+eq+'CustomRole'"
 		ret = self.azrest.get(slug, self.apiv)
 		return [RoleDefinition(**e) for e in ret["value"]]
 
@@ -178,7 +179,6 @@ class RoleDefinitions(AzRoleDefinitions):
 
 
 class RoleAssignments(AzRoleAssignments):
-
 	def list_for_role_at_scope(self, role_definition: RoleDefinition, scope: str) -> List[RoleAssignment]:
 		asns_at_scope = self.ListForScope(scope)
 		asns = [e for e in asns_at_scope if e.properties.roleDefinitionId == role_definition.rid]
