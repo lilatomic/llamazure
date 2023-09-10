@@ -17,6 +17,10 @@ def print_output(name: str, output: Any):
 class TestRoles:
 	"""Test combined aspects of roles"""
 
+	def test_nothing(self):
+		"""Prevent collection problems for partitions"""
+
+	@pytest.mark.integration
 	def test_initialises(self, rds: RoleDefinitions, ras: RoleAssignments):
 		"""Test that thing initialise"""
 		pass
