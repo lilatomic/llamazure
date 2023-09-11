@@ -224,6 +224,25 @@ class RoleAssignments(AzRoleAssignments):
 			asns += [e for e in asns_at_scope if e.properties.roleDefinitionId.lower() == rid_at_scope.rid]
 		return asns
 
+	def assign(self, principalId: str, principalType: str, role_name: str, scope: str) -> RoleAssignment:
+		# we need to search everywhere because the role might exist but not in our subscription yet
+		role = self._role_definitions.get_by_name(role_name)
+
+		# we might need to update the assignable scopes
+		if scope not in role.properties.assignableScopes:
+			role = self._role_definitions.put(
+				role.properties.model_copy(update={"assignableScopes": [scope, *role.properties.assignableScopes]}),
+				scope=role.properties.assignableScopes[0],  # we take one of the existing assignable scopes. They all work
+			)
+
+		assignment = RoleAssignment.Properties(
+			roleDefinitionId=self._role_definitions.rescope(role, scope).rid,
+			principalId=principalId,
+			principalType=principalType,
+			scope=scope,
+		)
+		return self.put(assignment)
+
 	def put(self, assignment: RoleAssignment.Properties) -> RoleAssignment:
 		"""Create or update a role assignment"""
 
@@ -245,3 +264,21 @@ class RoleAssignments(AzRoleAssignments):
 		asns = self.list_for_role(role_definition)
 		for asn in asns:
 			self.DeleteById(asn.rid)
+
+
+class RoleOps:
+	def __init__(self, azrest: AzRest):
+		self.ras = RoleAssignments(azrest)
+		self.rds = RoleDefinitions(azrest)
+
+	def delete_role(self, role: RoleDefinition):
+		self.ras.remove_all_assignments(role)
+		self.rds.delete(role)
+
+	def delete_by_name(self, role_name: str):
+		try:
+			role = self.rds.get_by_name(role_name)
+			self.delete_role(role)
+		except KeyError:
+			# already gone
+			pass

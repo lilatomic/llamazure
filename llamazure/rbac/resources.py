@@ -17,6 +17,9 @@ class Users:
 	def __init__(self, graph: Graph):
 		self.g = graph
 
+	def current(self):
+		return get_or_raise(self.g.query(Req("me", options=QueryOpts(expand={"memberOf"}))))
+
 	def list(self, opts: QueryOpts = QueryOpts()) -> List:
 		return get_or_raise(self.g.query(Req("users", options=opts)))
 

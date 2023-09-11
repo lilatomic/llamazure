@@ -70,3 +70,56 @@ class TestRoles:
 		ras.DeleteById(asn.rid)
 
 		rds.delete_by_name(role.properties.roleName)
+
+	@pytest.mark.integration
+	def test_assign(self, rds: RoleDefinitions, ras: RoleAssignments, role_ops: RoleOps, me, scopes):
+		role_name = "llamazure-rbac-asn"
+		retry(lambda: role_ops.delete_by_name(role_name), AzureError)
+
+		sub0, sub1 = scopes["sub0"], scopes["sub1"]
+
+		role = rds.put(
+			RoleDefinition.Properties(
+				roleName="llamazure-rbac-asn",
+				description="test finding assignments",
+				permissions=[Permission(actions=["Microsoft.Authorization/*/read"])],
+			),
+			scope=sub0,
+		)
+		assert role
+		assert role.rid.startswith(sub0)
+
+		def mk_asn(scope):
+			return dict(role_name=role.properties.roleName, principalId=me["id"], principalType="User", scope=scope)
+
+		# Check assigning the roles and finding them
+		def assert_assigned_on_sub0():
+			ras.assign(**mk_asn(sub0)), {AzureError, KeyError}
+			assignments = ras.list_for_role(role)
+			assert len(assignments) == 1
+			assert assignments[0].properties.scope == sub0
+
+		retry(assert_assigned_on_sub0, {AssertionError})
+
+		def assert_assigned_on_sub1():
+			ras.assign(**mk_asn(sub1)), {AzureError, KeyError}
+			role = rds.get_by_name(role_name)
+			assignments = ras.list_for_role(role)
+			assert len(assignments) == 2
+			assert any(asn.properties.scope == sub1 for asn in assignments)
+			return assignments
+
+		retry(assert_assigned_on_sub1, {AssertionError, AzureError, KeyError})
+
+		def exercise_listing_at_scope():
+			role = rds.get_by_name(role_name)
+			assignments_on_sub1 = ras.list_for_role_at_scope(role, sub1)
+			assert len(assignments_on_sub1) == 1
+
+		retry(exercise_listing_at_scope, {AssertionError, AzureError})
+
+		# check removing assignments
+		ras.remove_all_assignments(role)
+
+		# cleanup
+		rds.delete(role)
