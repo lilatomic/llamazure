@@ -1,7 +1,5 @@
 """Integration tests for roles"""
-import itertools
 import os
-from time import sleep
 from typing import Any
 
 import pytest
@@ -29,7 +27,6 @@ class TestRoles:
 	@pytest.mark.integration
 	def test_initialises(self, rds: RoleDefinitions, ras: RoleAssignments):
 		"""Test that thing initialise"""
-		pass
 
 	@pytest.mark.integration
 	def test_all(self, rds: RoleDefinitions, ras: RoleAssignments, role_ops: RoleOps, scopes):

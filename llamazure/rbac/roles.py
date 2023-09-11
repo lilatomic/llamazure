@@ -225,6 +225,7 @@ class RoleAssignments(AzRoleAssignments):
 		return asns
 
 	def assign(self, principalId: str, principalType: str, role_name: str, scope: str) -> RoleAssignment:
+		"""Just grant a Principal a Role at a Scope, the way you always wanted"""
 		# we need to search everywhere because the role might exist but not in our subscription yet
 		role = self._role_definitions.get_by_name(role_name)
 
@@ -267,15 +268,19 @@ class RoleAssignments(AzRoleAssignments):
 
 
 class RoleOps:
+	"""The most helpful operations, roles and role assignments working together"""
+
 	def __init__(self, azrest: AzRest):
 		self.ras = RoleAssignments(azrest)
 		self.rds = RoleDefinitions(azrest)
 
 	def delete_role(self, role: RoleDefinition):
+		"""Delete a role properly by removing its assignments beforehand"""
 		self.ras.remove_all_assignments(role)
 		self.rds.delete(role)
 
 	def delete_by_name(self, role_name: str):
+		"""Delete a role by name properly by removing its assignments beforehand"""
 		try:
 			role = self.rds.get_by_name(role_name)
 			self.delete_role(role)

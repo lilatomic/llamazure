@@ -1,9 +1,8 @@
 """Conftest"""
-import itertools
 import os
 import shutil
 from time import sleep
-from typing import Callable, List, Set, Type, TypeVar, Union
+from typing import Callable, Set, Type, TypeVar, Union
 
 import pytest
 import yaml
@@ -73,10 +72,12 @@ def retry(
 	if isinstance(catching, type) and issubclass(catching, Exception):
 		catching = {catching}
 
-	for i in itertools.count():
+	i = 0
+	while True:
+		i += 1
 		try:
 			return fn()
 		except Exception as e:
-			if type(e) not in catching or i >= attempts - 1:
+			if type(e) not in catching or i >= attempts:
 				raise e
 			sleep(1)

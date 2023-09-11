@@ -1,3 +1,4 @@
+"""OpenAPI explorer for Azure"""
 from __future__ import annotations
 
 import itertools
@@ -15,6 +16,7 @@ class Reader:
 
 	@classmethod
 	def load(cls, fp) -> Reader:
+		"""Load from a path or file-like object"""
 		if isinstance(fp, (str, Path)):
 			with open(fp, mode="r", encoding="utf-8") as fp:
 				return Reader(json.load(fp))
@@ -23,10 +25,12 @@ class Reader:
 
 	@property
 	def paths(self):
+		"""Get API paths (standard and ms xtended)"""
 		return list(itertools.chain(self.doc["paths"].items(), self.doc.get("x-ms-paths", {}).items()))
 
 
 def operations(path_object: dict):
+	"""Extract operations from an OpenAPI Path object"""
 	return {k: v for k, v in path_object.items() if k in {"get", "put", "post", "delete", "options", "head", "patch", "trace"}}
 
 

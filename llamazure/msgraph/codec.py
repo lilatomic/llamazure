@@ -38,7 +38,7 @@ class Decoder:
 				data[k] = v
 
 		# if the query should return an entity, we lift the properties
-		if odata.get("@odata.context").endswith("$entity"):
+		if odata.get("@odata.context", "").endswith("$entity"):
 			return Res(
 				req=req,
 				odata=odata,
