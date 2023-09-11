@@ -34,7 +34,9 @@ class TestMPParse:
 
 	@given(st_resource_base)
 	def test_simple_resource(self, res: rid.Resource):
+		assume(res.sub is not None)
 		assume(res.rg is not None)
+		assert res.sub is not None
 		assert res.rg is not None
 
 		res_id = Path(rid.serialise(res))
@@ -51,7 +53,10 @@ class TestMPParse:
 
 	@given(st_resource_base)
 	def test_resource_no_rg(self, res: rid.Resource):
+		assume(res.sub is not None)
 		res = dataclasses.replace(res, rg=None)
+		assert res.sub is not None
+		assert res.rg is None
 
 		res_id = Path(rid.serialise(res))
 		mp = parse(res_id)
@@ -67,7 +72,9 @@ class TestMPParse:
 
 	@given(st_resource_complex)
 	def test_complex_resource(self, res: Union[rid.Resource, rid.SubResource]):
+		assume(res.sub is not None)
 		assume(res.rg is not None)
+		assert res.sub is not None
 		assert res.rg is not None
 
 		res_id = Path(rid.serialise(res))
