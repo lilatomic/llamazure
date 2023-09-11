@@ -51,7 +51,7 @@ class Resource(AzObj):
 	res_type: str
 	name: str
 	rg: Optional[ResourceGroup]
-	sub: Subscription
+	sub: Optional[Subscription]
 	parent: Optional[Union[Resource, SubResource]] = None
 
 	def slug(self) -> str:
@@ -65,7 +65,7 @@ class SubResource(AzObj):
 	res_type: str
 	name: str
 	rg: Optional[ResourceGroup]
-	sub: Subscription
+	sub: Optional[Subscription]
 	parent: Optional[Union[Resource, SubResource]] = None
 
 	def slug(self) -> str:
@@ -89,11 +89,12 @@ def parse_gen(rid: str) -> Generator[AzObj, None, None]:
 
 	try:
 		_ = next(parts)  # escape leading `/`
-		if next(parts) == "subscriptions":
+		if parts.peek() == "subscriptions":
+			_ = next(parts)
 			subscription = Subscription(next(parts))
 			yield subscription
 		else:
-			return
+			subscription = None
 
 		if parts.peek() == "resourcegroups":
 			_ = next(parts)
@@ -132,7 +133,7 @@ def serialise(obj: AzObj) -> str:
 	return str(serialise_p(obj))
 
 
-def serialise_p(obj: AzObj) -> PurePosixPath:
+def serialise_p(obj: Optional[AzObj]) -> PurePosixPath:
 	"""Turn an AzObj back into its resource ID as a pathlib.Path"""
 	if isinstance(obj, Subscription):
 		return PurePosixPath("/subscriptions") / obj.uuid
@@ -142,6 +143,8 @@ def serialise_p(obj: AzObj) -> PurePosixPath:
 		return serialise_p(obj.parent or obj.rg or obj.sub) / "providers" / obj.provider / obj.res_type / obj.name
 	if isinstance(obj, SubResource):
 		return serialise_p(obj.parent or obj.rg or obj.sub) / obj.res_type / obj.name
+	if obj is None:
+		return PurePosixPath("/")
 	else:
 		raise TypeError(f"expected valid subclass of AzObj, found {type(obj)}")
 
