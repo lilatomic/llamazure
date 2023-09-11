@@ -94,15 +94,15 @@ class TestRoles:
 
 		# Check assigning the roles and finding them
 		def assert_assigned_on_sub0():
-			ras.assign(**mk_asn(sub0)), {AzureError, KeyError}
+			ras.assign(**mk_asn(sub0))
 			assignments = ras.list_for_role(role)
 			assert len(assignments) == 1
 			assert assignments[0].properties.scope == sub0
 
-		retry(assert_assigned_on_sub0, {AssertionError})
+		retry(assert_assigned_on_sub0, {AssertionError, AzureError, KeyError})
 
 		def assert_assigned_on_sub1():
-			ras.assign(**mk_asn(sub1)), {AzureError, KeyError}
+			ras.assign(**mk_asn(sub1))
 			role = rds.get_by_name(role_name)
 			assignments = ras.list_for_role(role)
 			assert len(assignments) == 2
@@ -122,4 +122,4 @@ class TestRoles:
 		ras.remove_all_assignments(role)
 
 		# cleanup
-		rds.delete(role)
+		role_ops.delete_by_name(role_name)

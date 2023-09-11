@@ -153,7 +153,7 @@ class RoleDefinitions(AzRoleDefinitions):
 
 	@staticmethod
 	def by_name(roles: List[RoleDefinition]):
-		return {e.properties.roleName: e for e in roles}
+		return {e.properties.roleName.lower(): e for e in roles}
 
 	def list_all_custom(self):
 		"""Custom roles may not appear at the root level if they aren't defined there unless you use a custom filter"""
