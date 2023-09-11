@@ -93,15 +93,17 @@ def parse_gen(rid: str) -> Generator[AzObj, None, None]:
 			_ = next(parts)
 			subscription = Subscription(next(parts))
 			yield subscription
+
+			# RGs must exist inside of subscriptions
+			if parts.peek() == "resourcegroups":
+				_ = next(parts)
+				rg = ResourceGroup(next(parts), subscription)
+				yield rg
+			else:
+				rg = None  # There are subscription-level resources, like locks
 		else:
 			subscription = None
-
-		if parts.peek() == "resourcegroups":
-			_ = next(parts)
-			rg = ResourceGroup(next(parts), subscription)
-			yield rg
-		else:
-			rg = None  # There are subscription-level resources, like locks
+			rg = None
 
 		parent: Optional[Union[Resource, SubResource]] = None
 		parsed_resource: Union[Resource, SubResource]
@@ -165,8 +167,11 @@ def get_chain(obj: AzObj) -> Sequence[AzObj]:
 			o.append(current)
 			current = current.parent
 		if obj.rg:
-			return (obj.sub, obj.rg, *reversed(o))
-		else:
+			# safe because all RGs exist in a sub
+			return (obj.rg.sub, obj.rg, *reversed(o))
+		elif obj.sub:
 			return (obj.sub, *reversed(o))
+		else:
+			return tuple(reversed(o))
 	else:
 		raise TypeError(f"Expected known subclass of AzObj, got {type(obj)}")
