@@ -1,12 +1,14 @@
 """Azure Role Definitions and Assignments"""
 from __future__ import annotations
 
-from typing import Dict, List
+import dataclasses
+from typing import Dict, List, cast
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 from llamazure.azrest.azrest import AzRest
+from llamazure.rid import rid
 
 RoleDefT = Dict
 RoleAsnT = Dict
@@ -131,8 +133,27 @@ class AzRoleAssignments:
 class RoleDefinitions(AzRoleDefinitions):
 	"""More helpful role operations"""
 
-	def by_name(self, scope: str):
-		return {e.properties.roleName: e for e in self.List(scope)}
+	@staticmethod
+	def rescope(role: RoleDefinition, scope: str):
+		"""Rescope a role for the target scope"""
+		role_obj = cast(rid.Resource, rid.parse(role.rid))
+
+		# Get the first segment of the path.
+		# This is enough to tell us if we're in a subscription (the subscription or a resource in it)
+		# or if we're targeting a management group
+		target = next(rid.parse_gen(scope))
+		if isinstance(target, rid.Subscription):
+			# change select the version of the role in the subscription by setting its sub value
+			role_obj_for_taget_scope = dataclasses.replace(role_obj, sub=target)
+		else:
+			# use the version of the role with no subscription
+			role_obj_for_taget_scope = dataclasses.replace(role_obj, sub=None)
+		new_rid = rid.serialise(role_obj_for_taget_scope)
+		return role.model_copy(update={"rid": new_rid})
+
+	@staticmethod
+	def by_name(roles: List[RoleDefinition]):
+		return {e.properties.roleName: e for e in roles}
 
 	def list_all_custom(self):
 		"""Custom roles may not appear at the root level if they aren't defined there unless you use a custom filter"""
@@ -140,13 +161,18 @@ class RoleDefinitions(AzRoleDefinitions):
 		ret = self.azrest.get(slug, self.apiv)
 		return [RoleDefinition(**e) for e in ret["value"]]
 
-	def get_by_name(self, name: str, scope: str = "/") -> RoleDefinition:
-		return self.by_name(scope)[name]
+	def get_by_name(self, name: str) -> RoleDefinition:
+		return self.by_name(self.list_all())[name]
+
+	def list_all(self) -> List[RoleDefinition]:
+		"""Find any type of role anywhere"""
+		return [*self.list_all_custom(), *self.List("/")]
 
 	def put(self, role: RoleDefinition.Properties, scope: str = "/") -> RoleDefinition:
 		"""Create or update a RoleDefinition, handling all the edge cases"""
 
-		existing_role: RoleDefinition = self.by_name(scope).get(role.roleName, None)
+		# we search for all custom roles in case it exists but not at our desired scope
+		existing_role: RoleDefinition = self.by_name(self.list_all_custom()).get(role.roleName, None)
 		if existing_role:
 			target_role = existing_role.model_copy(update={"properties": role})
 			# copy assignable scopes

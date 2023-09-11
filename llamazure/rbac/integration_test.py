@@ -1,10 +1,14 @@
 """Integration tests for roles"""
+import itertools
 import os
+from time import sleep
 from typing import Any
 
 import pytest
 
 from llamazure.rbac.roles import Permission, RoleAssignment, RoleAssignments, RoleDefinition, RoleDefinitions
+
+attempts = 5
 
 
 def print_output(name: str, output: Any):
@@ -29,6 +33,9 @@ class TestRoles:
 	def test_all(self, rds: RoleDefinitions, ras: RoleAssignments, scopes):
 		"""Test a whole cycle of things"""
 
+		# try to purge role
+		rds.delete_by_name("llamazure-rbac")
+
 		scope = scopes["sub0"]
 		scope_other = scopes["sub1"]
 
@@ -41,9 +48,18 @@ class TestRoles:
 			),
 			scope=scope,
 		)
-		role = rds.get_by_name("llamazure-rbac", scope)
-		assert role
-		assert role == response
+		for i in itertools.count():
+			try:
+				role = rds.get_by_name("llamazure-rbac")
+				assert role
+				# compare the properties because that's what matters and `get_by_name` gives the root scope
+				assert role.properties == response.properties
+				break
+			except KeyError as e:
+				if i >= attempts:
+					raise e
+				print("sleep")
+				sleep(1)
 
 		asn = ras.put(RoleAssignment.Properties(roleDefinitionId=role.rid, principalId="094238bf-5cf8-412e-8773-8e2a39c45616", principalType="User", scope=scope))
 		assert asn
