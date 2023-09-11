@@ -205,17 +205,23 @@ class RoleDefinitions(AzRoleDefinitions):
 
 
 class RoleAssignments(AzRoleAssignments):
+	def __init__(self, azrest: AzRest):
+		self._role_definitions = RoleDefinitions(azrest)
+		super().__init__(azrest)
+
 	def list_for_role_at_scope(self, role_definition: RoleDefinition, scope: str) -> List[RoleAssignment]:
+		rid_at_scope = self._role_definitions.rescope(role_definition, scope)
 		asns_at_scope = self.ListForScope(scope)
-		asns = [e for e in asns_at_scope if e.properties.roleDefinitionId == role_definition.rid]
+		asns = [e for e in asns_at_scope if e.properties.roleDefinitionId.lower() == rid_at_scope.rid]
 		return asns
 
 	def list_for_role(self, role_definition: RoleDefinition) -> List[RoleAssignment]:
 		"""Find assignments of a role at all scopes"""
 		asns = []
 		for scope in role_definition.properties.assignableScopes:
+			rid_at_scope = self._role_definitions.rescope(role_definition, scope)
 			asns_at_scope = self.ListForScope(scope)
-			asns += [e for e in asns_at_scope if e.properties.roleDefinitionId == role_definition.rid]
+			asns += [e for e in asns_at_scope if e.properties.roleDefinitionId.lower() == rid_at_scope.rid]
 		return asns
 
 	def put(self, assignment: RoleAssignment.Properties) -> RoleAssignment:
