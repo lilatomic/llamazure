@@ -37,12 +37,21 @@ class Decoder:
 			else:
 				data[k] = v
 
-		return Res(
-			req=req,
-			odata=odata,
-			nextLink=odata.get("@odata.nextLink", None),
-			**data,
-		)
+		# if the query should return an entity, we lift the properties
+		if odata.get("@odata.context").endswith("$entity"):
+			return Res(
+				req=req,
+				odata=odata,
+				nextLink=odata.get("@odata.nextLink", None),
+				value=data,
+			)
+		else:
+			return Res(
+				req=req,
+				odata=odata,
+				nextLink=odata.get("@odata.nextLink", None),
+				**data,
+			)
 
 	def deserialise_error(self, o: Optional[Dict[str, Any]]) -> Optional[ResErr]:
 		if o is None:
