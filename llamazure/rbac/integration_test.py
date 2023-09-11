@@ -6,7 +6,9 @@ from typing import Any
 
 import pytest
 
-from llamazure.rbac.roles import Permission, RoleAssignment, RoleAssignments, RoleDefinition, RoleDefinitions
+from llamazure.azrest.azrest import AzureError
+from llamazure.rbac.conftest import retry
+from llamazure.rbac.roles import Permission, RoleAssignment, RoleAssignments, RoleDefinition, RoleDefinitions, RoleOps
 
 attempts = 5
 
@@ -30,11 +32,11 @@ class TestRoles:
 		pass
 
 	@pytest.mark.integration
-	def test_all(self, rds: RoleDefinitions, ras: RoleAssignments, scopes):
+	def test_all(self, rds: RoleDefinitions, ras: RoleAssignments, role_ops: RoleOps, scopes):
 		"""Test a whole cycle of things"""
 
 		# try to purge role
-		rds.delete_by_name("llamazure-rbac")
+		retry(lambda: role_ops.delete_by_name("llamazure-rbac"), AzureError)
 
 		scope = scopes["sub0"]
 		scope_other = scopes["sub1"]
@@ -48,21 +50,23 @@ class TestRoles:
 			),
 			scope=scope,
 		)
-		for i in itertools.count():
-			try:
-				role = rds.get_by_name("llamazure-rbac")
-				assert role
-				# compare the properties because that's what matters and `get_by_name` gives the root scope
-				assert role.properties == response.properties
-				break
-			except KeyError as e:
-				if i >= attempts:
-					raise e
-				print("sleep")
-				sleep(1)
 
-		asn = ras.put(RoleAssignment.Properties(roleDefinitionId=role.rid, principalId="094238bf-5cf8-412e-8773-8e2a39c45616", principalType="User", scope=scope))
-		assert asn
+		def assert_role_created():
+			role = rds.get_by_name("llamazure-rbac")
+			assert role
+			# compare the properties because that's what matters and `get_by_name` gives the root scope
+			assert role.properties == response.properties
+			return role
+
+		role = retry(assert_role_created, {KeyError})
+
+		def assert_role_assigned():
+			asn = ras.put(RoleAssignment.Properties(roleDefinitionId=role.rid, principalId="094238bf-5cf8-412e-8773-8e2a39c45616", principalType="User", scope=scope))
+			assert asn
+			return asn
+
+		asn = retry(assert_role_assigned, AzureError)
+
 		ras.DeleteById(asn.rid)
 
 		rds.delete_by_name(role.properties.roleName)

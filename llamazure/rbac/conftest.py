@@ -1,13 +1,18 @@
 """Conftest"""
+import itertools
 import os
 import shutil
+from time import sleep
+from typing import Callable, List, Set, Type, TypeVar, Union
 
 import pytest
 import yaml
 from azure.identity import AzureCliCredential, ClientSecretCredential
 
 from llamazure.azrest.azrest import AzRest
-from llamazure.rbac.roles import RoleAssignments, RoleDefinitions
+from llamazure.msgraph.msgraph import Graph
+from llamazure.rbac.resources import Users
+from llamazure.rbac.roles import RoleAssignments, RoleDefinitions, RoleOps
 
 
 @pytest.fixture
@@ -36,3 +41,42 @@ def rds(credential) -> RoleDefinitions:
 def ras(credential) -> RoleAssignments:
 	"""Fixture: RoleAssignments"""
 	return RoleAssignments(AzRest.from_credential(credential))
+
+
+@pytest.fixture
+def role_ops(credential) -> RoleOps:
+	"""Fixture: RoleOps"""
+	return RoleOps(AzRest.from_credential(credential))
+
+
+@pytest.fixture
+def users(credential) -> Users:
+	"""Fixture: Users"""
+	return Users(Graph.from_credential(credential))
+
+
+@pytest.fixture
+def me(users):
+	"""Fixture: the current user"""
+	return users.current()
+
+
+T = TypeVar("T")
+
+
+def retry(
+	fn: Callable[[], T],
+	catching: Union[Type[Exception], Set[Type[Exception]]],
+	attempts=20,
+) -> T:
+	"""Retry a function catching specific exceptions. Useful for waiting for changes to propagate in Azure"""
+	if isinstance(catching, type) and issubclass(catching, Exception):
+		catching = {catching}
+
+	for i in itertools.count():
+		try:
+			return fn()
+		except Exception as e:
+			if type(e) not in catching or i >= attempts - 1:
+				raise e
+			sleep(1)
