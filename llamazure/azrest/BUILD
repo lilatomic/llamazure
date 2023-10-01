@@ -1,5 +1,5 @@
 python_sources(
-	name="msgraph",
+	name="azrest",
 )
 
 python_tests(
