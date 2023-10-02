@@ -9,7 +9,6 @@
 //     "CPython>=3.8"
 //   ],
 //   "generated_with_requirements": [
-//     "click!=8.1.*",
 //     "tan==22.12.1",
 //     "typing-extensions>=3.10.0.0"
 //   ],
@@ -33,13 +32,13 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "6a7a62563bbfabfda3a38f3023a1db4a35978c0abd76f6c9605ecd6554d6d9b1",
-              "url": "https://files.pythonhosted.org/packages/4a/a8/0b2ced25639fb20cc1c9784de90a8c25f9504a7f18cd8b5397bd61696d7d/click-8.0.4-py3-none-any.whl"
+              "hash": "fa244bb30b3b5ee2cae3da8f55c9e5e0c0e86093306301fb418eb9dc40fbded5",
+              "url": "https://files.pythonhosted.org/packages/1a/70/e63223f8116931d365993d4a6b7ef653a4d920b41d03de7c59499962821f/click-8.1.6-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
-              "hash": "8458d7b1287c5fb128c90e23381cf99dcde74beaf6c7ff6384ce84d6fe090adb",
-              "url": "https://files.pythonhosted.org/packages/dd/cf/706c1ad49ab26abed0b77a2f867984c1341ed7387b8030a6aa914e2942a0/click-8.0.4.tar.gz"
+              "hash": "48ee849951919527a045bfe3bf7baa8a959c423134e1a5b98c05c20ba75a1cbd",
+              "url": "https://files.pythonhosted.org/packages/72/bd/fedc277e7351917b6c4e0ac751853a97af261278a4c7808babafa8ef2120/click-8.1.6.tar.gz"
             }
           ],
           "project_name": "click",
@@ -47,8 +46,8 @@
             "colorama; platform_system == \"Windows\"",
             "importlib-metadata; python_version < \"3.8\""
           ],
-          "requires_python": ">=3.6",
-          "version": "8.0.4"
+          "requires_python": ">=3.7",
+          "version": "8.1.6"
         },
         {
           "artifacts": [
@@ -72,48 +71,48 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "d8af70af76652554bd134c22b3e8a1cc46ed7d91edcdd721ef1a0c51a84a5293",
-              "url": "https://files.pythonhosted.org/packages/be/c8/551a803a6ebb174ec1c124e68b449b98a0961f0b737def601e3c1fbb4cfd/pathspec-0.11.1-py3-none-any.whl"
+              "hash": "1d6ed233af05e679efb96b1851550ea95bbb64b7c490b0f5aa52996c11e92a20",
+              "url": "https://files.pythonhosted.org/packages/b4/2a/9b1be29146139ef459188f5e420a66e835dda921208db600b7037093891f/pathspec-0.11.2-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
-              "hash": "2798de800fa92780e33acca925945e9a19a133b715067cf165b8866c15a31687",
-              "url": "https://files.pythonhosted.org/packages/95/60/d93628975242cc515ab2b8f5b2fc831d8be2eff32f5a1be4776d49305d13/pathspec-0.11.1.tar.gz"
+              "hash": "e0d8d0ac2f12da61956eb2306b69f9469b42f4deb0f3cb6ed47b9cce9996ced3",
+              "url": "https://files.pythonhosted.org/packages/a0/2a/bd167cdf116d4f3539caaa4c332752aac0b3a0cc0174cdb302ee68933e81/pathspec-0.11.2.tar.gz"
             }
           ],
           "project_name": "pathspec",
           "requires_dists": [],
           "requires_python": ">=3.7",
-          "version": "0.11.1"
+          "version": "0.11.2"
         },
         {
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "ebe11c0d7a805086e99506aa331612429a72ca7cd52a1f0d277dc4adc20cb10e",
-              "url": "https://files.pythonhosted.org/packages/b2/f3/4fb5fae710fc9f22a42cd90dc0547da18ec83e2e139294ab94f04c449cf5/platformdirs-3.2.0-py3-none-any.whl"
+              "hash": "d7c24979f292f916dc9cbf8648319032f551ea8c49a4c9bf2fb556a02070ec1d",
+              "url": "https://files.pythonhosted.org/packages/14/51/fe5a0d6ea589f0d4a1b97824fb518962ad48b27cd346dcdfa2405187997a/platformdirs-3.10.0-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
-              "hash": "d5b638ca397f25f979350ff789db335903d7ea010ab28903f57b27e1b16c2b08",
-              "url": "https://files.pythonhosted.org/packages/15/04/3f882b46b454ab374ea75425c6f931e499150ec1385a73e55b3f45af615a/platformdirs-3.2.0.tar.gz"
+              "hash": "b45696dab2d7cc691a3226759c0d3b00c47c8b6e293d96f6436f733303f77f6d",
+              "url": "https://files.pythonhosted.org/packages/dc/99/c922839819f5d00d78b3a1057b5ceee3123c69b2216e776ddcb5a4c265ff/platformdirs-3.10.0.tar.gz"
             }
           ],
           "project_name": "platformdirs",
           "requires_dists": [
             "appdirs==1.4.4; extra == \"test\"",
             "covdefaults>=2.3; extra == \"test\"",
-            "furo>=2022.12.7; extra == \"docs\"",
+            "furo>=2023.7.26; extra == \"docs\"",
             "proselint>=0.13; extra == \"docs\"",
-            "pytest-cov>=4; extra == \"test\"",
-            "pytest-mock>=3.10; extra == \"test\"",
-            "pytest>=7.2.2; extra == \"test\"",
-            "sphinx-autodoc-typehints!=1.23.4,>=1.22; extra == \"docs\"",
-            "sphinx>=6.1.3; extra == \"docs\"",
-            "typing-extensions>=4.5; python_version < \"3.8\""
+            "pytest-cov>=4.1; extra == \"test\"",
+            "pytest-mock>=3.11.1; extra == \"test\"",
+            "pytest>=7.4; extra == \"test\"",
+            "sphinx-autodoc-typehints>=1.24; extra == \"docs\"",
+            "sphinx>=7.1.1; extra == \"docs\"",
+            "typing-extensions>=4.7.1; python_version < \"3.8\""
           ],
           "requires_python": ">=3.7",
-          "version": "3.2.0"
+          "version": "3.10.0"
         },
         {
           "artifacts": [
@@ -168,30 +167,29 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "fb33085c39dd998ac16d1431ebc293a8b3eedd00fd4a32de0ff79002c19511b4",
-              "url": "https://files.pythonhosted.org/packages/31/25/5abcd82372d3d4a3932e1fa8c3dbf9efac10cc7c0d16e78467460571b404/typing_extensions-4.5.0-py3-none-any.whl"
+              "hash": "440d5dd3af93b060174bf433bccd69b0babc3b15b1a8dca43789fd7f61514b36",
+              "url": "https://files.pythonhosted.org/packages/ec/6b/63cc3df74987c36fe26157ee12e09e8f9db4de771e0f3404263117e75b95/typing_extensions-4.7.1-py3-none-any.whl"
             },
             {
               "algorithm": "sha256",
-              "hash": "5cb5f4a79139d699607b3ef622a1dedafa84e115ab0024e0d9c044a9479ca7cb",
-              "url": "https://files.pythonhosted.org/packages/d3/20/06270dac7316220643c32ae61694e451c98f8caf4c8eab3aa80a2bedf0df/typing_extensions-4.5.0.tar.gz"
+              "hash": "b75ddc264f0ba5615db7ba217daeb99701ad295353c45f9e95963337ceeeffb2",
+              "url": "https://files.pythonhosted.org/packages/3c/8b/0111dd7d6c1478bf83baa1cab85c686426c7a6274119aceb2bd9d35395ad/typing_extensions-4.7.1.tar.gz"
             }
           ],
           "project_name": "typing-extensions",
           "requires_dists": [],
           "requires_python": ">=3.7",
-          "version": "4.5.0"
+          "version": "4.7.1"
         }
       ],
       "platform_tag": null
     }
   ],
   "path_mappings": {},
-  "pex_version": "2.1.111",
+  "pex_version": "2.1.137",
   "pip_version": "20.3.4-patched",
   "prefer_older_binary": false,
   "requirements": [
-    "click!=8.1.*",
     "tan==22.12.1",
     "typing-extensions>=3.10.0.0"
   ],

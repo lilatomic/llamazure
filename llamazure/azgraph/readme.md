@@ -58,4 +58,3 @@ res0 = g.query_single(req)
 res1 = g.query_next(req, res0)
 res2 = g.query_next(req, res1)
 ```
-

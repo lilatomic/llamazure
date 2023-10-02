@@ -100,6 +100,7 @@ class TestRIDPathological:
 		[
 			"/subscriptions/<>/resourcegroups/<>/providers/microsoft.operationalinsights/workspaces/<>/linkedservices/security",
 			"/subscriptions/<>/resourcegroups/<>/providers/microsoft.storage/storageaccounts/<>/providers/microsoft.security/advancedthreatprotectionsettings/current",
+			"/providers/microsoft.authorization/roledefinitions/<>",  # If you list custom roles at scope "/" they don't have a subscription
 		],
 	)
 	def test_pathological(self, rid):

@@ -1,5 +1,5 @@
 python_sources(
-	name="azgraph",
+	name="rbac",
 )
 
 python_tests(
@@ -13,21 +13,25 @@ python_tests(
 	tags=["integration"],
 )
 
+python_test_utils(
+	name="test_utils",
+)
+
 python_distribution(
-	name="llamazure.azgraph",
-	repositories=["@llamazure.azgraph"],
-	dependencies=[":azgraph"],
-	long_description_path="llamazure/azgraph/readme.md",
+	name="llamazure.rbac",
+	dependencies=[":rbac"],
+	long_description_path="llamazure/rbac/readme.md",
 	provides=python_artifact(
-		name="llamazure.azgraph",
-		version="0.0.2",
-		description="Azure Resources Graph client",
+		name="llamazure.rbac",
+		version="0.0.1",
+		description="Azure roles, users, and assignments",
 		author="Daniel Goldman",
 		classifiers=[
 			"Development Status :: 3 - Alpha",
 			"Programming Language :: Python :: 3.8",
 			"Programming Language :: Python :: 3.9",
 			"Programming Language :: Python :: 3.10",
+			"Programming Language :: Python :: 3.11",
 			"Topic :: Utilities",
 			"Topic :: Internet :: Log Analysis",
 		],

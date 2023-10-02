@@ -1,25 +1,26 @@
-"""Tests for the Azure Resource Graph"""
+"""Tests for the Microsoft Graph"""
 # pylint: disable=redefined-outer-name
 # pylint: disable=protected-access
+
 from unittest.mock import Mock
 
-from llamazure.azgraph.azgraph import Graph, RetryPolicy
-from llamazure.azgraph.models import Req, Res, ResErr
+from llamazure.msgraph.models import Req, Res, ResErr
+from llamazure.msgraph.msgraph import Graph, RetryPolicy
 
 
 def null_graph(retry_policy: RetryPolicy) -> Graph:
 	"""Shim Graph instance"""
-	return Graph(None, ("00000000-0000-0000-0000-000000000000",), retry_policy)
+	return Graph(Mock(), retry_policy)
 
 
 class TestRetries:
 	"""Test retries on non-paginated queries"""
 
 	normal_retry_policy = RetryPolicy(retries=5)
-	empty_req = Req("", tuple("00000000-0000-0000-0000-000000000000"))
+	empty_req = Req("")
 
-	failed_res = ResErr("BadThings", "Bad things happened", ({"code": "BadThings", "message": "Bad things happened"},))
-	successful_res = Res(empty_req, 10, 10, resultTruncated=None, facets=tuple(), data=[])
+	failed_res = ResErr("", "", None, {})
+	successful_res = Res(empty_req, odata={}, value=[])
 
 	def test_successful_query(self):
 		"""Test that a successful query does not trigger a retry"""
@@ -32,7 +33,6 @@ class TestRetries:
 		g._exec_query.assert_called_once()
 
 	def test_one_error(self):
-		"""Test that a successful query does not trigger a retry"""
 		g = null_graph(self.normal_retry_policy)
 		g._exec_query = Mock(side_effect=[self.failed_res, self.successful_res])
 
@@ -67,40 +67,38 @@ class TestPaginated:
 
 	normal_retry_policy = RetryPolicy(retries=1)
 
-	empty_req = Req("", tuple("00000000-0000-0000-0000-000000000000"))
-	res_pagination_cont = Res(empty_req, 2, 1, resultTruncated=None, facets=tuple(), data=["0"], skipToken="continued")
-	res_pagination_end = Res(empty_req, 2, 1, resultTruncated=None, facets=tuple(), data=["1"])
+	empty_req = Req("")
+	res_pagination_cont = Res(empty_req, {}, [0], nextLink="my_next_link")
+	res_pagination_end = Res(empty_req, {}, [1], nextLink=None)
 
-	failed_res = ResErr("BadThings", "Bad things happened", ({"code": "BadThings", "message": "Bad things happened"},))
+	failed_res = ResErr("", "", None, {})
 
 	def test_paginated_aggregates_res(self):
 		"""Test that pagination requests more data"""
 		g = null_graph(self.normal_retry_policy)
-		g._exec_query = Mock(side_effect=[self.res_pagination_cont, self.res_pagination_end])
+		g._make_http_request = Mock(side_effect=[self.res_pagination_cont, self.res_pagination_end])
 
 		res = g.query(self.empty_req)
 
 		assert isinstance(res, Res)
-		assert len(res.data) == 2
-		assert res.count == 2
+		assert len(res.value) == 2
 
 	def test_retry_within_pagination(self):
 		"""Test that a failure inside of pagination retries that request"""
 		g = null_graph(self.normal_retry_policy)
-		g._exec_query = Mock(side_effect=[self.res_pagination_cont, self.failed_res, self.res_pagination_end])
+		g._make_http_request = Mock(side_effect=[self.res_pagination_cont, self.failed_res, self.res_pagination_end])
 
 		res = g.query(self.empty_req)
 
 		assert isinstance(res, Res)
-		assert len(res.data) == 2
-		assert res.count == 2
+		assert len(res.value) == 2
 
 	def test_failure_within_pagination(self):
 		"""Test that a failure exceeding retries causes the failure to be propagated"""
 		g = null_graph(self.normal_retry_policy)
-		g._exec_query = Mock(side_effect=[self.res_pagination_cont] * 2 + [self.failed_res] * 4 + [self.res_pagination_end])
+		g._make_http_request = Mock(side_effect=[self.res_pagination_cont] * 2 + [self.failed_res] * 4 + [self.res_pagination_end])
 
 		res = g.query(self.empty_req)
 
 		assert isinstance(res, ResErr)
-		assert g._exec_query.call_count == 3 + self.normal_retry_policy.retries
+		assert g._make_http_request.call_count == 3 + self.normal_retry_policy.retries

@@ -1,33 +1,26 @@
 python_sources(
-	name="azgraph",
+	name="azrest",
 )
 
 python_tests(
 	name="tests",
-	sources=["*_test.py", "!integration*"],
-)
-
-python_tests(
-	name="integration-tests",
-	sources=["integration_test.py"],
-	tags=["integration"],
 )
 
 python_distribution(
-	name="llamazure.azgraph",
-	repositories=["@llamazure.azgraph"],
-	dependencies=[":azgraph"],
-	long_description_path="llamazure/azgraph/readme.md",
+	name="llamazure.rid",
+	dependencies=[":azrest"],
+	long_description_path="llamazure/azrest/readme.md",
 	provides=python_artifact(
-		name="llamazure.azgraph",
-		version="0.0.2",
-		description="Azure Resources Graph client",
+		name="llamazure.azrest",
+		version="0.0.1",
+		description="Azure REST client",
 		author="Daniel Goldman",
 		classifiers=[
 			"Development Status :: 3 - Alpha",
 			"Programming Language :: Python :: 3.8",
 			"Programming Language :: Python :: 3.9",
 			"Programming Language :: Python :: 3.10",
+			"Programming Language :: Python :: 3.11",
 			"Topic :: Utilities",
 			"Topic :: Internet :: Log Analysis",
 		],

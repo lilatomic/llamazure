@@ -34,4 +34,3 @@ ignore_missing_imports = true
 markers = [
     "integration: integration tests",
 ]
-addopts = "-m 'not integration'"

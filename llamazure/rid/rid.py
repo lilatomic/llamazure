@@ -51,7 +51,7 @@ class Resource(AzObj):
 	res_type: str
 	name: str
 	rg: Optional[ResourceGroup]
-	sub: Subscription
+	sub: Optional[Subscription]
 	parent: Optional[Union[Resource, SubResource]] = None
 
 	def slug(self) -> str:
@@ -65,7 +65,7 @@ class SubResource(AzObj):
 	res_type: str
 	name: str
 	rg: Optional[ResourceGroup]
-	sub: Subscription
+	sub: Optional[Subscription]
 	parent: Optional[Union[Resource, SubResource]] = None
 
 	def slug(self) -> str:
@@ -89,18 +89,21 @@ def parse_gen(rid: str) -> Generator[AzObj, None, None]:
 
 	try:
 		_ = next(parts)  # escape leading `/`
-		if next(parts) == "subscriptions":
+		if parts.peek() == "subscriptions":
+			_ = next(parts)
 			subscription = Subscription(next(parts))
 			yield subscription
-		else:
-			return
 
-		if parts.peek() == "resourcegroups":
-			_ = next(parts)
-			rg = ResourceGroup(next(parts), subscription)
-			yield rg
+			# RGs must exist inside of subscriptions
+			if parts.peek() == "resourcegroups":
+				_ = next(parts)
+				rg = ResourceGroup(next(parts), subscription)
+				yield rg
+			else:
+				rg = None  # There are subscription-level resources, like locks
 		else:
-			rg = None  # There are subscription-level resources, like locks
+			subscription = None
+			rg = None
 
 		parent: Optional[Union[Resource, SubResource]] = None
 		parsed_resource: Union[Resource, SubResource]
@@ -132,7 +135,7 @@ def serialise(obj: AzObj) -> str:
 	return str(serialise_p(obj))
 
 
-def serialise_p(obj: AzObj) -> PurePosixPath:
+def serialise_p(obj: Optional[AzObj]) -> PurePosixPath:
 	"""Turn an AzObj back into its resource ID as a pathlib.Path"""
 	if isinstance(obj, Subscription):
 		return PurePosixPath("/subscriptions") / obj.uuid
@@ -142,6 +145,8 @@ def serialise_p(obj: AzObj) -> PurePosixPath:
 		return serialise_p(obj.parent or obj.rg or obj.sub) / "providers" / obj.provider / obj.res_type / obj.name
 	if isinstance(obj, SubResource):
 		return serialise_p(obj.parent or obj.rg or obj.sub) / obj.res_type / obj.name
+	if obj is None:
+		return PurePosixPath("/")
 	else:
 		raise TypeError(f"expected valid subclass of AzObj, found {type(obj)}")
 
@@ -162,8 +167,11 @@ def get_chain(obj: AzObj) -> Sequence[AzObj]:
 			o.append(current)
 			current = current.parent
 		if obj.rg:
-			return (obj.sub, obj.rg, *reversed(o))
-		else:
+			# safe because all RGs exist in a sub
+			return (obj.rg.sub, obj.rg, *reversed(o))
+		elif obj.sub:
 			return (obj.sub, *reversed(o))
+		else:
+			return tuple(reversed(o))
 	else:
 		raise TypeError(f"Expected known subclass of AzObj, got {type(obj)}")
