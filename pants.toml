@@ -43,6 +43,7 @@ report = ["xml", "html"]
 
 [mypy]
 install_from_resolve = "mypy"
+requirements = ["//:mypy"]
 interpreter_constraints = ["CPython>=3.8"]
 
 [anonymous-telemetry]
