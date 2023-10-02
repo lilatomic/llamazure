@@ -124,24 +124,29 @@ class TestRoles:
 
 
 class TestUsersAndGroups:
+	@pytest.mark.integration
 	def test_list_users(self, users: Users):
 		me = users.current()
 		all_users = users.list()
 		assert me["id"] in {e["id"] for e in all_users}, "did not find self in all users"
 
+	@pytest.mark.integration
 	def test_list_users_with_groups(self, users: Users, me):
 		users_with_groups = users.list_with_memberOf()
 		me = next(e for e in users_with_groups if e["id"] == me["id"])
 		assert me["memberOf"]
 
+	@pytest.mark.integration
 	def test_list_groups(self, groups: Groups):
 		all_groups = groups.list()
 		assert all_groups
 
+	@pytest.mark.integration
 	def test_list_groups_with_members(self, groups: Groups):
 		all_groups_with_members = groups.list_with_memberships()
 		assert any("transitiveMembers" in g for g in all_groups_with_members)
 
+	@pytest.mark.integration
 	def test_list_memberships_complete(self, users: Users, groups: Groups):
 		all_users = users.list_with_memberOf()
 		all_groups = {g["id"]: g for g in groups.list_with_memberships()}
