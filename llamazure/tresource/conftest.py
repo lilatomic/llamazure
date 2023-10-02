@@ -2,6 +2,7 @@
 import abc
 from typing import FrozenSet, Generic, List, Set, Type, Union
 
+import hypothesis
 from hypothesis import given
 from hypothesis.strategies import lists
 
@@ -9,6 +10,9 @@ from llamazure.rid import rid
 from llamazure.rid.conftest import st_resource_base, st_resource_complex, st_rg, st_subscription
 from llamazure.rid.rid import Resource, ResourceGroup, SubResource
 from llamazure.tresource.itresource import AzObjT, DataT, ITresource, ITresourceData, ObjReprT, ObjT
+
+hypothesis.settings.register_profile("default", suppress_health_check=(hypothesis.HealthCheck.differing_executors,))
+hypothesis.settings.load_profile("default")
 
 
 class TreeImplSpec(Generic[AzObjT, ObjT, ObjReprT], abc.ABC):
