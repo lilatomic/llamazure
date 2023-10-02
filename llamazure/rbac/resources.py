@@ -43,7 +43,7 @@ class Groups:
 		transitive_members = self.list(dataclasses.replace(opts, expand={"transitiveMembers"}))
 		transitive_memberOfs = self.list(dataclasses.replace(opts, expand={"transitiveMemberOf"}))
 
-		keyed_transitive_memberOfs = {v["id"]: v for v in transitive_memberOfs["transitiveMemberOf"]}
+		keyed_transitive_memberOfs = {v["id"]: v for v in transitive_memberOfs}
 
 		# I think there's minimal risk in assuming these 2 are bijective
 		out = {}
@@ -51,4 +51,4 @@ class Groups:
 			i["transitiveMemberOf"] = keyed_transitive_memberOfs[i["id"]]
 			out[i["id"]] = i
 
-		return out
+		return list(out.values())

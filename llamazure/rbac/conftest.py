@@ -10,7 +10,7 @@ from azure.identity import AzureCliCredential, ClientSecretCredential
 
 from llamazure.azrest.azrest import AzRest
 from llamazure.msgraph.msgraph import Graph
-from llamazure.rbac.resources import Users
+from llamazure.rbac.resources import Groups, Users
 from llamazure.rbac.roles import RoleAssignments, RoleDefinitions, RoleOps
 
 
@@ -52,6 +52,12 @@ def role_ops(credential) -> RoleOps:
 def users(credential) -> Users:
 	"""Fixture: Users"""
 	return Users(Graph.from_credential(credential))
+
+
+@pytest.fixture
+def groups(credential) -> Groups:
+	"""Fixture: Users"""
+	return Groups(Graph.from_credential(credential))
 
 
 @pytest.fixture
