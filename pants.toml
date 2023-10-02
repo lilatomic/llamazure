@@ -44,8 +44,6 @@ report = ["xml", "html"]
 [mypy]
 install_from_resolve = "mypy"
 interpreter_constraints = ["CPython>=3.8"]
-extra_type_stubs = ["types-PyYAML", "types-requests"]
-extra_type_stubs_lockfile = "cicd/mypy_stubs.lock"
 
 [anonymous-telemetry]
 enabled = true
