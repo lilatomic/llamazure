@@ -31,14 +31,14 @@ jobs:
           cache-lmdb-store: 'true'  # defaults to 'false'
 
       - name: Check BUILD files
-        run: "./pants tailor --check update-build-files --check ::"
+        run: "pants tailor --check update-build-files --check ::"
       - name: Lint and typecheck
         run: |
-          ./pants lint check ::
+          pants lint check ::
         if: success() || failure()
       - name: Test
         run: |
-          ./pants test :: -- -m "not integration"
+          pants test :: -- -m "not integration"
         if: success() || failure()
       - name: Upload test coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -50,7 +50,7 @@ jobs:
 
       - name: Package
         run: |
-          ./pants package ::
+          pants package ::
 
       - name: Upload pants log
         uses: actions/upload-artifact@v3
