@@ -10,39 +10,35 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest]
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        id: cache
-        with:
-          path: |
-            ~/.cache/pants/setup
-            ~/.cache/pants/lmdb_store
-            ~/.cache/pants/named_caches
-          key: ${{ runner.os }}-
       - name: Setup Python for Pants
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.9
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Bootstrap Pants
-        run: |
-          ./pants --version
+      - uses: pantsbuild/actions/init-pants@v5-scie-pants
+        with:
+          # v0 makes it easy to bust the cache if needed
+          # just increase the integer to start with a fresh cache
+          gha-cache-key: v0
+          named-caches-hash: ${{ hashFiles('python-default.lock') }}
+          cache-lmdb-store: 'true'  # defaults to 'false'
 
       - name: Check BUILD files
-        run: "./pants tailor --check update-build-files --check ::"
+        run: "pants tailor --check update-build-files --check ::"
       - name: Lint and typecheck
         run: |
-          ./pants lint check ::
+          pants lint check ::
         if: success() || failure()
       - name: Test
         run: |
-          ./pants test :: -- -m "not integration"
+          pants test :: -- -m "not integration"
         if: success() || failure()
       - name: Upload test coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -54,7 +50,7 @@ jobs:
 
       - name: Package
         run: |
-          ./pants package ::
+          pants package ::
 
       - name: Upload pants log
         uses: actions/upload-artifact@v3

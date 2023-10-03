@@ -1,7 +1,10 @@
-
 # 0
 
 ## 0.0
+
+### 0.0.5
+
+- patch: supports parsing rids without subscriptions (can happen for roles at the root)
 
 ### 0.0.4
 

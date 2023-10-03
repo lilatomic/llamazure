@@ -1,5 +1,5 @@
 [GLOBAL]
-pants_version = "2.17.0rc2"
+pants_version = "2.18.0a0"
 backend_packages = [
 	"pants.backend.python",
 	"pants.backend.experimental.python",
@@ -43,9 +43,8 @@ report = ["xml", "html"]
 
 [mypy]
 install_from_resolve = "mypy"
+requirements = ["//:mypy"]
 interpreter_constraints = ["CPython>=3.8"]
-extra_type_stubs = ["types-PyYAML", "types-requests"]
-extra_type_stubs_lockfile = "cicd/mypy_stubs.lock"
 
 [anonymous-telemetry]
 enabled = true
