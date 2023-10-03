@@ -12,7 +12,7 @@ python_distribution(
 	long_description_path="llamazure/tresource/readme.md",
 	provides=python_artifact(
 		name="llamazure.tresource",
-		version="0.0.1",
+		version="0.0.2",
 		description="Group Azure resources into their hierarchy",
 		author="Daniel Goldman",
 		classifiers=[

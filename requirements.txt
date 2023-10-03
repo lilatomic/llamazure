@@ -1,4 +1,4 @@
 azure-identity>=1.4.0,<2.0.0
 pydantic>=2.0
 pyyaml~=6.0
-requests>=2<3
+requests>=2,<3
