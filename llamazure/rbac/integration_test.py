@@ -65,6 +65,9 @@ class TestRoles:
 
 		asn = retry(assert_role_assigned, AzureError)
 
+		# explicitly make a `put` that already exists
+		retry(assert_role_assigned, AzureError)
+
 		ras.DeleteById(asn.rid)
 
 		rds.delete_by_name(role.properties.roleName)

@@ -266,7 +266,10 @@ class RoleAssignments(AzRoleAssignments):
 	def put(self, assignment: RoleAssignment.Properties) -> RoleAssignment:
 		"""Create or update a role assignment"""
 
-		existing = next((e for e in self.ListForScope(assignment.scope) if e.properties.roleDefinitionId == assignment.roleDefinitionId), None)
+		existing = next(
+			(e for e in self.ListForScope(assignment.scope) if e.properties.roleDefinitionId == assignment.roleDefinitionId and e.properties.principalId == assignment.principalId),
+			None,
+		)
 		if existing:
 			target = existing.model_copy(update={"properties": assignment})
 		else:
