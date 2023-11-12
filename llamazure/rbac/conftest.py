@@ -85,5 +85,5 @@ def retry(
 			return fn()
 		except Exception as e:
 			if type(e) not in catching or i >= attempts:
-				raise e
+				raise
 			sleep(1)

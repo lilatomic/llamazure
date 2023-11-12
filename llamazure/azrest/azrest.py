@@ -4,7 +4,8 @@ from __future__ import annotations
 from typing import Any
 
 import requests
-from pydantic import BaseModel
+
+from llamazure.azrest.models import Req
 
 
 class AzureError(Exception):
@@ -30,25 +31,26 @@ class AzRest:
 		session = requests.Session()
 		return cls(token, session)
 
-	def call(self, req: requests.Request) -> Any:
+	def to_request(self, req: Req) -> requests.Request:
+		r = requests.Request(method=req.method, url=self.base_url + req.path)
+		if req.params:
+			r.params = req.params
+		if req.apiv:
+			r.params["api-version"] = req.apiv
+		if req.body:
+			r.headers["Content-Type"] = "application/json"
+			r.data = req.body.model_dump_json()
+		return r
+
+	def call(self, req: Req) -> Any:
 		"""Make the request to Azure"""
-		req.headers["Authorization"] = f"Bearer {self.token.token}"  # TODO: push down into self.session
-		res = self.session.send(req.prepare())  # TODO: write yet another fun interface to Azure
+		r = self.to_request(req)
+		r.headers["Authorization"] = f"Bearer {self.token.token}"  # TODO: push down into self.session
+		res = self.session.send(r.prepare())
 		if not res.ok:
 			raise AzureError(res.json())
 
-		return res
-
-	def get(self, slug: str, apiv: str) -> Any:
-		"""GET request"""
-		return self.call(requests.Request("GET", self.base_url + slug, params={"api-version": apiv})).json()
-
-	def delete(self, slug: str, apiv: str) -> Any:
-		"""DELETE request"""
-		return self.call(requests.Request("DELETE", self.base_url + slug, params={"api-version": apiv}))
-
-	def put(self, slug: str, apiv: str, body: BaseModel) -> Any:
-		"""PUT request, serialising the body"""
-		return self.call(
-			requests.Request("PUT", self.base_url + slug, params={"api-version": apiv}, data=body.model_dump_json(), headers={"Content-Type": "application/json"})
-		).json()
+		if res._content:
+			return res.json()
+		else:
+			return None

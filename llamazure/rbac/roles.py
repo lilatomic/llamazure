@@ -8,6 +8,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from llamazure.azrest.azrest import AzRest
+from llamazure.azrest.models import Req
 from llamazure.rid import rid
 
 RoleDefT = Dict
@@ -44,27 +45,43 @@ class AzRoleDefinitions:
 		self.azrest = azrest
 
 	def Delete(self, scope: str, roleDefinitionId: str):
-		slug = f"{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}"
-		return self.azrest.delete(slug, self.apiv)
+		req = Req.delete(
+			f"{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}",
+			self.apiv,
+		)
+		return self.azrest.call(req)
 
 	def Get(self, scope: str, roleDefinitionId: str):
-		slug = f"{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}"
-		ret = self.azrest.get(slug, self.apiv)
+		req = Req.get(
+			f"{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}",
+			self.apiv,
+		)
+		ret = self.azrest.call(req)
 		return RoleDefinition(**ret)
 
 	def GetById(self, roleId: str):
-		slug = f"{roleId}"
-		ret = self.azrest.get(slug, self.apiv)
+		req = Req.get(
+			f"{roleId}",
+			self.apiv,
+		)
+		ret = self.azrest.call(req)
 		return RoleDefinition(**ret)
 
 	def CreateOrUpdate(self, scope, roleDefinitionId: str, roleDefinition: RoleDefinition) -> RoleDefinition:
-		slug = f"{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}"
-		ret = self.azrest.put(slug, self.apiv, roleDefinition)
+		req = Req.put(
+			f"{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}",
+			self.apiv,
+			roleDefinition,
+		)
+		ret = self.azrest.call(req)
 		return RoleDefinition(**ret)
 
 	def List(self, scope: str) -> List[RoleDefinition]:
-		slug = f"{scope}/providers/Microsoft.Authorization/roleDefinitions"
-		ret = self.azrest.get(slug, self.apiv)
+		req = Req.get(
+			f"{scope}/providers/Microsoft.Authorization/roleDefinitions",
+			self.apiv,
+		)
+		ret = self.azrest.call(req)
 		return [RoleDefinition(**e) for e in ret["value"]]
 
 
@@ -90,44 +107,73 @@ class AzRoleAssignments:
 		self.azrest = azrest
 
 	def ListForSubscription(self, subscriptionId: str) -> List[RoleAssignment]:
-		slug = f"subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleAssignments"
-		return [RoleAssignment(**e) for e in self.azrest.get(slug, self.apiv)["value"]]
+		req = Req.get(
+			f"subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleAssignments",
+			self.apiv,
+		)
+		ret = self.azrest.call(req)
+		return [RoleAssignment(**e) for e in ret["value"]]
 
 	def ListForResourceGroup(self, subscriptionId: str, resourceGroupName: str) -> List[RoleAssignment]:
-		slug = f"subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Authorization/roleAssignments"
-		return [RoleAssignment(**e) for e in self.azrest.get(slug, self.apiv)["value"]]
+		req = Req.get(
+			f"subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Authorization/roleAssignments",
+			self.apiv,
+		)
+		ret = self.azrest.call(req)
+		return [RoleAssignment(**e) for e in ret["value"]]
 
 	def ListForResource(self, subscriptionId: str, resourceGroupName: str, resourceProviderNamespace: str, resourceType: str, resourceName: str) -> List[RoleAssignment]:
-		slug = f"subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}/providers/Microsoft.Authorization/roleAssignments"
-		return [RoleAssignment(**e) for e in self.azrest.get(slug, self.apiv)["value"]]
+		req = Req.get(
+			f"subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}/providers/Microsoft.Authorization/roleAssignments",
+			self.apiv,
+		)
+		ret = self.azrest.call(req)
+		return [RoleAssignment(**e) for e in ret["value"]]
 
 	def Get(self, scope: str, roleAssignmentName: str) -> RoleAssignment:
-		slug = f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}"
-		return RoleAssignment(**self.azrest.get(slug, self.apiv))
+		req = Req.get(
+			f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}",
+			self.apiv,
+		)
+		return RoleAssignment(**self.azrest.call(req))
 
 	def Create(self, scope: str, roleAssignmentName: str, roleAssignment: RoleAssignment) -> RoleAssignment:
-		slug = f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}"
-		return RoleAssignment(**self.azrest.put(slug, self.apiv, roleAssignment))
+		req = Req.put(
+			f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}",
+			self.apiv,
+			roleAssignment,
+		)
+		return RoleAssignment(**self.azrest.call(req))
 
 	def Delete(self, scope: str, roleAssignmentName: str):
-		slug = f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}"
-		return self.azrest.delete(slug, self.apiv)
+		req = Req.delete(f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}", self.apiv)
+		return self.azrest.call(req)
 
 	def ListForScope(self, scope: str) -> List[RoleAssignment]:
-		slug = f"{scope}/providers/Microsoft.Authorization/roleAssignments"
-		return [RoleAssignment(**e) for e in self.azrest.get(slug, self.apiv)["value"]]
+		req = Req.get(
+			f"{scope}/providers/Microsoft.Authorization/roleAssignments",
+			self.apiv,
+		)
+		return [RoleAssignment(**e) for e in self.azrest.call(req)["value"]]
 
 	def GetById(self, roleAssignmentId: str) -> RoleAssignment:
-		slug = f"/{roleAssignmentId}"
-		return RoleAssignment(**self.azrest.get(slug, self.apiv))
+		req = Req.get(f"/{roleAssignmentId}", self.apiv)
+		return RoleAssignment(**self.azrest.call(req))
 
 	def CreateById(self, roleAssignmentId: str, roleAssignment: RoleAssignment) -> RoleAssignment:
-		slug = f"/{roleAssignmentId}"
-		return RoleAssignment(**self.azrest.put(slug, self.apiv, roleAssignment))
+		req = Req.put(
+			f"/{roleAssignmentId}",
+			self.apiv,
+			roleAssignment,
+		)
+		return RoleAssignment(**self.azrest.call(req))
 
 	def DeleteById(self, roleAssignmentId: str):
-		slug = f"/{roleAssignmentId}"
-		return self.azrest.delete(slug, self.apiv)
+		req = Req.delete(
+			f"/{roleAssignmentId}",
+			self.apiv,
+		)
+		return self.azrest.call(req)
 
 
 class RoleDefinitions(AzRoleDefinitions):
@@ -157,8 +203,11 @@ class RoleDefinitions(AzRoleDefinitions):
 
 	def list_all_custom(self):
 		"""Custom roles may not appear at the root level if they aren't defined there unless you use a custom filter"""
-		slug = "/providers/Microsoft.Authorization/roleDefinitions?$filter=type+eq+'CustomRole'"
-		ret = self.azrest.get(slug, self.apiv)
+		req = Req.get(
+			"/providers/Microsoft.Authorization/roleDefinitions",
+			self.apiv,
+		).add_params({"$filter": "type eq 'CustomRole'"})
+		ret = self.azrest.call(req)
 		return [RoleDefinition(**e) for e in ret["value"]]
 
 	def get_by_name(self, name: str) -> RoleDefinition:
@@ -192,6 +241,7 @@ class RoleDefinitions(AzRoleDefinitions):
 	def delete(self, role: RoleDefinition):
 		"""Delete a RoleDefinition from all the places it exists"""
 
+		# TODO: use batchable api
 		for scope in role.properties.assignableScopes:
 			self.Delete(scope, role.name)
 
