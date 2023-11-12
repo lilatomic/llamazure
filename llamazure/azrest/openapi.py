@@ -13,12 +13,17 @@ import itertools
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Union, Type
+from typing import Any, Dict, Union, Type, Literal, Optional
 
 from pydantic import BaseModel, Field, TypeAdapter
 
 
 class OADef(BaseModel):
+	class Array(BaseModel):
+		t: Literal["array"] = Field(alias="type")
+		items: Union[OADef.Property, OADef.Ref]
+		description: Optional[str] = None
+
 	class Property(BaseModel):
 		t: Union[str, OADef] = Field(alias="type")
 		description: str = None
@@ -27,7 +32,7 @@ class OADef(BaseModel):
 		ref: str = Field(alias="$ref")
 		description: str = None
 
-	properties: Dict[str, Union[OADef.Property, OADef.Ref]]
+	properties: Dict[str, Union[OADef.Array, OADef.Property, OADef.Ref]]
 	t: str = Field(alias="type")
 	description: str = None
 
