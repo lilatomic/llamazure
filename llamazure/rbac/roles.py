@@ -8,7 +8,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from llamazure.azrest.azrest import AzRest
-from llamazure.azrest.models import Req
+from llamazure.azrest.models import AzList, Req
 from llamazure.rid import rid
 
 RoleDefT = Dict
@@ -52,37 +52,20 @@ class AzRoleDefinitions:
 		return self.azrest.call(req)
 
 	def Get(self, scope: str, roleDefinitionId: str):
-		req = Req.get(
-			f"{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}",
-			self.apiv,
-		)
-		ret = self.azrest.call(req)
-		return RoleDefinition(**ret)
+		req = Req.get(f"{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}", self.apiv, RoleDefinition)
+		return self.azrest.call(req)
 
 	def GetById(self, roleId: str):
-		req = Req.get(
-			f"{roleId}",
-			self.apiv,
-		)
-		ret = self.azrest.call(req)
-		return RoleDefinition(**ret)
+		req = Req.get(f"{roleId}", self.apiv, RoleDefinition)
+		return self.azrest.call(req)
 
 	def CreateOrUpdate(self, scope, roleDefinitionId: str, roleDefinition: RoleDefinition) -> RoleDefinition:
-		req = Req.put(
-			f"{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}",
-			self.apiv,
-			roleDefinition,
-		)
-		ret = self.azrest.call(req)
-		return RoleDefinition(**ret)
+		req = Req.put(f"{scope}/providers/Microsoft.Authorization/roleDefinitions/{roleDefinitionId}", self.apiv, roleDefinition, RoleDefinition)
+		return self.azrest.call(req)
 
 	def List(self, scope: str) -> List[RoleDefinition]:
-		req = Req.get(
-			f"{scope}/providers/Microsoft.Authorization/roleDefinitions",
-			self.apiv,
-		)
-		ret = self.azrest.call(req)
-		return [RoleDefinition(**e) for e in ret["value"]]
+		req = Req.get(f"{scope}/providers/Microsoft.Authorization/roleDefinitions", self.apiv, AzList[RoleDefinition])
+		return self.azrest.call(req)
 
 
 class RoleAssignment(BaseModel):
@@ -110,63 +93,53 @@ class AzRoleAssignments:
 		req = Req.get(
 			f"subscriptions/{subscriptionId}/providers/Microsoft.Authorization/roleAssignments",
 			self.apiv,
+			AzList[RoleAssignment],
 		)
-		ret = self.azrest.call(req)
-		return [RoleAssignment(**e) for e in ret["value"]]
+		return self.azrest.call(req)
 
 	def ListForResourceGroup(self, subscriptionId: str, resourceGroupName: str) -> List[RoleAssignment]:
 		req = Req.get(
 			f"subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Authorization/roleAssignments",
 			self.apiv,
+			AzList[RoleAssignment],
 		)
-		ret = self.azrest.call(req)
-		return [RoleAssignment(**e) for e in ret["value"]]
+		return self.azrest.call(req)
 
 	def ListForResource(self, subscriptionId: str, resourceGroupName: str, resourceProviderNamespace: str, resourceType: str, resourceName: str) -> List[RoleAssignment]:
 		req = Req.get(
 			f"subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}/providers/Microsoft.Authorization/roleAssignments",
 			self.apiv,
+			AzList[RoleAssignment],
 		)
-		ret = self.azrest.call(req)
-		return [RoleAssignment(**e) for e in ret["value"]]
+		return self.azrest.call(req)
 
 	def Get(self, scope: str, roleAssignmentName: str) -> RoleAssignment:
-		req = Req.get(
-			f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}",
-			self.apiv,
-		)
-		return RoleAssignment(**self.azrest.call(req))
+		req = Req.get(f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}", self.apiv, RoleAssignment)
+		return self.azrest.call(req)
 
 	def Create(self, scope: str, roleAssignmentName: str, roleAssignment: RoleAssignment) -> RoleAssignment:
-		req = Req.put(
-			f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}",
-			self.apiv,
-			roleAssignment,
-		)
-		return RoleAssignment(**self.azrest.call(req))
+		req = Req.put(f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}", self.apiv, roleAssignment, RoleAssignment)
+		return self.azrest.call(req)
 
 	def Delete(self, scope: str, roleAssignmentName: str):
 		req = Req.delete(f"{scope}/providers/Microsoft.Authorization/roleAssignments/{roleAssignmentName}", self.apiv)
 		return self.azrest.call(req)
 
 	def ListForScope(self, scope: str) -> List[RoleAssignment]:
-		req = Req.get(
-			f"{scope}/providers/Microsoft.Authorization/roleAssignments",
-			self.apiv,
-		)
-		return [RoleAssignment(**e) for e in self.azrest.call(req)["value"]]
+		req = Req.get(f"{scope}/providers/Microsoft.Authorization/roleAssignments", self.apiv, AzList[RoleAssignment])
+		return self.azrest.call(req)
 
 	def GetById(self, roleAssignmentId: str) -> RoleAssignment:
-		req = Req.get(f"/{roleAssignmentId}", self.apiv)
-		return RoleAssignment(**self.azrest.call(req))
-
-	def CreateById(self, roleAssignmentId: str, roleAssignment: RoleAssignment) -> RoleAssignment:
-		req = Req.put(
+		req = Req.get(
 			f"/{roleAssignmentId}",
 			self.apiv,
-			roleAssignment,
+			RoleAssignment,
 		)
-		return RoleAssignment(**self.azrest.call(req))
+		return self.azrest.call(req)
+
+	def CreateById(self, roleAssignmentId: str, roleAssignment: RoleAssignment) -> RoleAssignment:
+		req = Req.put(f"/{roleAssignmentId}", self.apiv, roleAssignment, RoleAssignment)
+		return self.azrest.call(req)
 
 	def DeleteById(self, roleAssignmentId: str):
 		req = Req.delete(
@@ -201,14 +174,10 @@ class RoleDefinitions(AzRoleDefinitions):
 	def by_name(roles: List[RoleDefinition]):
 		return {e.properties.roleName.lower(): e for e in roles}
 
-	def list_all_custom(self):
+	def list_all_custom(self) -> List[RoleDefinition]:
 		"""Custom roles may not appear at the root level if they aren't defined there unless you use a custom filter"""
-		req = Req.get(
-			"/providers/Microsoft.Authorization/roleDefinitions",
-			self.apiv,
-		).add_params({"$filter": "type eq 'CustomRole'"})
-		ret = self.azrest.call(req)
-		return [RoleDefinition(**e) for e in ret["value"]]
+		req = Req.get("/providers/Microsoft.Authorization/roleDefinitions", self.apiv, AzList[RoleDefinition]).add_params({"$filter": "type eq 'CustomRole'"})
+		return self.azrest.call(req)
 
 	def get_by_name(self, name: str) -> RoleDefinition:
 		return self.by_name(self.list_all())[name]

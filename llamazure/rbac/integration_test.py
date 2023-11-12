@@ -114,7 +114,7 @@ class TestRoles:
 			assignments_on_sub1 = ras.list_for_role_at_scope(role, sub1)
 			assert len(assignments_on_sub1) == 1
 
-		retry(exercise_listing_at_scope, {AssertionError, AzureError})
+		retry(exercise_listing_at_scope, {AssertionError, AzureError, KeyError})
 
 		# check removing assignments
 		ras.remove_all_assignments(role)

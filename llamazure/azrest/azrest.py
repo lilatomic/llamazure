@@ -1,11 +1,11 @@
 """Access the Azure HTTP API"""
 from __future__ import annotations
 
-from typing import Any
+from typing import Type
 
 import requests
 
-from llamazure.azrest.models import Req
+from llamazure.azrest.models import AzType, Req, Ret_T
 
 
 class AzureError(Exception):
@@ -42,15 +42,19 @@ class AzRest:
 			r.data = req.body.model_dump_json()
 		return r
 
-	def call(self, req: Req) -> Any:
+	def call(self, req: Req[Ret_T]) -> Ret_T:
 		"""Make the request to Azure"""
 		r = self.to_request(req)
 		r.headers["Authorization"] = f"Bearer {self.token.token}"  # TODO: push down into self.session
 		res = self.session.send(r.prepare())
 		if not res.ok:
+			print(res.json())
 			raise AzureError(res.json())
 
-		if res._content:
-			return res.json()
+		if req.ret_t is Type[None]:  # noqa: E721  # we're comparing types here
+			return None  # type: ignore
 		else:
-			return None
+			if issubclass(req.ret_t, AzType):
+				return req.ret_t.model_validate(res.json()).render()
+			else:
+				return req.ret_t.model_validate(res.json())
