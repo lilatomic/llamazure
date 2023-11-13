@@ -21,30 +21,94 @@ from pathlib import Path
 from textwrap import dedent, indent
 from typing import Dict, List, Literal, Optional, Type, Union
 
+
 from pydantic import BaseModel, Field, TypeAdapter
+from typing_extensions import TypedDict, NotRequired
 
 from llamazure.azrest.models import AzList
 
 logger = logging.getLogger(__name__)
 
 
+class OARef(BaseModel):
+	ref: str = Field(alias="$ref")
+	description: Optional[str] = None
+
+
 class OADef(BaseModel):
 	class Array(BaseModel):
 		t: Literal["array"] = Field(alias="type", default="array")
-		items: Union[OADef.Property, OADef.Ref]
+		items: Union[OADef.Property, OARef]
 		description: Optional[str] = None
 
 	class Property(BaseModel):
 		t: Union[str] = Field(alias="type")
 		description: Optional[str] = None
 
-	class Ref(BaseModel):
-		ref: str = Field(alias="$ref")
-		description: Optional[str] = None
-
-	properties: Dict[str, Union[OADef.Array, OADef.Property, OADef.Ref]]
+	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef]]
 	t: str = Field(alias="type")
 	description: Optional[str] = None
+
+
+class OAParam(BaseModel):
+	name: str
+	in_component: str = Field(alias="in")
+	required: bool = True
+	type: Optional[str] = None
+	description: str
+	oa_schema: Optional[OARef] = Field(alias="schema", default=None)
+
+
+
+class OAResponse(BaseModel):
+	description: str
+	oa_schema: Optional[OARef] = Field(alias="schema", default=None)
+
+
+class OAMSPageable(BaseModel):
+	nextLinkName: str
+
+
+class OAOp(BaseModel):
+	tags: List[str]
+	operationId: str
+	description: str
+	parameters: List[Union[OAParam, OARef]]
+	responses: Dict[str, OAResponse]
+	pageable: Optional[OAMSPageable] = Field(alias="x-ms-pageable", default=None)
+
+	@property
+	def body_params(self) -> List[OAParam]:
+		# TODO: resolve refs
+		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "body"]
+
+	@property
+	def url_params(self) -> List[OAParam]:
+		# TODO: resolve refs
+		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "path"]
+
+
+
+class OAPath(TypedDict):
+	get: NotRequired[OAOp]
+	put: NotRequired[OAOp]
+	post: NotRequired[OAOp]
+	delete: NotRequired[OAOp]
+	options: NotRequired[OAOp]
+	head: NotRequired[OAOp]
+	patch: NotRequired[OAOp]
+
+
+class IROp(BaseModel):
+	object_name: str
+	name: str
+	description: Optional[str]
+
+	path: str
+	apiv: Optional[str]
+	body: Optional[IR_T] = None
+	params: Optional[Dict[str, IR_T]]
+	ret_t: Optional[IR_T] = None
 
 
 class IRDef(BaseModel):
@@ -59,9 +123,6 @@ class IR_T(BaseModel):
 
 class IR_List(BaseModel):
 	items: IR_T
-
-
-any_ir_t = Union[IRDef, IR_T, IR_List]
 
 
 class Reader:
@@ -82,11 +143,15 @@ class Reader:
 	@property
 	def paths(self):
 		"""Get API paths (standard and ms xtended)"""
-		return list(itertools.chain(self.doc["paths"].items(), self.doc.get("x-ms-paths", {}).items()))
+		return dict(itertools.chain(self.doc["paths"].items(), self.doc.get("x-ms-paths", {}).items()))
 
 	@property
 	def definitions(self):
 		return self.doc["definitions"]
+
+	@property
+	def apiv(self) -> str:
+		return self.doc["info"]["version"]
 
 
 def operations(path_object: dict):
@@ -100,16 +165,6 @@ def definitions(ds: dict):
 	return parser.validate_python(ds)
 
 
-def resolve_field_type(field: Union[OADef.Array, OADef.Property, OADef.Ref]):
-	if isinstance(field, OADef.Array):
-		logger.error("NI Array")
-		return field
-	elif isinstance(field, OADef.Property):
-		return field.t
-	elif isinstance(field, OADef.Ref):
-		return field.ref
-
-
 def resolve_path(path: str) -> str:
 	if path.startswith("#/definitions/"):
 		return path[len("#/definitions/") :]
@@ -120,9 +175,9 @@ def dereference_refs(ds: Dict[str, OADef]) -> Dict[str, OADef]:
 	"""Inflate refs to their objects"""
 	out = {}
 	for name, obj in ds.items():
-		new_props: Dict[str, Union[OADef.Array, OADef.Property, OADef.Ref]] = {}
+		new_props: Dict[str, Union[OADef.Array, OADef.Property, OARef]] = {}
 		for prop_name, prop in obj.properties.items():
-			if isinstance(prop, OADef.Ref):
+			if isinstance(prop, OARef):
 				ref_target = resolve_path(prop.ref)
 				ref = ds[ref_target]
 				new_props[prop_name] = OADef.Property(type=ref, description=prop.description)
@@ -176,12 +231,12 @@ class IRTransformer:
 			description=obj.description,
 		)
 
-	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OADef.Ref]) -> IR_T:
+	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OARef]) -> IR_T:
 		if isinstance(p, OADef.Property):
 			return self.def_OA2IR(p)
 		elif isinstance(p, OADef.Array):
 			return self.ir_array(p)
-		elif isinstance(p, OADef.Ref):
+		elif isinstance(p, OARef):
 			return IR_T(t=resolve_path(p.ref))
 
 	def def_OA2IR(self, p: OADef.Property) -> IR_T:
@@ -194,7 +249,7 @@ class IRTransformer:
 		if isinstance(obj.items, OADef.Property):
 			# Probably a type
 			as_list = IR_List(items=self.def_OA2IR(obj.items))
-		elif isinstance(obj.items, OADef.Ref):
+		elif isinstance(obj.items, OARef):
 			# TODO: implement actual resolution
 			# ref = self.defs[resolve_path(obj.items.ref)]
 			# l = IR_List(items=IR_T(t=ref))
@@ -261,6 +316,55 @@ class IRTransformer:
 		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), property_c=property_c)
 
 
+	def paramOA2IR(self, oaparam: OAParam) -> IR_T:
+		if oaparam.oa_schema:
+			return self.transform_oa_field(oaparam.oa_schema)
+		else:
+			return IR_T(t=oaparam.type)
+
+	def unify_ir_t(self, ts: List[IR_T]) -> Optional[IR_T]:
+		ts = list(filter(None, ts))
+		if len(ts) == 0:
+			return None
+		elif len(ts) == 1:
+			return ts[0]
+		else:
+			return IR_T(
+				t=f"Union[{', '.join(self.resolve_ir_t_str(t) for t in ts)}]"
+			)
+
+	def deserialise_paths(self, paths, apiv: str) -> List[IROp]:
+		parser = TypeAdapter(Dict[str, OAPath])
+		parsed = parser.validate_python(paths)
+
+		ops = []
+		for path, path_item in parsed.items():
+			for method, op in path_item.items():
+				object_name, name = op.operationId.split("_")
+
+				body_type = self.unify_ir_t([self.paramOA2IR(p) for p in op.body_params])
+
+				params = {p.name: self.paramOA2IR(p) for p in op.url_params}
+
+				rets = op.responses.items()
+				rets_ts = [self.transform_oa_field(r[1].oa_schema) for r in rets if r[0] != "default"]
+				ret_t = self.unify_ir_t(rets_ts)
+
+				ops.append(
+					IROp(
+						object_name=object_name,
+						name=name,
+						description=op.description,
+						path=path,
+						apiv=apiv,
+						body=body_type,
+						params=params or None,
+						ret_t=ret_t,
+					)
+				)
+
+		return ops
+
 class CodeGenable(ABC):
 	@abstractmethod
 	def codegen(self) -> str:
@@ -287,7 +391,7 @@ class AZDef(BaseModel, CodeGenable):
 		fields = indent("\n".join(self.codegen_field(f_name, f_type) for f_name, f_type in self.fields.items()), "\t")
 
 		return dedent(
-			'''\
+		'''\
 		class {name}(BaseModel):
 			"""{description}"""
 		{property_c_codegen}
@@ -302,6 +406,64 @@ class AZAlias(BaseModel, CodeGenable):
 
 	def codegen(self) -> str:
 		return f"{self.name} = {self.alias}"
+
+
+class AZOp(BaseModel, CodeGenable):
+	name: str
+	path: str
+	method: str
+	apiv: Optional[str]
+	body_name: Optional[AZDef] = None
+	params: Optional[Dict[str, str]]
+	ret_t: Optional[AZDef]
+
+	def codegen(self) -> str:
+		params = ["self"]  # TODO: add from path
+		req_args={
+			"path": self.path,
+		}
+		if self.apiv:
+			req_args["apiv"] = self.apiv
+		# TODO: add from path first
+		if self.body:
+			params.append(self.body_name)
+			req_args["body"] = self.body_name
+		if self.ret_t:
+			req_args["ret_t"] = self.ret_t
+
+		return dedent("""\
+		def {name}({params}) -> {ret_t}:
+			req = Req.{method}(
+		{req_args}
+			)
+			return self.azrest.call(req)
+		""").format(
+			name=self.name,
+			params=", ".join(params),
+			ret_t=self.ret_t,
+			method=self.method,
+			req_args=",\n".join("=".join([k,v]) for k,v in req_args.items()),
+		)
+
+
+class AZOps(BaseModel, CodeGenable):
+	name: str
+	ops: List[AZOp]
+
+	def codegen(self) -> str:
+		op_strs = indent("\n\n".join(
+			op.codegen() for op in self.ops
+		), "\t")
+
+
+		return dedent(
+		'''\
+		class {name}: 
+			def __init__(self, azrest: AzRest):
+				self.azrest = azrest
+				
+		{ops}		
+		''').format(name=self.name, ops=op_strs)
 
 
 if __name__ == "__main__":
@@ -319,7 +481,6 @@ if __name__ == "__main__":
 	# 	for method, operationobj in operations(pathobj).items():
 	# 		out[path][method] = {k: operationobj[k] for k in ("description", "operationId")}
 	#
+	# print(codegen)
 
-	# print(q)
-	# print(json.dumps([x.model_dump() for x in q]))
-	print(codegen)
+	print(transformer.deserialise_paths(reader.paths, reader.apiv))
