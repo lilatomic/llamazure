@@ -134,15 +134,29 @@ def dereference_refs(ds: Dict[str, OADef]) -> Dict[str, OADef]:
 	return out
 
 
-@dataclass
 class IRTransformer:
-	defs: Dict[str, OADef]
 
-	def transform(self):
-		irs = []
-		for name, obj in self.defs.items():
-			irs.append(self.transform_def(name, obj))
-		return irs
+	def __init__(self, defs: Dict[str, OADef]):
+		self.oa_defs: Dict[str, OADef] = defs
+
+	def transform(self) -> str:
+		irs = {}
+		for name, obj in self.oa_defs.items():
+			irs[name] = self.transform_def(name, obj)
+
+		ir_props = {}
+		for name, ir in irs.items():
+			if "properties" in ir.properties:
+				prop_ref = ir.properties["properties"].t
+				ir_props[prop_ref] = irs[prop_ref]
+		ir_defs = {}
+		for name, ir in irs.items():
+			if name not in ir_props:
+				ir_defs[name] = ir
+
+		azs = [self.defIR2AZ(ir).codegen() for ir in ir_defs.values()]
+
+		return "\n\n".join(azs)
 
 	def transform_def(self, name: str, obj: OADef) -> IRDef:
 		ir_properties = {p_name: self.transform_oa_field(p) for p_name, p in obj.properties.items()}
@@ -154,13 +168,13 @@ class IRTransformer:
 
 	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OADef.Ref]) -> IR_T:
 		if isinstance(p, OADef.Property):
-			return self.transform_property(p)
+			return self.def_OA2IR(p)
 		elif isinstance(p, OADef.Array):
 			return self.ir_array(p)
 		elif isinstance(p, OADef.Ref):
 			return IR_T(t=resolve_path(p.ref))
 
-	def transform_property(self, p: OADef.Property) -> IR_T:
+	def def_OA2IR(self, p: OADef.Property) -> IR_T:
 		py_type = {
 			"string": str,
 		}.get(p.t, p.t)
@@ -169,7 +183,7 @@ class IRTransformer:
 	def ir_array(self, obj: OADef.Array) -> IR_T:
 		if isinstance(obj.items, OADef.Property):
 			# Probably a type
-			as_list = IR_List(items=self.transform_property(obj.items))
+			as_list = IR_List(items=self.def_OA2IR(obj.items))
 		elif isinstance(obj.items, OADef.Ref):
 			# TODO: implement actual resolution
 			# ref = self.defs[resolve_path(obj.items.ref)]
@@ -220,13 +234,13 @@ class IRTransformer:
 	def defIR2AZ(self, irdef: IRDef) -> AZDef:
 
 		if "properties" in irdef.properties:
-			# prop_container = irdef.properties["properties"]
-			# assert isinstance(prop_container, IR_T)
-			# prop_t = prop_container.t
-			# assert isinstance(prop_t, IRDef)
-			# property_c = defIR2AZ(prop_t)
+			prop_container = irdef.properties["properties"]
+			prop_t = prop_container.t
+			prop_c_oa = self.oa_defs[prop_t]
+			prop_c_ir = self.transform_def(prop_t, prop_c_oa)
+			prop_c_az = self.defIR2AZ(prop_c_ir)
 
-			property_c = None
+			property_c = prop_c_az.model_copy(update={"name": "Properties"})
 
 		else:
 			property_c = None
@@ -268,18 +282,11 @@ if __name__ == "__main__":
 
 	reader = Reader.load(sys.argv[1])
 
-	defs = definitions(reader.definitions)
+	oa_defs = definitions(reader.definitions)
 
-	transformer = IRTransformer(defs)
-	defs_oa = transformer.transform()
+	transformer = IRTransformer(oa_defs)
+	codegen = transformer.transform()
 
-	q = []
-	for x in defs_oa:
-		try:
-			q.append(transformer.defIR2AZ(x))
-		except Exception as e:
-			logger.error(e)
-			raise
 	# out: dict[str, dict[str, Any]] = defaultdict(dict)
 	# for path, pathobj in reader.paths:
 	# 	for method, operationobj in operations(pathobj).items():
@@ -288,4 +295,4 @@ if __name__ == "__main__":
 
 	# print(q)
 	# print(json.dumps([x.model_dump() for x in q]))
-	print("\n".join([x.codegen() for x in q]))
+	print(codegen)

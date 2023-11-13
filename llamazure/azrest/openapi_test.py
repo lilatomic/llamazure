@@ -4,7 +4,7 @@ from llamazure.azrest.openapi import IR_T, IR_List, IRDef, IRTransformer, OADef
 class TestTransformPrimitives:
 	def test_string(self):
 		p = OADef.Property(type="string", description="description0")
-		assert IRTransformer({}).transform_property(p) == IR_T(t=str)
+		assert IRTransformer({}).def_OA2IR(p) == IR_T(t=str)
 
 
 class TestTransformArray:
