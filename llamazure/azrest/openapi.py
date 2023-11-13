@@ -16,10 +16,10 @@ from __future__ import annotations
 import itertools
 import json
 import logging
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import Dict, Literal, Optional, Type, Union
+from typing import Dict, List, Literal, Optional, Type, Union
 
 from pydantic import BaseModel, Field, TypeAdapter
 
@@ -135,7 +135,6 @@ def dereference_refs(ds: Dict[str, OADef]) -> Dict[str, OADef]:
 
 
 class IRTransformer:
-
 	def __init__(self, defs: Dict[str, OADef]):
 		self.oa_defs: Dict[str, OADef] = defs
 
@@ -149,14 +148,23 @@ class IRTransformer:
 			if "properties" in ir.properties:
 				prop_ref = ir.properties["properties"].t
 				ir_props[prop_ref] = irs[prop_ref]
+
+		ir_azlists: Dict[str, AZAlias] = {}
+		for name, ir in irs.items():
+			azlist = self.ir_azarray(ir)
+			if azlist:
+				ir_azlists[name] = azlist
+
+		ir_consumed = ir_props.keys() | ir_azlists.keys()
 		ir_defs = {}
 		for name, ir in irs.items():
-			if name not in ir_props:
+			if name not in ir_consumed:
 				ir_defs[name] = ir
+		azs = [self.defIR2AZ(ir) for ir in ir_defs.values()]
 
-		azs = [self.defIR2AZ(ir).codegen() for ir in ir_defs.values()]
+		output_req: List[CodeGenable] = azs + list(ir_azlists.values())
 
-		return "\n\n".join(azs)
+		return "\n\n".join([cg.codegen() for cg in output_req])
 
 	def transform_def(self, name: str, obj: OADef) -> IRDef:
 		ir_properties = {p_name: self.transform_oa_field(p) for p_name, p in obj.properties.items()}
@@ -196,11 +204,13 @@ class IRTransformer:
 
 		return IR_T(t=as_list)
 
-	def ir_azarray(self, name: str, obj: OADef):
+	def ir_azarray(self, obj: IRDef) -> Optional[AZAlias]:
 		value = obj.properties.get("value")
-		if value is not None and isinstance(value, OADef.Array):
-			array_t = self.ir_array(obj.properties["value"])
-			return IR_T(t=AzList[array_t])
+		if value is not None and isinstance(value.t, IR_List):
+			inner = self.resolve_ir_t_str(value.t.items)
+			return AZAlias(name=obj.name, alias=f"{AzList.__name__}[{inner}]")
+		else:
+			return None
 
 	@staticmethod
 	def resolve_ir_t_str(ir_t: IR_T) -> str:
@@ -248,7 +258,13 @@ class IRTransformer:
 		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), property_c=property_c)
 
 
-class AZDef(BaseModel):
+class CodeGenable(ABC):
+	@abstractmethod
+	def codegen(self) -> str:
+		...
+
+
+class AZDef(BaseModel, CodeGenable):
 	name: str
 	description: Optional[str]
 	fields: Dict[str, str]
@@ -275,6 +291,14 @@ class AZDef(BaseModel):
 		{fields}
 		'''
 		).format(name=self.name, description=self.description, property_c_codegen=property_c_codegen, fields=fields)
+
+
+class AZAlias(BaseModel, CodeGenable):
+	name: str
+	alias: str
+
+	def codegen(self) -> str:
+		return f"{self.name} = {self.alias}"
 
 
 if __name__ == "__main__":
