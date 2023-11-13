@@ -235,22 +235,22 @@ class IRTransformer:
 
 	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OARef]) -> IR_T:
 		if isinstance(p, OADef.Property):
-			return self.def_OA2IR(p)
+			return IR_T(t=self.resolve_type(p.t))
 		elif isinstance(p, OADef.Array):
 			return self.ir_array(p)
 		elif isinstance(p, OARef):
 			return IR_T(t=resolve_path(p.ref))
 
-	def def_OA2IR(self, p: OADef.Property) -> IR_T:
+	def resolve_type(self, t) -> IR_T:
 		py_type = {
 			"string": str,
-		}.get(p.t, p.t)
-		return IR_T(t=py_type)
+		}.get(t, t)
+		return py_type
 
 	def ir_array(self, obj: OADef.Array) -> IR_T:
 		if isinstance(obj.items, OADef.Property):
 			# Probably a type
-			as_list = IR_List(items=self.def_OA2IR(obj.items))
+			as_list = IR_List(items=IR_T(t=self.resolve_type(obj.items.t)))
 		elif isinstance(obj.items, OARef):
 			# TODO: implement actual resolution
 			# ref = self.defs[resolve_path(obj.items.ref)]
@@ -322,7 +322,7 @@ class IRTransformer:
 		if oaparam.oa_schema:
 			return self.transform_oa_field(oaparam.oa_schema)
 		else:
-			return IR_T(t=oaparam.type)
+			return IR_T(t=self.resolve_type(oaparam.type))
 
 	def unify_ir_t(self, ts: List[IR_T]) -> Optional[IR_T]:
 		ts = list(filter(None, ts))
@@ -468,13 +468,14 @@ class AZOp(BaseModel, CodeGenable):
 	ret_t: Optional[str]
 
 	def codegen(self) -> str:
-		params = ["self"]  # TODO: add from path
+		params = []  # TODO: add from path
 		req_args={
 			"path": self.path,
 		}
 		if self.apiv:
 			req_args["apiv"] = self.apiv
-		# TODO: add from path first
+		if self.params:
+			params.extend([f"{p_name}: {p_type}" for p_name, p_type in self.params.items()])
 		if self.body:
 			params.append(f"{self.body_name}: {self.body}")
 			req_args["body"] = self.body_name
@@ -482,6 +483,7 @@ class AZOp(BaseModel, CodeGenable):
 			req_args["ret_t"] = self.ret_t
 
 		return dedent('''\
+		@staticmethod
 		def {name}({params}) -> Req[{ret_t}]:
 			"""{description}"""
 			return Req.{method}(
