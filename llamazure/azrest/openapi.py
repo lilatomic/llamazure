@@ -3,38 +3,65 @@ OpenAPI explorer for Azure
 
 Naming Conventions:
 - OA* : OpenAPI things
+- IR* : Intermediate Representation of things
 - AZ* : Azure things
-OA things are used to parse the OpenAPI spec. AZ things are used for reasoning about the Azure API. For example, PermissionGetResult might be an OA object because it is present in the OpenAPI spec. However, it's just a list of Permission objects. It won't have an AZ object; instead, it will be transformed into something like an AZList[AZPermission].
+OA things are used to parse the OpenAPI spec.
+AZ things are used for reasoning about the Azure API.
+For example, PermissionGetResult might be an OA object because it is present in the OpenAPI spec.
+However, it's just a list of Permission objects.
+It won't have an AZ object; instead, it will be transformed into something like an AZList[AZPermission].
 """
-from __future__ import annotations
 from __future__ import annotations
 
 import itertools
 import json
-from collections import defaultdict
+import logging
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Union, Type, Literal, Optional
+from textwrap import dedent, indent
+from typing import Dict, Literal, Optional, Type, Union
 
 from pydantic import BaseModel, Field, TypeAdapter
+
+from llamazure.azrest.models import AzList
+
+logger = logging.getLogger(__name__)
 
 
 class OADef(BaseModel):
 	class Array(BaseModel):
-		t: Literal["array"] = Field(alias="type")
+		t: Literal["array"] = Field(alias="type", default="array")
 		items: Union[OADef.Property, OADef.Ref]
 		description: Optional[str] = None
 
 	class Property(BaseModel):
-		t: Union[str, OADef] = Field(alias="type")
-		description: str = None
+		t: Union[str] = Field(alias="type")
+		description: Optional[str] = None
 
 	class Ref(BaseModel):
 		ref: str = Field(alias="$ref")
-		description: str = None
+		description: Optional[str] = None
 
 	properties: Dict[str, Union[OADef.Array, OADef.Property, OADef.Ref]]
 	t: str = Field(alias="type")
-	description: str = None
+	description: Optional[str] = None
+
+
+class IRDef(BaseModel):
+	name: str
+	properties: Dict[str, IR_T]
+	description: Optional[str] = None
+
+
+class IR_T(BaseModel):
+	t: Union[Type, IRDef, IR_List, str]  # TODO: upconvert str
+
+
+class IR_List(BaseModel):
+	items: IR_T
+
+
+any_ir_t = Union[IRDef, IR_T, IR_List]
 
 
 class Reader:
@@ -73,13 +100,24 @@ def definitions(ds: dict):
 	return parser.validate_python(ds)
 
 
+def resolve_field_type(field: Union[OADef.Array, OADef.Property, OADef.Ref]):
+	if isinstance(field, OADef.Array):
+		logger.error("NI Array")
+		return field
+	elif isinstance(field, OADef.Property):
+		return field.t
+	elif isinstance(field, OADef.Ref):
+		return field.ref
+
+
+def resolve_path(path: str) -> str:
+	if path.startswith("#/definitions/"):
+		return path[len("#/definitions/") :]
+	return path
+
+
 def dereference_refs(ds: Dict[str, OADef]) -> Dict[str, OADef]:
 	"""Inflate refs to their objects"""
-	def resolve_path(path: str) -> str:
-		if path.startswith("#/definitions/"):
-			return path[len("#/definitions/"):]
-		return path
-
 	out = {}
 	for name, obj in ds.items():
 		new_props = {}
@@ -96,18 +134,158 @@ def dereference_refs(ds: Dict[str, OADef]) -> Dict[str, OADef]:
 	return out
 
 
+@dataclass
+class IRTransformer:
+	defs: Dict[str, OADef]
+
+	def transform(self):
+		irs = []
+		for name, obj in self.defs.items():
+			irs.append(self.transform_def(name, obj))
+		return irs
+
+	def transform_def(self, name: str, obj: OADef) -> IRDef:
+		ir_properties = {p_name: self.transform_oa_field(p) for p_name, p in obj.properties.items()}
+		return IRDef(
+			name=name,
+			properties=ir_properties,
+			description=obj.description,
+		)
+
+	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OADef.Ref]) -> IR_T:
+		if isinstance(p, OADef.Property):
+			return self.transform_property(p)
+		elif isinstance(p, OADef.Array):
+			return self.ir_array(p)
+		elif isinstance(p, OADef.Ref):
+			return IR_T(t=resolve_path(p.ref))
+
+	def transform_property(self, p: OADef.Property) -> IR_T:
+		py_type = {
+			"string": str,
+		}.get(p.t, p.t)
+		return IR_T(t=py_type)
+
+	def ir_array(self, obj: OADef.Array) -> IR_T:
+		if isinstance(obj.items, OADef.Property):
+			# Probably a type
+			as_list = IR_List(items=self.transform_property(obj.items))
+		elif isinstance(obj.items, OADef.Ref):
+			# TODO: implement actual resolution
+			# ref = self.defs[resolve_path(obj.items.ref)]
+			# l = IR_List(items=IR_T(t=ref))
+
+			as_list = IR_List(items=IR_T(t=resolve_path(obj.items.ref)))
+
+		else:
+			raise NotImplementedError("List of List not supported")
+
+		return IR_T(t=as_list)
+
+	def ir_azarray(self, name: str, obj: OADef):
+		value = obj.properties.get("value")
+		if value is not None and isinstance(value, OADef.Array):
+			array_t = self.ir_array(obj.properties["value"])
+			return IR_T(t=AzList[array_t])
+
+	@staticmethod
+	def resolve_ir_t_str(ir_t: IR_T) -> str:
+		t = ir_t.t
+		if isinstance(t, type):
+			return t.__name__
+		elif isinstance(t, IRDef):
+			return t.name
+		elif isinstance(t, IR_List):
+			inner = IRTransformer.resolve_ir_t_str(t.items)
+			return f"List[{inner}]"
+		elif isinstance(t, str):
+			return t
+		else:
+			raise ValueError(f"Expected {IR_T} got {type(ir_t)}")
+
+	@staticmethod
+	def fieldsIR2AZ(fields: Dict[str, IR_T]) -> Dict[str, str]:
+		az_fields = {}
+
+		for f_name, f_type in fields.items():
+			if f_name == "properties":
+				# assert isinstance(f_type, IRDef)
+				v = "Properties"
+			else:
+				v = IRTransformer.resolve_ir_t_str(f_type)
+			az_fields[f_name] = v
+
+		return az_fields
+
+	def defIR2AZ(self, irdef: IRDef) -> AZDef:
+
+		if "properties" in irdef.properties:
+			# prop_container = irdef.properties["properties"]
+			# assert isinstance(prop_container, IR_T)
+			# prop_t = prop_container.t
+			# assert isinstance(prop_t, IRDef)
+			# property_c = defIR2AZ(prop_t)
+
+			property_c = None
+
+		else:
+			property_c = None
+
+		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), property_c=property_c)
+
+
+class AZDef(BaseModel):
+	name: str
+	description: Optional[str]
+	fields: Dict[str, str]
+	property_c: Optional[AZDef] = None
+
+	def codegen_field(self, f_name, f_type) -> str:
+		if f_name == "id":
+			return f'rid: {f_type} = Field(alias="id", default=None)'
+		return f"{f_name}: {f_type}"
+
+	def codegen(self) -> str:
+		if self.property_c:
+			property_c_codegen = indent(self.property_c.codegen(), "\t")
+		else:
+			property_c_codegen = ""
+
+		fields = indent("\n".join(self.codegen_field(f_name, f_type) for f_name, f_type in self.fields.items()), "\t")
+
+		return dedent(
+			'''\
+		class {name}(BaseModel):
+			"""{description}"""
+		{property_c_codegen}
+		{fields}
+		'''
+		).format(name=self.name, description=self.description, property_c_codegen=property_c_codegen, fields=fields)
+
 
 if __name__ == "__main__":
 	import sys
 
 	reader = Reader.load(sys.argv[1])
 
-	out = definitions(reader.definitions)
-	out = dereference_refs(out)
+	defs = definitions(reader.definitions)
 
+	transformer = IRTransformer(defs)
+	defs_oa = transformer.transform()
+
+	q = []
+	for x in defs_oa:
+		try:
+			q.append(transformer.defIR2AZ(x))
+		except Exception as e:
+			logger.error(e)
+			raise
 	# out: dict[str, dict[str, Any]] = defaultdict(dict)
 	# for path, pathobj in reader.paths:
 	# 	for method, operationobj in operations(pathobj).items():
 	# 		out[path][method] = {k: operationobj[k] for k in ("description", "operationId")}
 	#
-	print(json.dumps({k:v.model_dump() for k,v in out.items()}))
+
+	# print(q)
+	# print(json.dumps([x.model_dump() for x in q]))
+	print("\n".join([x.codegen() for x in q]))
