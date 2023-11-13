@@ -17,10 +17,10 @@ import itertools
 import json
 import logging
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent, indent
 from typing import Dict, List, Literal, Optional, Type, Union
-
 
 from pydantic import BaseModel, Field, TypeAdapter
 from typing_extensions import TypedDict, NotRequired
@@ -105,7 +105,9 @@ class IROp(BaseModel):
 	description: Optional[str]
 
 	path: str
+	method: str
 	apiv: Optional[str]
+	body_name: Optional[str] = None
 	body: Optional[IR_T] = None
 	params: Optional[Dict[str, IR_T]]
 	ret_t: Optional[IR_T] = None
@@ -333,16 +335,18 @@ class IRTransformer:
 				t=f"Union[{', '.join(self.resolve_ir_t_str(t) for t in ts)}]"
 			)
 
-	def deserialise_paths(self, paths, apiv: str) -> List[IROp]:
+	def deserialise_paths(self, paths, apiv: str) -> str:
 		parser = TypeAdapter(Dict[str, OAPath])
 		parsed = parser.validate_python(paths)
 
-		ops = []
+		ops: List[IROp] = []
 		for path, path_item in parsed.items():
 			for method, op in path_item.items():
 				object_name, name = op.operationId.split("_")
 
-				body_type = self.unify_ir_t([self.paramOA2IR(p) for p in op.body_params])
+				body_types = [self.paramOA2IR(p) for p in op.body_params]
+				body_type = self.unify_ir_t(body_types)
+				body_name = "body" if len(op.body_params) != 1 else op.body_params[0].name
 
 				params = {p.name: self.paramOA2IR(p) for p in op.url_params}
 
@@ -356,14 +360,58 @@ class IRTransformer:
 						name=name,
 						description=op.description,
 						path=path,
+						method=method,
 						apiv=apiv,
 						body=body_type,
+						body_name=body_name,
 						params=params or None,
 						ret_t=ret_t,
 					)
 				)
 
-		return ops
+		az_objs: Dict[str, List[IROp]] = defaultdict(list)
+		for ir_op in ops:
+			az_objs[ir_op.object_name].append(ir_op)
+
+
+		az_ops = []
+		for name, ir_ops in az_objs.items():
+			o = []
+			for x in ir_ops:
+				if x.params:
+					params = {k: self.resolve_ir_t_str(v) for k, v in x.params.items()}
+				else:
+					params = None
+
+				if x.body:
+					body=self.resolve_ir_t_str(x.body)
+					body_name=x.body_name
+				else:
+					body=None
+					body_name=None
+
+				az_op = AZOp(
+					name=x.name,
+					description=x.description,
+					path=x.path,
+					method=x.method,
+					apiv=x.apiv,
+					body=body,
+					body_name=body_name,
+					params=params,
+					ret_t=self.resolve_ir_t_str(x.ret_t)
+				)
+				o.append(az_op)
+
+			a = AZOps(
+				name=name,
+				ops=o
+			)
+
+			az_ops.append(a)
+
+		return "\n\n".join([cg.codegen() for cg in az_ops])
+
 
 class CodeGenable(ABC):
 	@abstractmethod
@@ -410,12 +458,14 @@ class AZAlias(BaseModel, CodeGenable):
 
 class AZOp(BaseModel, CodeGenable):
 	name: str
+	description: Optional[str] = None
 	path: str
 	method: str
 	apiv: Optional[str]
-	body_name: Optional[AZDef] = None
+	body: Optional[str]
+	body_name: Optional[str] = None
 	params: Optional[Dict[str, str]]
-	ret_t: Optional[AZDef]
+	ret_t: Optional[str]
 
 	def codegen(self) -> str:
 		params = ["self"]  # TODO: add from path
@@ -426,23 +476,24 @@ class AZOp(BaseModel, CodeGenable):
 			req_args["apiv"] = self.apiv
 		# TODO: add from path first
 		if self.body:
-			params.append(self.body_name)
+			params.append(f"{self.body_name}: {self.body}")
 			req_args["body"] = self.body_name
 		if self.ret_t:
 			req_args["ret_t"] = self.ret_t
 
-		return dedent("""\
-		def {name}({params}) -> {ret_t}:
-			req = Req.{method}(
+		return dedent('''\
+		def {name}({params}) -> Req[{ret_t}]:
+			"""{description}"""
+			return Req.{method}(
 		{req_args}
 			)
-			return self.azrest.call(req)
-		""").format(
+		''').format(
 			name=self.name,
 			params=", ".join(params),
+			description=self.description,
 			ret_t=self.ret_t,
 			method=self.method,
-			req_args=",\n".join("=".join([k,v]) for k,v in req_args.items()),
+			req_args=indent(",\n".join("=".join([k,v]) for k,v in req_args.items()), "\t\t"),
 		)
 
 
@@ -458,10 +509,7 @@ class AZOps(BaseModel, CodeGenable):
 
 		return dedent(
 		'''\
-		class {name}: 
-			def __init__(self, azrest: AzRest):
-				self.azrest = azrest
-				
+		class AZ{name}: 
 		{ops}		
 		''').format(name=self.name, ops=op_strs)
 
