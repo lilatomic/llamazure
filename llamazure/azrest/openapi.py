@@ -120,7 +120,7 @@ def dereference_refs(ds: Dict[str, OADef]) -> Dict[str, OADef]:
 	"""Inflate refs to their objects"""
 	out = {}
 	for name, obj in ds.items():
-		new_props = {}
+		new_props: Dict[str, Union[OADef.Array, OADef.Property, OADef.Ref]] = {}
 		for prop_name, prop in obj.properties.items():
 			if isinstance(prop, OADef.Ref):
 				ref_target = resolve_path(prop.ref)
@@ -146,7 +146,9 @@ class IRTransformer:
 		ir_props = {}
 		for name, ir in irs.items():
 			if "properties" in ir.properties:
-				prop_ref = ir.properties["properties"].t
+				prop_t = ir.properties["properties"].t
+				assert isinstance(prop_t, str)  # TODO: Better checking or coercion
+				prop_ref = prop_t
 				ir_props[prop_ref] = irs[prop_ref]
 
 		ir_azlists: Dict[str, AZAlias] = {}
@@ -246,6 +248,7 @@ class IRTransformer:
 		if "properties" in irdef.properties:
 			prop_container = irdef.properties["properties"]
 			prop_t = prop_container.t
+			assert isinstance(prop_t, str)  # TODO: Better checking or coercion
 			prop_c_oa = self.oa_defs[prop_t]
 			prop_c_ir = self.transform_def(prop_t, prop_c_oa)
 			prop_c_az = self.defIR2AZ(prop_c_ir)
