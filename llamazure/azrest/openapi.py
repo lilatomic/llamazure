@@ -20,12 +20,12 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import Dict, List, Literal, Optional, Type, Union, TypeVar, NewType
+from typing import Dict, List, Literal, Optional, Type, Union
 
 from pydantic import BaseModel, Field, TypeAdapter
 from typing_extensions import NotRequired, TypedDict
 
-from llamazure.azrest.models import AzList, ReadOnly
+from llamazure.azrest.models import AzList
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,6 @@ class IRDef(BaseModel):
 	name: str
 	properties: Dict[str, IR_T]
 	description: Optional[str] = None
-
 
 
 class IR_T(BaseModel):
@@ -405,7 +404,7 @@ class IRTransformer:
 				)
 				o.append(az_op)
 
-			a = AZOps(name=name, ops=o)
+			a = AZOps(name=name, ops=o, apiv=apiv)
 
 			az_ops.append(a)
 
@@ -506,6 +505,7 @@ class AZOp(BaseModel, CodeGenable):
 
 class AZOps(BaseModel, CodeGenable):
 	name: str
+	apiv: str
 	ops: List[AZOp]
 
 	def codegen(self) -> str:
@@ -513,10 +513,11 @@ class AZOps(BaseModel, CodeGenable):
 
 		return dedent(
 			"""\
-		class AZ{name}: 
+		class Az{name}:
+			apiv = {apiv}
 		{ops}		
 		"""
-		).format(name=self.name, ops=op_strs)
+		).format(name=self.name, ops=op_strs, apiv=self.quote(self.apiv))
 
 
 if __name__ == "__main__":
