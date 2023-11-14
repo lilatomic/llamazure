@@ -20,12 +20,12 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import Dict, List, Literal, Optional, Type, Union
+from typing import Dict, List, Literal, Optional, Type, Union, TypeVar, NewType
 
 from pydantic import BaseModel, Field, TypeAdapter
 from typing_extensions import NotRequired, TypedDict
 
-from llamazure.azrest.models import AzList
+from llamazure.azrest.models import AzList, ReadOnly
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,7 @@ class OADef(BaseModel):
 	class Property(BaseModel):
 		t: Union[str] = Field(alias="type")
 		description: Optional[str] = None
+		readOnly: bool = False
 
 	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef]]
 	t: str = Field(alias="type")
@@ -117,8 +118,10 @@ class IRDef(BaseModel):
 	description: Optional[str] = None
 
 
+
 class IR_T(BaseModel):
 	t: Union[Type, IRDef, IR_List, str]  # TODO: upconvert str
+	readonly: bool = False
 
 
 class IR_List(BaseModel):
@@ -233,7 +236,8 @@ class IRTransformer:
 
 	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OARef]) -> IR_T:
 		if isinstance(p, OADef.Property):
-			return IR_T(t=self.resolve_type(p.t))
+			resolved_type = self.resolve_type(p.t)
+			return IR_T(t=resolved_type, readonly=p.readOnly)
 		elif isinstance(p, OADef.Array):
 			return self.ir_array(p)
 		elif isinstance(p, OARef):
@@ -273,16 +277,20 @@ class IRTransformer:
 	def resolve_ir_t_str(ir_t: IR_T) -> str:
 		t = ir_t.t
 		if isinstance(t, type):
-			return t.__name__
+			n = t.__name__
 		elif isinstance(t, IRDef):
-			return t.name
+			n = t.name
 		elif isinstance(t, IR_List):
-			inner = IRTransformer.resolve_ir_t_str(t.items)
-			return f"List[{inner}]"
+			n = f"List[%s]" % IRTransformer.resolve_ir_t_str(t.items)
 		elif isinstance(t, str):
-			return t
+			n = t
 		else:
-			raise ValueError(f"Expected {IR_T} got {type(ir_t)}")
+			raise TypeError(f"Cannot handle {type(t)}")
+
+		if ir_t.readonly:
+			return f"ReadOnly[%s]" % n
+		else:
+			return n
 
 	@staticmethod
 	def fieldsIR2AZ(fields: Dict[str, IR_T]) -> Dict[str, str]:
@@ -523,13 +531,13 @@ if __name__ == "__main__":
 	print(
 		dedent(
 			"""\
-		from __future__ import annotations
-		from typing import List, Union
-		
-		from pydantic import BaseModel, Field
-		
-		from llamazure.azrest.models import AzList, Req
-	"""
+			from __future__ import annotations
+			from typing import List, Union
+			
+			from pydantic import BaseModel, Field
+			
+			from llamazure.azrest.models import AzList, ReadOnly, Req
+			"""
 		)
 	)
 	print(transformer.transform())
