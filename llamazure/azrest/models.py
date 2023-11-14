@@ -27,8 +27,8 @@ class Req(Generic[Ret_T]):
 		return cls(path, "GET", apiv, ret_t=ret_t)
 
 	@classmethod
-	def delete(cls, path: str, apiv: str) -> Req:
-		return cls(path, "DELETE", apiv)
+	def delete(cls, path: str, apiv: str, ret_t: Optional[Type[Ret_T]] = Type[None]) -> Req:
+		return cls(path, "DELETE", apiv, ret_t=ret_t)
 
 	@classmethod
 	def put(cls, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:

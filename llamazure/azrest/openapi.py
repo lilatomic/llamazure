@@ -23,7 +23,7 @@ from textwrap import dedent, indent
 from typing import Dict, List, Literal, Optional, Type, Union
 
 from pydantic import BaseModel, Field, TypeAdapter
-from typing_extensions import TypedDict, NotRequired
+from typing_extensions import NotRequired, TypedDict
 
 from llamazure.azrest.models import AzList
 
@@ -59,7 +59,6 @@ class OAParam(BaseModel):
 	oa_schema: Optional[OARef] = Field(alias="schema", default=None)
 
 
-
 class OAResponse(BaseModel):
 	description: str
 	oa_schema: Optional[OARef] = Field(alias="schema", default=None)
@@ -86,7 +85,6 @@ class OAOp(BaseModel):
 	def url_params(self) -> List[OAParam]:
 		# TODO: resolve refs
 		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "path"]
-
 
 
 class OAPath(TypedDict):
@@ -317,7 +315,6 @@ class IRTransformer:
 
 		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), property_c=property_c)
 
-
 	def paramOA2IR(self, oaparam: OAParam) -> IR_T:
 		if oaparam.oa_schema:
 			return self.transform_oa_field(oaparam.oa_schema)
@@ -331,9 +328,7 @@ class IRTransformer:
 		elif len(ts) == 1:
 			return ts[0]
 		else:
-			return IR_T(
-				t=f"Union[{', '.join(self.resolve_ir_t_str(t) for t in ts)}]"
-			)
+			return IR_T(t=f"Union[{', '.join(self.resolve_ir_t_str(t) for t in ts)}]")
 
 	def deserialise_paths(self, paths, apiv: str) -> str:
 		parser = TypeAdapter(Dict[str, OAPath])
@@ -373,7 +368,6 @@ class IRTransformer:
 		for ir_op in ops:
 			az_objs[ir_op.object_name].append(ir_op)
 
-
 		az_ops = []
 		for name, ir_ops in az_objs.items():
 			o = []
@@ -384,11 +378,11 @@ class IRTransformer:
 					params = None
 
 				if x.body:
-					body=self.resolve_ir_t_str(x.body)
-					body_name=x.body_name
+					body = self.resolve_ir_t_str(x.body)
+					body_name = x.body_name
 				else:
-					body=None
-					body_name=None
+					body = None
+					body_name = None
 
 				az_op = AZOp(
 					name=x.name,
@@ -399,14 +393,11 @@ class IRTransformer:
 					body=body,
 					body_name=body_name,
 					params=params,
-					ret_t=self.resolve_ir_t_str(x.ret_t)
+					ret_t=self.resolve_ir_t_str(x.ret_t),
 				)
 				o.append(az_op)
 
-			a = AZOps(
-				name=name,
-				ops=o
-			)
+			a = AZOps(name=name, ops=o)
 
 			az_ops.append(a)
 
@@ -417,6 +408,10 @@ class CodeGenable(ABC):
 	@abstractmethod
 	def codegen(self) -> str:
 		...
+
+	@staticmethod
+	def quote(s: str) -> str:
+		return '"%s"' % s
 
 
 class AZDef(BaseModel, CodeGenable):
@@ -439,7 +434,7 @@ class AZDef(BaseModel, CodeGenable):
 		fields = indent("\n".join(self.codegen_field(f_name, f_type) for f_name, f_type in self.fields.items()), "\t")
 
 		return dedent(
-		'''\
+			'''\
 		class {name}(BaseModel):
 			"""{description}"""
 		{property_c_codegen}
@@ -469,11 +464,11 @@ class AZOp(BaseModel, CodeGenable):
 
 	def codegen(self) -> str:
 		params = []  # TODO: add from path
-		req_args={
-			"path": self.path,
+		req_args = {
+			"path": self.quote(self.path),
 		}
 		if self.apiv:
-			req_args["apiv"] = self.apiv
+			req_args["apiv"] = self.quote(self.apiv)
 		if self.params:
 			params.extend([f"{p_name}: {p_type}" for p_name, p_type in self.params.items()])
 		if self.body:
@@ -482,20 +477,22 @@ class AZOp(BaseModel, CodeGenable):
 		if self.ret_t:
 			req_args["ret_t"] = self.ret_t
 
-		return dedent('''\
+		return dedent(
+			'''\
 		@staticmethod
 		def {name}({params}) -> Req[{ret_t}]:
 			"""{description}"""
 			return Req.{method}(
 		{req_args}
 			)
-		''').format(
+		'''
+		).format(
 			name=self.name,
 			params=", ".join(params),
 			description=self.description,
 			ret_t=self.ret_t,
 			method=self.method,
-			req_args=indent(",\n".join("=".join([k,v]) for k,v in req_args.items()), "\t\t"),
+			req_args=indent(",\n".join("=".join([k, v]) for k, v in req_args.items()), "\t\t"),
 		)
 
 
@@ -504,16 +501,14 @@ class AZOps(BaseModel, CodeGenable):
 	ops: List[AZOp]
 
 	def codegen(self) -> str:
-		op_strs = indent("\n\n".join(
-			op.codegen() for op in self.ops
-		), "\t")
-
+		op_strs = indent("\n".join(op.codegen() for op in self.ops), "\t")
 
 		return dedent(
-		'''\
+			"""\
 		class AZ{name}: 
 		{ops}		
-		''').format(name=self.name, ops=op_strs)
+		"""
+		).format(name=self.name, ops=op_strs)
 
 
 if __name__ == "__main__":
@@ -524,13 +519,18 @@ if __name__ == "__main__":
 	oa_defs = definitions(reader.definitions)
 
 	transformer = IRTransformer(oa_defs)
-	codegen = transformer.transform()
 
-	# out: dict[str, dict[str, Any]] = defaultdict(dict)
-	# for path, pathobj in reader.paths:
-	# 	for method, operationobj in operations(pathobj).items():
-	# 		out[path][method] = {k: operationobj[k] for k in ("description", "operationId")}
-	#
-	# print(codegen)
-
+	print(
+		dedent(
+			"""\
+		from __future__ import annotations
+		from typing import List, Union
+		
+		from pydantic import BaseModel, Field
+		
+		from llamazure.azrest.models import AzList, Req
+	"""
+		)
+	)
+	print(transformer.transform())
 	print(transformer.deserialise_paths(reader.paths, reader.apiv))
