@@ -390,13 +390,15 @@ class IRTransformer:
 			return IR_T(t=self.resolve_type(oaparam.type))
 
 	def unify_ir_t(self, ts: List[IR_T]) -> Optional[IR_T]:
-		ts = list(filter(None, ts))
+		"""Unify IR types, usually for returns"""
+		ts = set(self.resolve_ir_t_str(t) for t in ts if t)
 		if len(ts) == 0:
 			return None
 		elif len(ts) == 1:
-			return ts[0]
+			return IR_T(t=ts.pop())
 		else:
-			return IR_T(t=f"Union[{', '.join(self.resolve_ir_t_str(t) for t in ts)}]")
+			resolved_types = set()
+			return IR_T(t=f"Union[{', '.join(resolved_types)}]")
 
 	def deserialise_paths(self, paths, apiv: str) -> str:
 		parser = TypeAdapter(Dict[str, OAPath])
@@ -411,7 +413,6 @@ class IRTransformer:
 
 				new_path_item[method] = new_op
 			resolved[path] = new_path_item
-
 
 		ops: List[IROp] = []
 		for path, path_item in resolved.items():
