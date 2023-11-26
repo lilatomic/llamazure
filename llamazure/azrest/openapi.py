@@ -295,6 +295,9 @@ class IRTransformer:
 	def resolve_type(self, t) -> IR_T:
 		py_type = {
 			"string": str,
+			"number": float,
+			"integer": int,
+			"boolean": bool,
 		}.get(t, t)
 		return py_type
 
