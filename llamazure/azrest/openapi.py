@@ -391,8 +391,19 @@ class IRTransformer:
 		parser = TypeAdapter(Dict[str, OAPath])
 		parsed = parser.validate_python(paths)
 
-		ops: List[IROp] = []
+		resolved: Dict[str, OAPath] = {}
 		for path, path_item in parsed.items():
+			new_path_item = {}
+			for method, op in path_item.items():
+				resolved_parameters = self.resolve_oaparam_refs(op)
+				new_op = op.model_copy(update={"parameters": resolved_parameters})
+
+				new_path_item[method] = new_op
+			resolved[path] = new_path_item
+
+
+		ops: List[IROp] = []
+		for path, path_item in resolved.items():
 			for method, op in path_item.items():
 				object_name, name = op.operationId.split("_")
 
@@ -459,6 +470,16 @@ class IRTransformer:
 			az_ops.append(a)
 
 		return "\n\n".join([cg.codegen() for cg in az_ops])
+
+	def resolve_oaparam_refs(self, op: OAOp) -> List[OAParam]:
+		params = op.parameters
+		resolved_parameters = []
+		for param in params:
+			if isinstance(param, OAParam):
+				resolved_parameters.append(param)
+			else:
+				resolved_parameters.append(OAParam(**(self.openapi.load_relative(param.ref))))
+		return resolved_parameters
 
 
 class CodeGenable(ABC):
