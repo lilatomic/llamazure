@@ -196,7 +196,7 @@ class Reader:
 			raise PathLookupError(object_path)
 
 	def _load_file(self, file_path):
-		with (self.root / self.path / file_path).open(mode="r", encoding="utf-8") as fp:
+		with (self.root / self.path.parent / file_path).open(mode="r", encoding="utf-8") as fp:
 			file = json.load(fp)
 		return file
 
@@ -470,6 +470,10 @@ class CodeGenable(ABC):
 	def quote(s: str) -> str:
 		return '"%s"' % s
 
+	@staticmethod
+	def fstring(s: str) -> str:
+		return 'f"%s"' % s
+
 
 class AZDef(BaseModel, CodeGenable):
 	name: str
@@ -522,7 +526,7 @@ class AZOp(BaseModel, CodeGenable):
 	def codegen(self) -> str:
 		params = []  # TODO: add from path
 		req_args = {
-			"path": self.quote(self.path),
+			"path": self.fstring(self.path),
 		}
 		if self.apiv:
 			req_args["apiv"] = self.quote(self.apiv)
