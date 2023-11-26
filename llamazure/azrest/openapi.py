@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import Dict, List, Literal, Optional, Type, Union
+from typing import Dict, List, Literal, Optional, Set, Type, Union
 
 from pydantic import BaseModel, Field, TypeAdapter
 from typing_extensions import NotRequired, TypedDict
@@ -42,7 +42,7 @@ class OARef(BaseModel):
 
 	@property
 	def name(self) -> str:
-		return self.ref.split('/')[-1]
+		return self.ref.split("/")[-1]
 
 
 class OADef(BaseModel):
@@ -59,6 +59,7 @@ class OADef(BaseModel):
 	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef]]
 	t: str = Field(alias="type")
 	description: Optional[str] = None
+	required: Set[str] = {}
 
 
 class OAParam(BaseModel):
@@ -131,10 +132,12 @@ class IRDef(BaseModel):
 class IR_T(BaseModel):
 	t: Union[Type, IRDef, IR_List, str]  # TODO: upconvert str
 	readonly: bool = False
+	required: bool = True
 
 
 class IR_List(BaseModel):
 	items: IR_T
+	required: bool = True
 
 
 class Reader:
@@ -169,7 +172,7 @@ class Reader:
 	@staticmethod
 	def classify_relative(relative: str) -> tuple[str, str, str]:
 		file_path, object_path = relative.split("#")
-		oa_type = object_path.split('/')[0]
+		oa_type = object_path.split("/")[0]
 		return file_path, oa_type, object_path
 
 	def load_relative(self, relative: str) -> dict:
@@ -242,27 +245,27 @@ class IRTransformer:
 		self.openapi = openapi
 
 	def transform(self) -> str:
-		irs = {}
+		ir_definitions = {}
 		for name, obj in self.oa_defs.items():
-			irs[name] = self.transform_def(name, obj)
+			ir_definitions[name] = self.transform_def(name, obj)
 
 		ir_props = {}
-		for name, ir in irs.items():
+		for name, ir in ir_definitions.items():
 			if "properties" in ir.properties:
 				prop_t = ir.properties["properties"].t
 				assert isinstance(prop_t, str)  # TODO: Better checking or coercion
 				prop_ref = prop_t
-				ir_props[prop_ref] = irs[prop_ref]
+				ir_props[prop_ref] = ir_definitions[prop_ref]
 
 		ir_azlists: Dict[str, AZAlias] = {}
-		for name, ir in irs.items():
+		for name, ir in ir_definitions.items():
 			azlist = self.ir_azarray(ir)
 			if azlist:
 				ir_azlists[name] = azlist
 
 		ir_consumed = ir_props.keys() | ir_azlists.keys()
 		ir_defs = {}
-		for name, ir in irs.items():
+		for name, ir in ir_definitions.items():
 			if name not in ir_consumed:
 				ir_defs[name] = ir
 		azs = [self.defIR2AZ(ir) for ir in ir_defs.values()]
@@ -274,7 +277,7 @@ class IRTransformer:
 		return "\n\n".join(codegened_definitions + reloaded_definitions)
 
 	def transform_def(self, name: str, obj: OADef) -> IRDef:
-		ir_properties = {p_name: self.transform_oa_field(p) for p_name, p in obj.properties.items()}
+		ir_properties = {p_name: self.transform_oa_field(p).model_copy(update={"required": p_name in obj.required}) for p_name, p in obj.properties.items()}
 		return IRDef(
 			name=name,
 			properties=ir_properties,
@@ -335,14 +338,16 @@ class IRTransformer:
 		elif isinstance(t, IRDef):
 			n = t.name
 		elif isinstance(t, IR_List):
-			n = f"List[%s]" % IRTransformer.resolve_ir_t_str(t.items)
+			n = "List[%s]" % IRTransformer.resolve_ir_t_str(t.items)
 		elif isinstance(t, str):
 			n = t
 		else:
 			raise TypeError(f"Cannot handle {type(t)}")
 
 		if ir_t.readonly:
-			return f"ReadOnly[%s]" % n
+			return "ReadOnly[%s]" % n
+		elif not ir_t.required:
+			return "Optional[%s]" % n
 		else:
 			return n
 
@@ -353,16 +358,16 @@ class IRTransformer:
 		for f_name, f_type in fields.items():
 			if f_name == "properties":
 				# assert isinstance(f_type, IRDef)
-				v = "Properties"
+				t = "Properties"
 			else:
-				v = IRTransformer.resolve_ir_t_str(f_type)
+				t = IRTransformer.resolve_ir_t_str(f_type)
 
-			if f_type.readonly:
-				default = "None"
+			if f_type.readonly or not f_type.required:
+				v = "None"
 			else:
-				default = None
+				v = None
 
-			az_fields.append(AZField(name=f_name, t=v, default=default))
+			az_fields.append(AZField(name=f_name, t=t, default=v))
 
 		return az_fields
 
@@ -526,7 +531,6 @@ class AZDef(BaseModel, CodeGenable):
 	fields: List[AZField]
 	property_c: Optional[AZDef] = None
 
-
 	def codegen(self) -> str:
 		if self.property_c:
 			property_c_codegen = indent(self.property_c.codegen(), "\t")
@@ -610,7 +614,7 @@ class AZOps(BaseModel, CodeGenable):
 			"""\
 		class Az{name}:
 			apiv = {apiv}
-		{ops}		
+		{ops}
 		"""
 		).format(name=self.name, ops=op_strs, apiv=self.quote(self.apiv))
 
@@ -628,10 +632,10 @@ if __name__ == "__main__":
 		dedent(
 			"""\
 			from __future__ import annotations
-			from typing import List, Union
-			
+			from typing import List, Optional, Union
+
 			from pydantic import BaseModel, Field
-			
+
 			from llamazure.azrest.models import AzList, ReadOnly, Req
 			"""
 		)
