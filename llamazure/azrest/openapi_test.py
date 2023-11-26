@@ -39,7 +39,7 @@ class TestResolveReference:
 class TestTransformPrimitives:
 	def test_string(self):
 		p = OADef.Property(type="string", description="description0")
-		assert IRTransformer({}).resolve_type(p.t) == str
+		assert IRTransformer({}, None).resolve_type(p.t) == str
 
 
 class TestTransformArray:
@@ -48,7 +48,7 @@ class TestTransformArray:
 			items=OADef.Property(type="string", description="d0"),
 			description="d1",
 		)
-		assert IRTransformer({}).ir_array(p) == IR_T(t=IR_List(items=IR_T(t=str)))
+		assert IRTransformer({}, None).ir_array(p) == IR_T(t=IR_List(items=IR_T(t=str)))
 
 
 class TestTransformDef:
@@ -61,7 +61,7 @@ class TestTransformDef:
 				"p1": OADef.Property(type="t.p1"),
 			},
 		)
-		result = IRTransformer({}).transform_def("n0", p)
+		result = IRTransformer({}, None).transform_def("n0", p)
 		expected = IRDef(
 			name="n0",
 			description="d0",

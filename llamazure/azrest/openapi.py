@@ -269,7 +269,9 @@ class IRTransformer:
 
 		output_req: List[CodeGenable] = azs + list(ir_azlists.values())
 
-		return "\n\n".join([cg.codegen() for cg in output_req])
+		codegened_definitions = [cg.codegen() for cg in output_req]
+		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
+		return "\n\n".join(codegened_definitions + reloaded_definitions)
 
 	def transform_def(self, name: str, obj: OADef) -> IRDef:
 		ir_properties = {p_name: self.transform_oa_field(p) for p_name, p in obj.properties.items()}
