@@ -58,3 +58,13 @@ class AzRest:
 				return req.ret_t.model_validate(res.json()).render()
 			else:
 				return req.ret_t.model_validate(res.json())
+
+
+class AzOps:
+	"""Parent class for helpers which dispatch requests to Azure"""
+
+	def __init__(self, azrest: AzRest):
+		self.azrest = azrest
+
+	def run(self, req: Req[Ret_T]) -> Ret_T:
+		return self.azrest.call(req)

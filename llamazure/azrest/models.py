@@ -8,8 +8,9 @@ from typing import Dict, Generic, List, Optional, Type, TypeVar
 
 from pydantic import BaseModel
 
-Ret_T = TypeVar("Ret_T", bound=BaseModel)
+Ret_T = TypeVar("Ret_T")
 ReadOnly = Optional
+
 
 @dataclass(frozen=True)
 class Req(Generic[Ret_T]):

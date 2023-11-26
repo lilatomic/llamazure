@@ -30,9 +30,19 @@ from llamazure.azrest.models import AzList
 logger = logging.getLogger(__name__)
 
 
+class PathLookupError(Exception):
+	def __init__(self, object_path: str):
+		self.object_path = object_path
+		super().__init__(f"Error while looking up path: {object_path}")
+
+
 class OARef(BaseModel):
 	ref: str = Field(alias="$ref")
 	description: Optional[str] = None
+
+	@property
+	def name(self) -> str:
+		return self.ref.split('/')[-1]
 
 
 class OADef(BaseModel):
@@ -130,17 +140,18 @@ class IR_List(BaseModel):
 class Reader:
 	"""Read Microsoft OpenAPI specifications"""
 
-	def __init__(self, openapi: dict):
+	def __init__(self, root: Path, path: Path, openapi: dict):
+		self.root = root
+		self.path = path
 		self.doc = openapi
 
 	@classmethod
-	def load(cls, fp) -> Reader:
+	def load(cls, root: Path, path: Path) -> Reader:
 		"""Load from a path or file-like object"""
-		if isinstance(fp, (str, Path)):
-			with open(fp, mode="r", encoding="utf-8") as fp:
-				return Reader(json.load(fp))
-		else:
-			return Reader(json.load(fp))
+
+		openapi3_file = root / path
+		with open(openapi3_file, mode="r", encoding="utf-8") as fp:
+			return Reader(root, path, json.load(fp))
 
 	@property
 	def paths(self):
@@ -155,6 +166,40 @@ class Reader:
 	def apiv(self) -> str:
 		return self.doc["info"]["version"]
 
+	@staticmethod
+	def classify_relative(relative: str) -> tuple[str, str, str]:
+		file_path, object_path = relative.split("#")
+		oa_type = object_path.split('/')[0]
+		return file_path, oa_type, object_path
+
+	def load_relative(self, relative: str) -> dict:
+		file_path, _, object_path = self.classify_relative(relative)
+
+		if file_path:
+			file = self._load_file(file_path)
+		else:
+			file = self.doc
+
+		o = self._get_from_object_at_path(file, object_path)
+		return o
+
+	@staticmethod
+	def _get_from_object_at_path(file: dict, object_path: str) -> dict:
+		try:
+			o = file
+			for segment in object_path.split("/"):
+				if segment:  # escape empty segments
+					o = o[segment]
+			return o
+		except (KeyError, TypeError):
+			# Raise a custom exception with a helpful message including the object_path
+			raise PathLookupError(object_path)
+
+	def _load_file(self, file_path):
+		with (self.root / self.path / file_path).open(mode="r", encoding="utf-8") as fp:
+			file = json.load(fp)
+		return file
+
 
 def operations(path_object: dict):
 	"""Extract operations from an OpenAPI Path object"""
@@ -162,7 +207,7 @@ def operations(path_object: dict):
 
 
 def definitions(ds: dict):
-	"""Extract OpenAPI defintions"""
+	"""Extract OpenAPI definitions"""
 	parser = TypeAdapter(Dict[str, OADef])
 	return parser.validate_python(ds)
 
@@ -192,8 +237,9 @@ def dereference_refs(ds: Dict[str, OADef]) -> Dict[str, OADef]:
 
 
 class IRTransformer:
-	def __init__(self, defs: Dict[str, OADef]):
+	def __init__(self, defs: Dict[str, OADef], openapi: Reader):
 		self.oa_defs: Dict[str, OADef] = defs
+		self.openapi = openapi
 
 	def transform(self) -> str:
 		irs = {}
@@ -232,6 +278,10 @@ class IRTransformer:
 			properties=ir_properties,
 			description=obj.description,
 		)
+
+	def _resolve_path(self, ref: OARef):
+		obj = self.openapi.load_relative(ref.ref)
+		return obj
 
 	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OARef]) -> IR_T:
 		if isinstance(p, OADef.Property):
@@ -523,11 +573,11 @@ class AZOps(BaseModel, CodeGenable):
 if __name__ == "__main__":
 	import sys
 
-	reader = Reader.load(sys.argv[1])
+	reader = Reader.load(Path(sys.argv[1]), Path(sys.argv[2]))
 
 	oa_defs = definitions(reader.definitions)
 
-	transformer = IRTransformer(oa_defs)
+	transformer = IRTransformer(oa_defs, reader)
 
 	print(
 		dedent(
