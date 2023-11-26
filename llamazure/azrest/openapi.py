@@ -345,8 +345,8 @@ class IRTransformer:
 			return n
 
 	@staticmethod
-	def fieldsIR2AZ(fields: Dict[str, IR_T]) -> Dict[str, str]:
-		az_fields = {}
+	def fieldsIR2AZ(fields: Dict[str, IR_T]) -> List[AZField]:
+		az_fields = []
 
 		for f_name, f_type in fields.items():
 			if f_name == "properties":
@@ -354,7 +354,13 @@ class IRTransformer:
 				v = "Properties"
 			else:
 				v = IRTransformer.resolve_ir_t_str(f_type)
-			az_fields[f_name] = v
+
+			if f_type.readonly:
+				default = "None"
+			else:
+				default = None
+
+			az_fields.append(AZField(name=f_name, t=v, default=default))
 
 		return az_fields
 
@@ -499,16 +505,24 @@ class CodeGenable(ABC):
 		return 'f"%s"' % s
 
 
+class AZField(BaseModel, CodeGenable):
+	name: str
+	t: str
+	default: Optional[str] = None
+
+	def codegen(self) -> str:
+		if self.name == "id":
+			return f'rid: {self.t} = Field(alias="id", default=None)'
+		default = f" = {self.default}" if self.default else ""
+		return f"{self.name}: {self.t}" + default
+
+
 class AZDef(BaseModel, CodeGenable):
 	name: str
 	description: Optional[str]
-	fields: Dict[str, str]
+	fields: List[AZField]
 	property_c: Optional[AZDef] = None
 
-	def codegen_field(self, f_name, f_type) -> str:
-		if f_name == "id":
-			return f'rid: {f_type} = Field(alias="id", default=None)'
-		return f"{f_name}: {f_type}"
 
 	def codegen(self) -> str:
 		if self.property_c:
@@ -516,7 +530,7 @@ class AZDef(BaseModel, CodeGenable):
 		else:
 			property_c_codegen = ""
 
-		fields = indent("\n".join(self.codegen_field(f_name, f_type) for f_name, f_type in self.fields.items()), "\t")
+		fields = indent("\n".join(field.codegen() for field in self.fields), "\t")
 
 		return dedent(
 			'''\
