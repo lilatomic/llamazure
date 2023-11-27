@@ -362,12 +362,14 @@ class IRTransformer:
 			else:
 				t = IRTransformer.resolve_ir_t_str(f_type)
 
-			if f_type.readonly or not f_type.required:
+			if isinstance(f_type.t, IR_List):
+				v = "[]"
+			elif f_type.readonly or not f_type.required:
 				v = "None"
 			else:
 				v = None
 
-			az_fields.append(AZField(name=f_name, t=t, default=v))
+			az_fields.append(AZField(name=f_name, t=t, default=v, readonly=f_type.readonly))
 
 		return az_fields
 
@@ -512,11 +514,16 @@ class CodeGenable(ABC):
 	def fstring(s: str) -> str:
 		return 'f"%s"' % s
 
+	@staticmethod
+	def indent(i: int, s: str):
+		return indent(s, "\t" * i)
+
 
 class AZField(BaseModel, CodeGenable):
 	name: str
 	t: str
 	default: Optional[str] = None
+	readonly: bool
 
 	def codegen(self) -> str:
 		if self.name == "id":
@@ -545,8 +552,30 @@ class AZDef(BaseModel, CodeGenable):
 			"""{description}"""
 		{property_c_codegen}
 		{fields}
+		
+		{eq}
 		'''
-		).format(name=self.name, description=self.description, property_c_codegen=property_c_codegen, fields=fields)
+		).format(name=self.name, description=self.description, property_c_codegen=property_c_codegen, fields=fields, eq=self.codegen_eq())
+
+	def codegen_eq(self) -> str:
+		conditions = [f"isinstance(o, self.__class__)"]
+		for field in self.fields:
+			if not field.readonly:
+				conditions.append(f"self.{field.name} == o.{field.name}")
+
+		conditions_str = self.indent(2, "\nand ".join(conditions))
+
+		return self.indent(
+			1,
+			dedent(
+				"""\
+		def __eq__(self, o) -> bool:
+			return (
+		{conditions_str}
+			)
+		"""
+			).format(conditions_str=conditions_str),
+		)
 
 
 class AZAlias(BaseModel, CodeGenable):
