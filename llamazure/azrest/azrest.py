@@ -39,7 +39,7 @@ class AzRest:
 			r.params["api-version"] = req.apiv
 		if req.body:
 			r.headers["Content-Type"] = "application/json"
-			r.data = req.body.model_dump_json(exclude_unset=True)
+			r.data = req.body.model_dump_json(exclude_none=True)
 		return r
 
 	def call(self, req: Req[Ret_T]) -> Ret_T:
