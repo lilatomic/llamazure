@@ -68,3 +68,8 @@ class AzOps:
 
 	def run(self, req: Req[Ret_T]) -> Ret_T:
 		return self.azrest.call(req)
+
+
+def rid_eq(a: str, b: str) -> bool:
+	"""Whether 2 Azure resource IDs are the same"""
+	return a.lower() == b.lower()
