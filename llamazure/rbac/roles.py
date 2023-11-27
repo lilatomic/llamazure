@@ -57,17 +57,24 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 		# we search for all custom roles in case it exists but not at our desired scope
 		existing_role: RoleDefinition = self.by_name(self.run(self.list_all_custom())).get(role.roleName, None)
 		if existing_role:
+			l.debug(f"found RoleDefinition rid={existing_role.rid}")
 			target_role = existing_role.model_copy(update={"properties": role})
 			# copy assignable scopes
 			if not role.assignableScopes:
 				target_role.properties.assignableScopes = existing_role.properties.assignableScopes
 		else:
 			name = str(uuid4())
+			l.debug(f"did not find RoleDefinition, using name={name}")
 			target_role = RoleDefinition(name=name, properties=role)
+
+		l.info(f"{target_role.properties.assignableScopes=}")
+		l.info(f"contains {scope in target_role.properties.assignableScopes}")
 
 		# ensure that the role definition scope is in the assignable scopes
 		if scope not in target_role.properties.assignableScopes:
+			l.debug(f"adding scope to RoleDefinition")
 			target_role.properties.assignableScopes.append(scope)
+		l.info(f"{target_role.properties.assignableScopes=}")
 
 		res = self.run(self.CreateOrUpdate(scope, target_role.name, target_role))
 		return res
@@ -140,9 +147,11 @@ class RoleAssignments(AzRoleAssignments, AzOps):
 			None,
 		)
 		if existing:
+			l.debug(f"found existing role assignment rid={existing.rid}")
 			target = existing.model_copy(update={"properties": assignment})
 		else:
 			name = str(uuid4())
+			l.debug(f"did not find existing role assignment, trying for name={name}")
 			target = RoleAssignment(name=name, properties=assignment)
 
 		res = self.run(self.Create(target.properties.scope, target.name, target))

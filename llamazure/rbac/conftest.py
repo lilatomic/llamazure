@@ -27,7 +27,11 @@ def credential():
 
 @pytest.fixture
 def scopes():
-	return yaml.safe_load(os.environ.get("integration_test_secrets"))["rbac"]["scopes"]
+	secrets = os.environ.get("integration_test_secrets")
+	if not secrets:
+		with open("cicd/secrets.yml", mode="r", encoding="utf-8") as f:
+			secrets = f.read()
+	return yaml.safe_load(secrets)["rbac"]["scopes"]
 
 
 @pytest.fixture

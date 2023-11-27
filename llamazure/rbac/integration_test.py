@@ -7,7 +7,9 @@ import pytest
 from llamazure.azrest.azrest import AzureError
 from llamazure.rbac.conftest import retry
 from llamazure.rbac.resources import Groups, Users
-from llamazure.rbac.roles import Permission, RoleAssignment, RoleAssignments, RoleDefinition, RoleDefinitions, RoleOps
+from llamazure.rbac.role_asn import RoleAssignment
+from llamazure.rbac.role_def import Permission, RoleDefinition
+from llamazure.rbac.roles import RoleAssignments, RoleDefinitions, RoleOps
 
 attempts = 5
 
