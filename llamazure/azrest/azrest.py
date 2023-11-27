@@ -1,8 +1,9 @@
 """Access the Azure HTTP API"""
 from __future__ import annotations
 
+import dataclasses
 import logging
-from typing import Type
+from typing import Type, Union
 
 import requests
 from pydantic import TypeAdapter
@@ -19,14 +20,22 @@ class AzureError(Exception):
 		self.json = json
 
 
+@dataclasses.dataclass
+class RetryPolicy:
+	"""Parameters and strategies for retrying Azure Resource Graph queries"""
+
+	retries: int = 0  # number of times to retry. This is in addition to the initial try
+
+
 class AzRest:
 	"""Access the Azure HTTP API"""
 
-	def __init__(self, token, session: requests.Session, base_url: str = "https://management.azure.com"):
+	def __init__(self, token, session: requests.Session, base_url: str = "https://management.azure.com", retry_policy: RetryPolicy = RetryPolicy()):
 		self.token = token
 		self.session = session
 
 		self.base_url = base_url
+		self.retry_policy = retry_policy
 
 	@classmethod
 	def from_credential(cls, credential) -> AzRest:
@@ -49,7 +58,7 @@ class AzRest:
 	def call(self, req: Req[Ret_T]) -> Ret_T:
 		"""Make the request to Azure"""
 		r = self.to_request(req)
-		res = self._do_call(req, r)
+		res = self._call_with_retry(req, r)
 		if res is None:
 			return res
 
@@ -58,19 +67,32 @@ class AzRest:
 			while res.nextLink:
 				r = self.to_request(req)
 				r.url = res.nextLink
-				res = self._do_call(req, r)
+				res = self._call_with_retry(req, r)
 				acc.extend(res.value)
 			return acc
 		else:
 			return res
 
-	def _do_call(self, req: Req[Ret_T], r: requests.Request) -> Ret_T:
+	def _call_with_retry(self, req: Req[Ret_T], r: requests.Request) -> Ret_T:
+		res = self._do_call(req, r)
+		if isinstance(res, AzureError):
+			retries = 0
+			while retries < self.retry_policy.retries and isinstance(res, AzureError):
+				retries += 1
+				res = self._do_call(req, r)
+
+		if isinstance(res, AzureError):
+			raise res
+		else:
+			return res
+
+	def _do_call(self, req: Req[Ret_T], r: requests.Request) -> Union[Ret_T, AzureError]:
 		"""Make a single request to Azure, without retry or pagination"""
 		r.headers["Authorization"] = f"Bearer {self.token.token}"  # TODO: push down into self.session
 		res = self.session.send(r.prepare())
 		if not res.ok:
 			l.warning(res.json())
-			raise AzureError(res.json())
+			return AzureError(res.json())
 
 		if req.ret_t is Type[None]:  # noqa: E721  # we're comparing types here
 			return None  # type: ignore

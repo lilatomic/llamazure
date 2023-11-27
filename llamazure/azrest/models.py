@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import dataclasses
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, Generic, List, Optional, Type, TypeVar
 
