@@ -61,6 +61,7 @@ class AzType(ABC, Generic[T]):
 
 class AzList(BaseModel, Generic[Ret_T], AzType[List[Ret_T]]):
 	value: List[Ret_T]
+	nextLink: Optional[str] = None
 
 	def render(self) -> List[Ret_T]:
 		return self.value

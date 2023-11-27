@@ -1,6 +1,7 @@
 """Access the Azure HTTP API"""
 from __future__ import annotations
 
+import logging
 from typing import Type
 
 import requests
@@ -8,6 +9,8 @@ from pydantic import TypeAdapter
 
 from llamazure.azrest.models import AzType, Req, Ret_T
 
+
+l = logging.getLogger(__name__)
 
 class AzureError(Exception):
 	"""An Azure-specific error"""
@@ -45,11 +48,22 @@ class AzRest:
 
 	def call(self, req: Req[Ret_T]) -> Ret_T:
 		"""Make the request to Azure"""
+		res = self.call_single(req)
+		if res is None:
+			return res
+
+		if isinstance(res, AzType):
+			return res.render()
+		else:
+			return res
+
+	def call_single(self, req: Req[Ret_T]) -> Ret_T:
+		"""Make a single request to Azure, without retry or pagination"""
 		r = self.to_request(req)
 		r.headers["Authorization"] = f"Bearer {self.token.token}"  # TODO: push down into self.session
 		res = self.session.send(r.prepare())
 		if not res.ok:
-			print(res.json())
+			l.warning(res.json())
 			raise AzureError(res.json())
 
 		if req.ret_t is Type[None]:  # noqa: E721  # we're comparing types here
@@ -60,10 +74,7 @@ class AzRest:
 			return type_adapter.validate_python(None)
 
 		deserialised = type_adapter.validate_json(res.content)
-		if isinstance(deserialised, AzType):
-			return deserialised.render()
-		else:
-			return deserialised
+		return deserialised
 
 
 class AzOps:

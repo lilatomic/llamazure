@@ -1,5 +1,13 @@
 # llamazure.azrest : A REST client for the Azure API
 
+## TODO
+
+1. Pagination (x-ms-pageable)
+2. Retry policy
+3. Logging
+4. Parametrized host (x-ms-parameterized-host)
+5. Odata parameters (x-ms-odata)
+
 ## X-MS Support
 
 | support | extension                            | comments                                                                      |
