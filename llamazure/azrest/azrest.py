@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Type
 
 import requests
+from pydantic import TypeAdapter
 
 from llamazure.azrest.models import AzType, Req, Ret_T
 
@@ -53,11 +54,16 @@ class AzRest:
 
 		if req.ret_t is Type[None]:  # noqa: E721  # we're comparing types here
 			return None  # type: ignore
+
+		type_adapter = TypeAdapter(req.ret_t)
+		if len(res.content) == 0:
+			return type_adapter.validate_python(None)
+
+		deserialised = type_adapter.validate_json(res.content)
+		if isinstance(deserialised, AzType):
+			return deserialised.render()
 		else:
-			if issubclass(req.ret_t, AzType):
-				return req.ret_t.model_validate(res.json()).render()
-			else:
-				return req.ret_t.model_validate(res.json())
+			return deserialised
 
 
 class AzOps:

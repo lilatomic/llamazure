@@ -288,7 +288,7 @@ class IRTransformer:
 		obj = self.openapi.load_relative(ref.ref)
 		return obj
 
-	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OARef]) -> IR_T:
+	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OARef, None]) -> IR_T:
 		if isinstance(p, OADef.Property):
 			resolved_type = self.resolve_type(p.t)
 			return IR_T(t=resolved_type, readonly=p.readOnly)
@@ -296,6 +296,10 @@ class IRTransformer:
 			return self.ir_array(p)
 		elif isinstance(p, OARef):
 			return IR_T(t=resolve_path(p.ref))
+		elif p is None:
+			return IR_T(t="None")
+		else:
+			raise TypeError("unsupported OpenAPI field")
 
 	def resolve_type(self, t) -> IR_T:
 		py_type = {
@@ -404,7 +408,7 @@ class IRTransformer:
 		elif len(ts) == 1:
 			return IR_T(t=ts.pop())
 		else:
-			resolved_types = set()
+			resolved_types = ts
 			return IR_T(t=f"Union[{', '.join(resolved_types)}]")
 
 	def deserialise_paths(self, paths, apiv: str) -> str:

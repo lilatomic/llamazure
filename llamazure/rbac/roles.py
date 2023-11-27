@@ -19,9 +19,8 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 	"""More helpful role operations"""
 
 	@staticmethod
-	def rescope(role: RoleDefinition, scope: str):
-		"""Rescope a role for the target scope"""
-		role_obj = cast(rid.Resource, rid.parse(role.rid))
+	def rescope_id(role: str, scope: str) -> str:
+		role_obj = cast(rid.Resource, rid.parse(role))
 
 		# Get the first segment of the path.
 		# This is enough to tell us if we're in a subscription (the subscription or a resource in it)
@@ -34,6 +33,12 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 			# use the version of the role with no subscription
 			role_obj_for_taget_scope = dataclasses.replace(role_obj, sub=None)
 		new_rid = rid.serialise(role_obj_for_taget_scope)
+		return new_rid
+
+	@staticmethod
+	def rescope(role: RoleDefinition, scope: str) -> RoleDefinition:
+		"""Rescope a role for the target scope"""
+		new_rid = RoleDefinitions.rescope_id(role.rid, scope)
 		return role.model_copy(update={"rid": new_rid})
 
 	@staticmethod
@@ -66,9 +71,6 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 			name = str(uuid4())
 			l.debug(f"did not find RoleDefinition, using name={name}")
 			target_role = RoleDefinition(name=name, properties=role)
-
-		l.info(f"{target_role.properties.assignableScopes=}")
-		l.info(f"contains {scope in target_role.properties.assignableScopes}")
 
 		# ensure that the role definition scope is in the assignable scopes
 		if scope not in target_role.properties.assignableScopes:
@@ -138,11 +140,12 @@ class RoleAssignments(AzRoleAssignments, AzOps):
 	def put(self, assignment: RoleAssignment.Properties) -> RoleAssignment:
 		"""Create or update a role assignment"""
 
+		target_role_id = self._role_definitions.rescope_id(assignment.roleDefinitionId, assignment.scope)
 		existing: RoleAssignment = next(
 			(
 				e
 				for e in self.run(self.ListForScope(assignment.scope))
-				if rid_eq(e.properties.roleDefinitionId, assignment.roleDefinitionId) and e.properties.principalId == assignment.principalId
+				if rid_eq(e.properties.roleDefinitionId, target_role_id) and e.properties.principalId == assignment.principalId
 			),
 			None,
 		)

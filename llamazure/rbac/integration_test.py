@@ -34,16 +34,17 @@ class TestRoles:
 	@pytest.mark.integration
 	def test_all(self, rds: RoleDefinitions, ras: RoleAssignments, role_ops: RoleOps, scopes):
 		"""Test a whole cycle of things"""
+		role_name = "llamazure-rbac-0"
 
 		# try to purge role
-		retry(lambda: role_ops.delete_by_name("llamazure-rbac"), AzureError)
+		retry(lambda: role_ops.delete_by_name(role_name), AzureError)
 
 		scope = scopes["sub0"]
 		scope_other = scopes["sub1"]
 
 		response = rds.put(
 			RoleDefinition.Properties(
-				roleName="llamazure-rbac",
+				roleName=role_name,
 				description="Test creating a role",
 				permissions=[Permission(actions=["Microsoft.Authorization/*/read"])],
 				assignableScopes=[scope, scope_other],
@@ -52,7 +53,7 @@ class TestRoles:
 		)
 
 		def assert_role_created():
-			role = rds.get_by_name("llamazure-rbac")
+			role = rds.get_by_name(role_name)
 			assert role
 			# compare the properties because that's what matters and `get_by_name` gives the root scope
 			assert role.properties == response.properties
@@ -72,18 +73,18 @@ class TestRoles:
 
 		ras.DeleteById(asn.rid)
 
-		rds.delete_by_name(role.properties.roleName)
+		retry(lambda: rds.delete_by_name(role.properties.roleName), AzureError)
 
 	@pytest.mark.integration
 	def test_assign(self, rds: RoleDefinitions, ras: RoleAssignments, role_ops: RoleOps, me, scopes):
-		role_name = "llamazure-rbac-asn"
+		role_name = "llamazure-rbac-asn-0"
 		retry(lambda: role_ops.delete_by_name(role_name), AzureError)
 
 		sub0, sub1 = scopes["sub0"], scopes["sub1"]
 
 		role = rds.put(
 			RoleDefinition.Properties(
-				roleName="llamazure-rbac-asn",
+				roleName=role_name,
 				description="test finding assignments",
 				permissions=[Permission(actions=["Microsoft.Authorization/*/read"])],
 			),
