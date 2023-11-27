@@ -74,7 +74,7 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 
 		# ensure that the role definition scope is in the assignable scopes
 		if scope not in target_role.properties.assignableScopes:
-			l.debug(f"adding scope to RoleDefinition")
+			l.debug("adding scope to RoleDefinition")
 			target_role.properties.assignableScopes.append(scope)
 		l.info(f"{target_role.properties.assignableScopes=}")
 

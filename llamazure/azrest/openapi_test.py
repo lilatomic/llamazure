@@ -14,7 +14,7 @@ class TestResolveReference:
 		with pytest.raises(PathLookupError) as exc_info:
 			Reader._get_from_object_at_path(data, "a/b/d")
 
-		expected_error_message = f"Error while looking up path: a/b/d"
+		expected_error_message = "Error while looking up path: a/b/d"
 		assert str(exc_info.value) == expected_error_message
 
 	def test_get_from_object_at_path_invalid_object(self):
@@ -22,7 +22,7 @@ class TestResolveReference:
 		with pytest.raises(PathLookupError) as exc_info:
 			Reader._get_from_object_at_path(data, "a/b/c/d")
 
-		expected_error_message = f"Error while looking up path: a/b/c/d"
+		expected_error_message = "Error while looking up path: a/b/c/d"
 		assert str(exc_info.value) == expected_error_message
 
 	def test_get_from_object_at_path_empty_path(self):

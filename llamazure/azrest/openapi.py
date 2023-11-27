@@ -31,12 +31,16 @@ logger = logging.getLogger(__name__)
 
 
 class PathLookupError(Exception):
+	"""Could not look up an OpenAPI reference"""
+
 	def __init__(self, object_path: str):
 		self.object_path = object_path
 		super().__init__(f"Error while looking up path: {object_path}")
 
 
 class OARef(BaseModel):
+	"""An OpenAPI reference"""
+
 	ref: str = Field(alias="$ref")
 	description: Optional[str] = None
 
@@ -46,12 +50,18 @@ class OARef(BaseModel):
 
 
 class OADef(BaseModel):
+	"""An OpenAPI definition"""
+
 	class Array(BaseModel):
+		"""An Array field of an OpenAPI definition"""
+
 		t: Literal["array"] = Field(alias="type", default="array")
 		items: Union[OADef.Property, OARef]
 		description: Optional[str] = None
 
 	class Property(BaseModel):
+		"""A normal field of an OpenAPI definition"""
+
 		t: Union[str] = Field(alias="type")
 		description: Optional[str] = None
 		readOnly: bool = False
@@ -63,6 +73,8 @@ class OADef(BaseModel):
 
 
 class OAParam(BaseModel):
+	"""A Param for an OpenAPI Operation"""
+
 	name: str
 	in_component: str = Field(alias="in")
 	required: bool = True
@@ -72,15 +84,21 @@ class OAParam(BaseModel):
 
 
 class OAResponse(BaseModel):
+	"""A response for an OpenAPI Operation"""
+
 	description: str
 	oa_schema: Optional[OARef] = Field(alias="schema", default=None)
 
 
 class OAMSPageable(BaseModel):
+	"""MS Pageable extension"""
+
 	nextLinkName: str
 
 
 class OAOp(BaseModel):
+	"""An OpenAPI Operation"""
+
 	tags: List[str]
 	operationId: str
 	description: str
@@ -90,16 +108,18 @@ class OAOp(BaseModel):
 
 	@property
 	def body_params(self) -> List[OAParam]:
-		# TODO: resolve refs
+		"""Parameters that belong in the body"""
 		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "body"]
 
 	@property
 	def url_params(self) -> List[OAParam]:
-		# TODO: resolve refs
+		"""Parameters that belong in the URL"""
 		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "path"]
 
 
 class OAPath(TypedDict):
+	"""An OpenAPI Path item"""
+
 	get: NotRequired[OAOp]
 	put: NotRequired[OAOp]
 	post: NotRequired[OAOp]
@@ -110,6 +130,8 @@ class OAPath(TypedDict):
 
 
 class IROp(BaseModel):
+	"""An IR Operation"""
+
 	object_name: str
 	name: str
 	description: Optional[str]
@@ -124,18 +146,24 @@ class IROp(BaseModel):
 
 
 class IRDef(BaseModel):
+	"""An IR Definition"""
+
 	name: str
 	properties: Dict[str, IR_T]
 	description: Optional[str] = None
 
 
 class IR_T(BaseModel):
+	"""An IR Type descriptor"""
+
 	t: Union[Type, IRDef, IR_List, str]  # TODO: upconvert str
 	readonly: bool = False
 	required: bool = True
 
 
 class IR_List(BaseModel):
+	"""An IR descriptor for a List type"""
+
 	items: IR_T
 	required: bool = True
 
@@ -163,19 +191,23 @@ class Reader:
 
 	@property
 	def definitions(self):
+		"""The OpenAPI definition in this doc"""
 		return self.doc["definitions"]
 
 	@property
 	def apiv(self) -> str:
+		"""Azure API version"""
 		return self.doc["info"]["version"]
 
 	@staticmethod
 	def classify_relative(relative: str) -> tuple[str, str, str]:
+		"""Decompose an OpenAPI reference into its filepath, item type, and path inside that document"""
 		file_path, object_path = relative.split("#")
 		oa_type = object_path.split("/")[0]
 		return file_path, oa_type, object_path
 
 	def load_relative(self, relative: str) -> dict:
+		"""Load an object from a relative path"""
 		file_path, _, object_path = self.classify_relative(relative)
 
 		if file_path:
@@ -183,11 +215,11 @@ class Reader:
 		else:
 			file = self.doc
 
-		o = self._get_from_object_at_path(file, object_path)
-		return o
+		return self._get_from_object_at_path(file, object_path)
 
 	@staticmethod
 	def _get_from_object_at_path(file: dict, object_path: str) -> dict:
+		"""Load an object from a path in a different file"""
 		try:
 			o = file
 			for segment in object_path.split("/"):
@@ -199,6 +231,7 @@ class Reader:
 			raise PathLookupError(object_path)
 
 	def _load_file(self, file_path):
+		"""Load the contents of a file"""
 		with (self.root / self.path.parent / file_path).open(mode="r", encoding="utf-8") as fp:
 			file = json.load(fp)
 		return file
@@ -240,6 +273,8 @@ def dereference_refs(ds: Dict[str, OADef]) -> Dict[str, OADef]:
 
 
 class IRTransformer:
+	"""Transformer to and from the IR"""
+
 	def __init__(self, defs: Dict[str, OADef], openapi: Reader):
 		self.oa_defs: Dict[str, OADef] = defs
 		self.openapi = openapi
@@ -277,6 +312,7 @@ class IRTransformer:
 		return "\n\n".join(codegened_definitions + reloaded_definitions)
 
 	def transform_def(self, name: str, obj: OADef) -> IRDef:
+		"""Transform an OpenAPI definition to IR"""
 		ir_properties = {p_name: self.transform_oa_field(p).model_copy(update={"required": p_name in obj.required}) for p_name, p in obj.properties.items()}
 		return IRDef(
 			name=name,
@@ -284,11 +320,8 @@ class IRTransformer:
 			description=obj.description,
 		)
 
-	def _resolve_path(self, ref: OARef):
-		obj = self.openapi.load_relative(ref.ref)
-		return obj
-
 	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OARef, None]) -> IR_T:
+		"""Transform an OpenAPI field"""
 		if isinstance(p, OADef.Property):
 			resolved_type = self.resolve_type(p.t)
 			return IR_T(t=resolved_type, readonly=p.readOnly)
@@ -302,6 +335,7 @@ class IRTransformer:
 			raise TypeError("unsupported OpenAPI field")
 
 	def resolve_type(self, t) -> IR_T:
+		"""Resolve OpenAPI types to Python types, if applicable"""
 		py_type = {
 			"string": str,
 			"number": float,
@@ -311,6 +345,7 @@ class IRTransformer:
 		return py_type
 
 	def ir_array(self, obj: OADef.Array) -> IR_T:
+		"""Transform an OpenAPI array to IR"""
 		if isinstance(obj.items, OADef.Property):
 			# Probably a type
 			as_list = IR_List(items=IR_T(t=self.resolve_type(obj.items.t)))
@@ -327,6 +362,7 @@ class IRTransformer:
 		return IR_T(t=as_list)
 
 	def ir_azarray(self, obj: IRDef) -> Optional[AZAlias]:
+		"""Transform a definition representing an array into an alias to the wrapped type"""
 		value = obj.properties.get("value")
 		if value is not None and isinstance(value.t, IR_List):
 			inner = self.resolve_ir_t_str(value.t.items)
@@ -336,6 +372,7 @@ class IRTransformer:
 
 	@staticmethod
 	def resolve_ir_t_str(ir_t: IR_T) -> str:
+		"""Resolve the IR type to the stringified Python type"""
 		t = ir_t.t
 		if isinstance(t, type):
 			n = t.__name__
@@ -357,6 +394,7 @@ class IRTransformer:
 
 	@staticmethod
 	def fieldsIR2AZ(fields: Dict[str, IR_T]) -> List[AZField]:
+		"""Convert IR fields to AZ fields"""
 		az_fields = []
 
 		for f_name, f_type in fields.items():
@@ -378,6 +416,7 @@ class IRTransformer:
 		return az_fields
 
 	def defIR2AZ(self, irdef: IRDef) -> AZDef:
+		"""Convert IR Defs to AZ Defs"""
 
 		if "properties" in irdef.properties:
 			prop_container = irdef.properties["properties"]
@@ -395,6 +434,7 @@ class IRTransformer:
 		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), property_c=property_c)
 
 	def paramOA2IR(self, oaparam: OAParam) -> IR_T:
+		"""Convert an OpenAPI Parameter to IR Parameter"""
 		if oaparam.oa_schema:
 			return self.transform_oa_field(oaparam.oa_schema)
 		else:
@@ -411,7 +451,8 @@ class IRTransformer:
 			resolved_types = ts
 			return IR_T(t=f"Union[{', '.join(resolved_types)}]")
 
-	def deserialise_paths(self, paths, apiv: str) -> str:
+	def transform_paths(self, paths, apiv: str) -> str:
+		"""Transform OpenAPI Paths into the Python code for the Azure objects"""
 		parser = TypeAdapter(Dict[str, OAPath])
 		parsed = parser.validate_python(paths)
 
@@ -506,24 +547,36 @@ class IRTransformer:
 
 
 class CodeGenable(ABC):
+	"""All objects which can be generated into Python code"""
+
 	@abstractmethod
 	def codegen(self) -> str:
+		"""Dump this object to Python code"""
 		...
 
 	@staticmethod
 	def quote(s: str) -> str:
+		"""Normal quotes"""
 		return '"%s"' % s
 
 	@staticmethod
 	def fstring(s: str) -> str:
+		"""An f-string"""
 		return 'f"%s"' % s
 
 	@staticmethod
-	def indent(i: int, s: str):
+	def indent(i: int, s: str) -> str:
+		"""Indent this block
+		:param i: number of indents
+		:param s: content
+		:return:
+		"""
 		return indent(s, "\t" * i)
 
 
 class AZField(BaseModel, CodeGenable):
+	"""An Azure field"""
+
 	name: str
 	t: str
 	default: Optional[str] = None
@@ -537,6 +590,8 @@ class AZField(BaseModel, CodeGenable):
 
 
 class AZDef(BaseModel, CodeGenable):
+	"""An Azure Definition"""
+
 	name: str
 	description: Optional[str]
 	fields: List[AZField]
@@ -562,6 +617,7 @@ class AZDef(BaseModel, CodeGenable):
 		).format(name=self.name, description=self.description, property_c_codegen=property_c_codegen, fields=fields, eq=self.codegen_eq())
 
 	def codegen_eq(self) -> str:
+		"""Codegen the `__eq__` method. This is necessary for omitting all the readonly information, which is usually useless for operations like `identity`"""
 		conditions = [f"isinstance(o, self.__class__)"]
 		for field in self.fields:
 			if not field.readonly:
@@ -583,6 +639,8 @@ class AZDef(BaseModel, CodeGenable):
 
 
 class AZAlias(BaseModel, CodeGenable):
+	"""An alias to another AZ object. Useful for having the synthetic FooListResult derefence to `List[Foo]`"""
+
 	name: str
 	alias: str
 
@@ -591,6 +649,8 @@ class AZAlias(BaseModel, CodeGenable):
 
 
 class AZOp(BaseModel, CodeGenable):
+	"""An OpenAPI operation ready for codegen"""
+
 	name: str
 	description: Optional[str] = None
 	path: str
@@ -636,6 +696,8 @@ class AZOp(BaseModel, CodeGenable):
 
 
 class AZOps(BaseModel, CodeGenable):
+	"""All the OpenAPI methods of one area covered by and OpenAPI file"""
+
 	name: str
 	apiv: str
 	ops: List[AZOp]
@@ -664,6 +726,8 @@ if __name__ == "__main__":
 	print(
 		dedent(
 			"""\
+			# pylint: disable
+			# flake8: noqa
 			from __future__ import annotations
 			from typing import List, Optional, Union
 
@@ -674,4 +738,4 @@ if __name__ == "__main__":
 		)
 	)
 	print(transformer.transform())
-	print(transformer.deserialise_paths(reader.paths, reader.apiv))
+	print(transformer.transform_paths(reader.paths, reader.apiv))
