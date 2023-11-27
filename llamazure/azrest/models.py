@@ -50,18 +50,6 @@ class Req(Generic[Ret_T]):
 		return dataclasses.replace(self, ret_t=ret_t)
 
 
-T = TypeVar("T")
-
-
-class AzType(ABC, Generic[T]):
-	@abstractmethod
-	def render(self) -> T:
-		"""Render this into the actual target type"""
-
-
-class AzList(BaseModel, Generic[Ret_T], AzType[List[Ret_T]]):
+class AzList(BaseModel, Generic[Ret_T]):
 	value: List[Ret_T]
 	nextLink: Optional[str] = None
-
-	def render(self) -> List[Ret_T]:
-		return self.value

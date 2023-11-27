@@ -7,10 +7,10 @@ from typing import Type
 import requests
 from pydantic import TypeAdapter
 
-from llamazure.azrest.models import AzType, Req, Ret_T
-
+from llamazure.azrest.models import AzList, Req, Ret_T
 
 l = logging.getLogger(__name__)
+
 
 class AzureError(Exception):
 	"""An Azure-specific error"""
@@ -48,18 +48,24 @@ class AzRest:
 
 	def call(self, req: Req[Ret_T]) -> Ret_T:
 		"""Make the request to Azure"""
-		res = self.call_single(req)
+		r = self.to_request(req)
+		res = self._do_call(req, r)
 		if res is None:
 			return res
 
-		if isinstance(res, AzType):
-			return res.render()
+		if isinstance(res, AzList):
+			acc = res.value
+			while res.nextLink:
+				r = self.to_request(req)
+				r.url = res.nextLink
+				res = self._do_call(req, r)
+				acc.extend(res.value)
+			return acc
 		else:
 			return res
 
-	def call_single(self, req: Req[Ret_T]) -> Ret_T:
+	def _do_call(self, req: Req[Ret_T], r: requests.Request) -> Ret_T:
 		"""Make a single request to Azure, without retry or pagination"""
-		r = self.to_request(req)
 		r.headers["Authorization"] = f"Bearer {self.token.token}"  # TODO: push down into self.session
 		res = self.session.send(r.prepare())
 		if not res.ok:

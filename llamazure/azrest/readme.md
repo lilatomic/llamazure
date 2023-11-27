@@ -2,11 +2,14 @@
 
 ## TODO
 
-1. Pagination (x-ms-pageable)
-2. Retry policy
-3. Logging
-4. Parametrized host (x-ms-parameterized-host)
-5. Odata parameters (x-ms-odata)
+1. Retry policy
+2. Logging
+3. Parametrized host (x-ms-parameterized-host)
+4. Odata parameters (x-ms-odata)
+
+## Known Issues
+
+- Pagination doesn't work if the nextLinkName is not nextLink
 
 ## X-MS Support
 
@@ -27,7 +30,7 @@
 | no      | x-ms-error-response                  | priority:high General error support                                           |
 | no      | x-ms-text                            | priority:low (only in file and blob operations)                               |
 | no      | x-ms-client-default                  | priority:low You can do this with filters                                     |
-| no      | x-ms-pageable                        | priority:hig                                                                  |
+| mostly  | x-ms-pageable                        | priority:hig                                                                  |
 | no      | x-ms-long-running-operation          | priority:mid                                                                  |
 | no      | x-ms-long-running-operation-options  | priority:mid                                                                  |
 | no      | x-nullable                           | priority:hig                                                                  |
