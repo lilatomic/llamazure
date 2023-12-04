@@ -41,8 +41,7 @@ class RetryPolicy:
 class AzRest:
 	"""Access the Azure HTTP API"""
 
-	def __init__(self, token, session: requests.Session, base_url: str = "https://management.azure.com", retry_policy: RetryPolicy = RetryPolicy()):
-		self.token = token
+	def __init__(self, session: requests.Session, base_url: str = "https://management.azure.com", retry_policy: RetryPolicy = RetryPolicy()):
 		self.session = session
 
 		self.base_url = base_url
@@ -53,7 +52,9 @@ class AzRest:
 		"""Create from an Azure credential"""
 		token = credential.get_token("https://management.azure.com//.default")
 		session = requests.Session()
-		return cls(token, session)
+		session.headers["Authorization"] = f"Bearer {token.token}"
+
+		return cls(session)
 
 	def to_request(self, req: Req) -> requests.Request:
 		r = requests.Request(method=req.method, url=self.base_url + req.path)
@@ -106,8 +107,7 @@ class AzRest:
 
 	def _do_call(self, req: Req[Ret_T], r: requests.Request) -> Union[Ret_T, AzureError]:
 		"""Make a single request to Azure, without retry or pagination"""
-		r.headers["Authorization"] = f"Bearer {self.token.token}"  # TODO: push down into self.session
-		res = self.session.send(r.prepare())
+		res = self.session.send(self.session.prepare_request(r))
 		if not res.ok:
 			return AzureError(res.json())
 
