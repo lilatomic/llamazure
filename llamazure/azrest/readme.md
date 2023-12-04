@@ -2,10 +2,9 @@
 
 ## TODO
 
-1. Logging
-2. Parametrized host (x-ms-parameterized-host)
-3. Odata parameters (x-ms-odata)
-4. Deserialise errors better 
+1. Parametrized host (x-ms-parameterized-host)
+2. Odata parameters (x-ms-odata)
+3. Deserialise errors better 
 
 ## Known Issues
 

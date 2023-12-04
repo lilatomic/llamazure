@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import logging
-from typing import Type, Union
+from typing import Type, Union, Dict, Any
 
 import requests
 from pydantic import TypeAdapter
@@ -13,10 +14,20 @@ from llamazure.azrest.models import AzList, Req, Ret_T
 l = logging.getLogger(__name__)
 
 
+def fmt_req(req: Req) -> str:
+	"""Format a request"""
+	return req.name
+
+
+def fmt_log(msg: str, req: Req, **kwargs: str) -> str:
+	arg_s = " ".join(f"{k}={v}" for k,v in kwargs.items())
+	return f"{msg} req={fmt_req(req)} {arg_s}"
+
+
 class AzureError(Exception):
 	"""An Azure-specific error"""
 
-	def __init__(self, json):
+	def __init__(self, json: Any):
 		self.json = json
 
 
@@ -48,7 +59,7 @@ class AzRest:
 		r = requests.Request(method=req.method, url=self.base_url + req.path)
 		if req.params:
 			r.params = req.params
-		if req.apiv:
+		if req.apiv:  # TODO: isn't this always required?
 			r.params["api-version"] = req.apiv
 		if req.body:
 			r.headers["Content-Type"] = "application/json"
@@ -64,7 +75,10 @@ class AzRest:
 
 		if isinstance(res, AzList):
 			acc = res.value
+			page = 0
 			while res.nextLink:
+				page += 1
+				l.debug(fmt_log("paginating req", req, page=str(page)))
 				r = self.to_request(req)
 				r.url = res.nextLink
 				res = self._call_with_retry(req, r)
@@ -74,16 +88,20 @@ class AzRest:
 			return res
 
 	def _call_with_retry(self, req: Req[Ret_T], r: requests.Request) -> Ret_T:
+		l.debug(fmt_log("making req", req))
 		res = self._do_call(req, r)
 		if isinstance(res, AzureError):
 			retries = 0
 			while retries < self.retry_policy.retries and isinstance(res, AzureError):
+				l.debug(fmt_log("req returned error; retrying", req, err=json.dumps(res.json)))
 				retries += 1
 				res = self._do_call(req, r)
 
 		if isinstance(res, AzureError):
+			l.warning(fmt_log("req returned error; retries exhausted", req, err=json.dumps(res.json)))
 			raise res
 		else:
+			l.debug(fmt_log("req complete", req))
 			return res
 
 	def _do_call(self, req: Req[Ret_T], r: requests.Request) -> Union[Ret_T, AzureError]:
@@ -91,7 +109,6 @@ class AzRest:
 		r.headers["Authorization"] = f"Bearer {self.token.token}"  # TODO: push down into self.session
 		res = self.session.send(r.prepare())
 		if not res.ok:
-			l.warning(res.json())
 			return AzureError(res.json())
 
 		if req.ret_t is Type[None]:  # noqa: E721  # we're comparing types here
