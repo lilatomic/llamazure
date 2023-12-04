@@ -517,6 +517,7 @@ class IRTransformer:
 					body_name = None
 
 				az_op = AZOp(
+					ops_name=name,
 					name=x.name,
 					description=x.description,
 					path=x.path,
@@ -651,6 +652,7 @@ class AZAlias(BaseModel, CodeGenable):
 class AZOp(BaseModel, CodeGenable):
 	"""An OpenAPI operation ready for codegen"""
 
+	ops_name: str
 	name: str
 	description: Optional[str] = None
 	path: str
@@ -664,6 +666,7 @@ class AZOp(BaseModel, CodeGenable):
 	def codegen(self) -> str:
 		params = []  # TODO: add from path
 		req_args = {
+			"name": self.quote(self.ops_name + "." + self.name),
 			"path": self.fstring(self.path),
 		}
 		if self.apiv:

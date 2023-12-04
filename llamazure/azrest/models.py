@@ -15,6 +15,7 @@ ReadOnly = Optional
 class Req(Generic[Ret_T]):
 	"""Azure REST request"""
 
+	name: str
 	path: str
 	method: str
 	apiv: Optional[str]
@@ -23,24 +24,24 @@ class Req(Generic[Ret_T]):
 	ret_t: Type[Ret_T] = Type[None]  # type: ignore
 
 	@classmethod
-	def get(cls, path: str, apiv: str, ret_t: Type[Ret_T]) -> Req:
-		return cls(path, "GET", apiv, ret_t=ret_t)
+	def get(cls, name: str, path: str, apiv: str, ret_t: Type[Ret_T]) -> Req:
+		return cls(name, path, "GET", apiv, ret_t=ret_t)
 
 	@classmethod
-	def delete(cls, path: str, apiv: str, ret_t: Optional[Type[Ret_T]] = Type[None]) -> Req:
-		return cls(path, "DELETE", apiv, ret_t=ret_t)
+	def delete(cls, name: str, path: str, apiv: str, ret_t: Optional[Type[Ret_T]] = Type[None]) -> Req:
+		return cls(name, path, "DELETE", apiv, ret_t=ret_t)
 
 	@classmethod
-	def put(cls, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:
-		return cls(path, "PUT", apiv, body, ret_t=ret_t)
+	def put(cls, name: str, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:
+		return cls(name, path, "PUT", apiv, body, ret_t=ret_t)
 
 	@classmethod
-	def post(cls, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:
-		return cls(path, "POST", apiv, body, ret_t=ret_t)
+	def post(cls, name: str, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:
+		return cls(name, path, "POST", apiv, body, ret_t=ret_t)
 
 	@classmethod
-	def patch(cls, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:
-		return cls(path, "PATCH", apiv, body, ret_t=ret_t)
+	def patch(cls, name: str, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:
+		return cls(name, path, "PATCH", apiv, body, ret_t=ret_t)
 
 	def add_params(self, params: Dict[str, str]) -> Req:
 		return dataclasses.replace(self, params={**self.params, **params})

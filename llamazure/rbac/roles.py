@@ -47,7 +47,9 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 
 	def list_all_custom(self) -> Req[List[RoleDefinition]]:
 		"""Custom roles may not appear at the root level if they aren't defined there unless you use a custom filter"""
-		return Req.get("/providers/Microsoft.Authorization/roleDefinitions", self.apiv, AzList[RoleDefinition]).add_params({"$filter": "type eq 'CustomRole'"})
+		return Req.get("list_all_custom_RoleDefinition", "/providers/Microsoft.Authorization/roleDefinitions", self.apiv, AzList[RoleDefinition]).add_params(
+			{"$filter": "type eq 'CustomRole'"}
+		)
 
 	def get_by_name(self, name: str) -> RoleDefinition:
 		return self.by_name(self.list_all())[name]

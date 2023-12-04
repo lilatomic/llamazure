@@ -2,10 +2,10 @@
 
 ## TODO
 
-1. Retry policy
-2. Logging
-3. Parametrized host (x-ms-parameterized-host)
-4. Odata parameters (x-ms-odata)
+1. Logging
+2. Parametrized host (x-ms-parameterized-host)
+3. Odata parameters (x-ms-odata)
+4. Deserialise errors better 
 
 ## Known Issues
 
