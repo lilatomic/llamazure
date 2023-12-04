@@ -1,10 +1,24 @@
 # llamazure.azrest : A REST client for the Azure API
 
+## Usage
+
+### Services with other domain
+
+Some services need different hosts. For example, keyvaults use `https://myvault.vault.azure.net`.
+Using these services requires creating a separate AzRest instance to execute those requests:
+
+```python
+from azure.identity import DefaultAzureCredential
+from llamazure.azrest.azrest import AzRest
+
+a = AzRest.from_credential(DefaultAzureCredential(), token_scope="https://vault.azure.net/.default", base_url="https://myvault.vault.azure.net")
+```
+
 ## TODO
 
-1. Parametrized host (x-ms-parameterized-host)
-2. Odata parameters (x-ms-odata)
-3. Deserialise errors better 
+1. Odata parameters (x-ms-odata)
+2. Deserialise errors better
+3. Batch API
 
 ## Known Issues
 
@@ -23,7 +37,7 @@
 | no      | x-ms-external                        | priority:low                                                                  |
 | no      | x-ms-discriminator-value             | priority:low The resources that require this are not priorities for me        |
 | never   | x-ms-client-flatten                  | In all my experience with the API, this makes it harder to use in any context |
-| no      | x-ms-parameterized-host              | priority:hig Support keyvaults                                                |
+| mostly  | x-ms-parameterized-host              | supported, requires a separate AzRest instance                                |
 | no      | x-ms-mutability                      | priority:low                                                                  |
 | never   | x-ms-examples                        | No need for examples in code                                                  |
 | no      | x-ms-error-response                  | priority:high General error support                                           |

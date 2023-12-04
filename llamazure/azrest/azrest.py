@@ -4,7 +4,8 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
-from typing import Type, Union, Dict, Any
+from abc import abstractmethod, ABC
+from typing import Type, Union, Dict, Any, ClassVar
 
 import requests
 from pydantic import TypeAdapter
@@ -48,13 +49,13 @@ class AzRest:
 		self.retry_policy = retry_policy
 
 	@classmethod
-	def from_credential(cls, credential) -> AzRest:
+	def from_credential(cls, credential, token_scope="https://management.azure.com//.default", base_url="https://management.azure.com") -> AzRest:
 		"""Create from an Azure credential"""
-		token = credential.get_token("https://management.azure.com//.default")
+		token = credential.get_token(token_scope)
 		session = requests.Session()
 		session.headers["Authorization"] = f"Bearer {token.token}"
 
-		return cls(session)
+		return cls(session=session, base_url=base_url)
 
 	def to_request(self, req: Req) -> requests.Request:
 		r = requests.Request(method=req.method, url=self.base_url + req.path)
