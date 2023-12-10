@@ -1,12 +1,11 @@
 """Conftest"""
 import os
-import shutil
 from time import sleep
 from typing import Callable, Set, Type, TypeVar, Union
 
 import pytest
 import yaml
-from azure.identity import AzureCliCredential, ClientSecretCredential
+from azure.identity import AzureCliCredential, ClientSecretCredential, CredentialUnavailableError
 
 from llamazure.azrest.azrest import AzRest
 from llamazure.msgraph.msgraph import Graph
@@ -17,9 +16,9 @@ from llamazure.rbac.roles import RoleAssignments, RoleDefinitions, RoleOps
 @pytest.fixture
 def credential():
 	"""Azure credential"""
-	if shutil.which("az"):
+	try:
 		return AzureCliCredential()
-	else:
+	except CredentialUnavailableError:
 		secrets = yaml.safe_load(os.environ.get("integration_test_secrets"))
 		client = secrets["azgraph"]
 		return ClientSecretCredential(tenant_id=client["tenant"], client_id=client["appId"], client_secret=client["password"])

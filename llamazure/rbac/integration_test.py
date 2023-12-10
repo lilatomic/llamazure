@@ -32,6 +32,7 @@ class TestRoles:
 		"""Test that thing initialise"""
 
 	@pytest.mark.integration
+	@pytest.mark.admin
 	def test_all(self, rds: RoleDefinitions, ras: RoleAssignments, role_ops: RoleOps, scopes):
 		"""Test a whole cycle of things"""
 		role_name = "llamazure-rbac-0"
@@ -76,6 +77,7 @@ class TestRoles:
 		retry(lambda: rds.delete_by_name(role.properties.roleName), AzureError)
 
 	@pytest.mark.integration
+	@pytest.mark.admin
 	def test_assign(self, rds: RoleDefinitions, ras: RoleAssignments, role_ops: RoleOps, me, scopes):
 		role_name = "llamazure-rbac-asn-0"
 		retry(lambda: role_ops.delete_by_name(role_name), AzureError)

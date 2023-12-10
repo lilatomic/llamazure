@@ -1,17 +1,18 @@
 import os
-import shutil
 
 import pytest
 import yaml
-from azure.identity import AzureCliCredential, ClientSecretCredential
+from azure.identity import AzureCliCredential, ClientSecretCredential, CredentialUnavailableError
 
 
 @pytest.fixture
 def credential():
 	"""Azure credential"""
-	if shutil.which("az"):
-		return AzureCliCredential()
-	else:
+	try:
+		cli_credential = AzureCliCredential()
+		cli_credential.get_token("https://management.azure.com//.default")
+		return cli_credential
+	except CredentialUnavailableError:
 		secrets = yaml.safe_load(os.environ.get("integration_test_secrets"))
 		client = secrets["azgraph"]
 		return ClientSecretCredential(tenant_id=client["tenant"], client_id=client["appId"], client_secret=client["password"])

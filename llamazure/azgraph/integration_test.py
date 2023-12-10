@@ -19,6 +19,7 @@ def print_output(name: str, output: Any):
 
 
 @pytest.fixture()
+@pytest.mark.integration
 def graph():
 	"""Run integration test"""
 

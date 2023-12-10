@@ -14,12 +14,17 @@ def sub_req(sub: str) -> Req:
 
 
 class TestBatches:
+	def test_nothing(self):
+		"""Prevent collection problems for partitions"""
+
+	@pytest.mark.integration
 	def test_empty_batch__raises(self, azr):
 		batch_req = BatchReq.gather([])
 		with pytest.raises(AzureError) as e:
 			azr.call_batch(batch_req)
 		assert e.value.error.code == "EmptyBatchRequest"
 
+	@pytest.mark.integration
 	def test_single_item(self, azr, it_info):
 		batch_req = BatchReq.gather([sub_req(it_info["scopes"]["sub0"])])
 		batch_res = azr.call_batch(batch_req)
@@ -27,6 +32,7 @@ class TestBatches:
 		for res in batch_res.values():
 			assert isinstance(res, AzList)
 
+	@pytest.mark.integration
 	def test_multiple_items(self, azr, it_info):
 		batch_req = BatchReq.gather(
 			[
@@ -39,6 +45,7 @@ class TestBatches:
 		for res in batch_res.values():
 			assert isinstance(res, AzList)
 
+	@pytest.mark.integration
 	def test_custom_names(self, azr, it_info):
 		batch_req = BatchReq(
 			{
