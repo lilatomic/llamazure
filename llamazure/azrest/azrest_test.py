@@ -1,3 +1,5 @@
+"""Integration tests for AzRest"""
+# pylint: disable=redefined-outer-name
 import pytest
 
 from llamazure.azrest.azrest import AzRest
@@ -14,11 +16,14 @@ def sub_req(sub: str) -> Req:
 
 
 class TestBatches:
+	"""Test AzRest's implementation of the secret Batch api"""
+
 	def test_nothing(self):
 		"""Prevent collection problems for partitions"""
 
 	@pytest.mark.integration
 	def test_empty_batch__raises(self, azr):
+		"""An empty batch raises and error with Azure"""
 		batch_req = BatchReq.gather([])
 		with pytest.raises(AzureError) as e:
 			azr.call_batch(batch_req)
@@ -26,6 +31,7 @@ class TestBatches:
 
 	@pytest.mark.integration
 	def test_single_item(self, azr, it_info):
+		"""A single item in a batch"""
 		batch_req = BatchReq.gather([sub_req(it_info["scopes"]["sub0"])])
 		batch_res = azr.call_batch(batch_req)
 		assert len(batch_res) == 1
@@ -34,6 +40,7 @@ class TestBatches:
 
 	@pytest.mark.integration
 	def test_multiple_items(self, azr, it_info):
+		"""Multiple items in a batch."""
 		batch_req = BatchReq.gather(
 			[
 				sub_req(it_info["scopes"]["sub0"]),
@@ -45,12 +52,16 @@ class TestBatches:
 		for res in batch_res.values():
 			assert isinstance(res, AzList)
 
+		assert len(list(batch_res.values())[0].value) > 0, "responses were not returned in order"
+
 	@pytest.mark.integration
 	def test_custom_names(self, azr, it_info):
+		"""Test that custom-named reqs are reassembled correctly"""
+		# reqs are out-of-order so we know it's not an ordering thing
 		batch_req = BatchReq(
 			{
-				"test-req-0": sub_req(it_info["scopes"]["sub0"]),
 				"test-req-1": sub_req(it_info["scopes"]["sub1"]),
+				"test-req-0": sub_req(it_info["scopes"]["sub0"]),
 			}
 		)
 		batch_res = azr.call_batch(batch_req)

@@ -16,10 +16,17 @@ l = logging.getLogger(__name__)
 
 
 class RoleDefinitions(AzRoleDefinitions, AzOps):
-	"""More helpful role operations"""
+	"""More helpful role definitions operations"""
 
 	@staticmethod
 	def rescope_id(role: str, scope: str) -> str:
+		"""
+		Rescope a role's ID to belong to the correct scope.
+
+		Roles are tenancy-wide, but have a different id
+		based on which subscription the assignment is in
+		(or if it targets a management group)
+		"""
 		role_obj = cast(rid.Resource, rid.parse(role))
 
 		# Get the first segment of the path.
@@ -43,6 +50,7 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 
 	@staticmethod
 	def by_name(roles: List[RoleDefinition]):
+		"""Index RoleDefinitions by their name"""
 		return {e.properties.roleName.lower(): e for e in roles}
 
 	def list_all_custom(self) -> Req[List[RoleDefinition]]:
@@ -52,6 +60,7 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 		)
 
 	def get_by_name(self, name: str) -> RoleDefinition:
+		"""Get a role by its name"""
 		return self.by_name(self.list_all())[name]
 
 	def list_all(self) -> List[RoleDefinition]:
@@ -100,11 +109,14 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 
 
 class RoleAssignments(AzRoleAssignments, AzOps):
+	"""More helpful role assignment operations"""
+
 	def __init__(self, azrest: AzRest):
 		self._role_definitions = RoleDefinitions(azrest)
 		super().__init__(azrest)
 
 	def list_for_role_at_scope(self, role_definition: RoleDefinition, scope: str) -> List[RoleAssignment]:
+		"""List assignments for a role at a given scope"""
 		rid_at_scope = self._role_definitions.rescope(role_definition, scope)
 		asns_at_scope = self.ListForScope(scope)
 		asns = [e for e in self.run(asns_at_scope) if e.properties.roleDefinitionId.lower() == rid_at_scope.rid]

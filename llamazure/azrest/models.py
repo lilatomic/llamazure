@@ -12,6 +12,7 @@ Ret_T = TypeVar("Ret_T")
 ReadOnly = Optional
 
 
+# pylint: disable=too-many-arguments
 @dataclass(frozen=True)
 class Req(Generic[Ret_T]):
 	"""Azure REST request"""
@@ -26,28 +27,35 @@ class Req(Generic[Ret_T]):
 
 	@classmethod
 	def get(cls, name: str, path: str, apiv: str, ret_t: Type[Ret_T]) -> Req:
+		"""Create a GET request"""
 		return cls(name, path, "GET", apiv, ret_t=ret_t)
 
 	@classmethod
 	def delete(cls, name: str, path: str, apiv: str, ret_t: Optional[Type[Ret_T]] = Type[None]) -> Req:
+		"""Create a DELETE request"""
 		return cls(name, path, "DELETE", apiv, ret_t=ret_t)
 
 	@classmethod
 	def put(cls, name: str, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:
+		"""Create a PUT request"""
 		return cls(name, path, "PUT", apiv, body, ret_t=ret_t)
 
 	@classmethod
 	def post(cls, name: str, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:
+		"""Create a POST request"""
 		return cls(name, path, "POST", apiv, body, ret_t=ret_t)
 
 	@classmethod
 	def patch(cls, name: str, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:
+		"""Create a PATCH request"""
 		return cls(name, path, "PATCH", apiv, body, ret_t=ret_t)
 
 	def add_params(self, params: Dict[str, str]) -> Req:
+		"""Add query params to this request"""
 		return dataclasses.replace(self, params={**self.params, **params})
 
 	def with_ret_t(self, ret_t: Type[Ret_T]) -> Req:
+		"""Override the return type"""
 		return dataclasses.replace(self, ret_t=ret_t)
 
 
@@ -98,6 +106,7 @@ class AzureError(Exception):
 	"""An error from the Azure API"""
 
 	def __init__(self, error: AzureErrorDetails):
+		super().__init__(error.message)  # TODO: better stringify message
 		self.error = error
 
 
@@ -117,6 +126,7 @@ class AzureErrorDetails(BaseModel):
 	additionalInfo: List[AzureErrorAdditionInfo] = []
 
 	def as_exception(self) -> AzureError:
+		"""Wrap this in a Python Exception for throwing"""
 		return AzureError(self)
 
 

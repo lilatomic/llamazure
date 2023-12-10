@@ -79,6 +79,14 @@ class TestRoles:
 	@pytest.mark.integration
 	@pytest.mark.admin
 	def test_assign(self, rds: RoleDefinitions, ras: RoleAssignments, role_ops: RoleOps, me, scopes):
+		"""
+		Test that we can:
+			- create RoleDefinitions
+			- assign them
+			- assign in a scope outside the assignableScopes
+			- delete RoleDefinitions and the associated role assignments
+		"""
+
 		role_name = "llamazure-rbac-asn-0"
 		retry(lambda: role_ops.delete_by_name(role_name), AzureError)
 
@@ -132,6 +140,8 @@ class TestRoles:
 
 
 class TestUsersAndGroups:
+	"""Tests for RBAC users and groups"""
+
 	@pytest.mark.integration
 	def test_list_users(self, users: Users):
 		me = users.current()

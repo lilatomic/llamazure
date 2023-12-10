@@ -1,4 +1,5 @@
 """Conftest"""
+# pylint: disable=redefined-outer-name
 import os
 from time import sleep
 from typing import Callable, Set, Type, TypeVar, Union
@@ -26,6 +27,7 @@ def credential():
 
 @pytest.fixture
 def scopes():
+	"""Fixture: subscriptions and ids for testing"""
 	secrets = os.environ.get("integration_test_secrets")
 	if not secrets:
 		with open("cicd/secrets.yml", mode="r", encoding="utf-8") as f:
@@ -86,7 +88,7 @@ def retry(
 		i += 1
 		try:
 			return fn()
-		except Exception as e:
+		except Exception as e:  # pylint: disable=broad-except
 			if type(e) not in catching or i >= attempts:
 				raise
 			sleep(1)

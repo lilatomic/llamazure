@@ -1,3 +1,4 @@
+"""Conftest"""
 import os
 
 import pytest
@@ -20,6 +21,7 @@ def credential():
 
 @pytest.fixture
 def it_info():
+	"""Fixture: Bundle of config for integration tests"""
 	secrets = os.environ.get("integration_test_secrets")
 	if not secrets:
 		with open("cicd/secrets.yml", mode="r", encoding="utf-8") as f:

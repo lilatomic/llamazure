@@ -1,9 +1,13 @@
+"""Test the OpenAPI codegen"""
+# pylint: disable=protected-access
 import pytest
 
 from llamazure.azrest.openapi import IR_T, IR_List, IRDef, IRTransformer, OADef, PathLookupError, Reader
 
 
 class TestResolveReference:
+	"""Test resolving references"""
+
 	def test_get_from_object_at_path_valid_path(self):
 		data = {"a": {"b": {"c": 42}}}
 		result = Reader._get_from_object_at_path(data, "a/b/c")
@@ -43,6 +47,8 @@ class TestTransformPrimitives:
 
 
 class TestTransformArray:
+	"""Test transforming OADef.Array into an IR_List"""
+
 	def test_string_array(self):
 		p = OADef.Array(
 			items=OADef.Property(type="string", description="d0"),
@@ -52,6 +58,8 @@ class TestTransformArray:
 
 
 class TestTransformDef:
+	"""Test transforming OADef"""
+
 	def test_bag_of_props(self):
 		p = OADef(
 			type="t0",

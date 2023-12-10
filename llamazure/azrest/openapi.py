@@ -11,6 +11,7 @@ For example, PermissionGetResult might be an OA object because it is present in 
 However, it's just a list of Permission objects.
 It won't have an AZ object; instead, it will be transformed into something like an AZList[AZPermission].
 """
+# pylint: disable=consider-using-f-string
 from __future__ import annotations
 
 import itertools
@@ -47,6 +48,7 @@ class OARef(BaseModel):
 
 	@property
 	def name(self) -> str:
+		"""The name of this Definition"""
 		return self.ref.split("/")[-1]
 
 
@@ -255,6 +257,7 @@ def definitions(ds: dict):
 
 
 def resolve_path(path: str) -> str:
+	"""Resolve a path in an OpenAPI spec to the OpenAPI definition it references"""
 	if path.startswith("#/definitions/"):
 		return path[len("#/definitions/") :]
 	return path
@@ -286,6 +289,7 @@ class IRTransformer:
 		self.openapi = openapi
 
 	def transform(self) -> str:
+		"""Transform the OpenAPI objects into their codegened str"""
 		ir_definitions = {}
 		for name, obj in self.oa_defs.items():
 			ir_definitions[name] = self.transform_def(name, obj)
@@ -543,6 +547,7 @@ class IRTransformer:
 		return "\n\n".join([cg.codegen() for cg in az_ops])
 
 	def resolve_oaparam_refs(self, op: OAOp) -> List[OAParam]:
+		"""Resolve OpenAPI parameters which are references to the definition that they reference"""
 		params = op.parameters
 		resolved_parameters = []
 		for param in params:
@@ -559,7 +564,6 @@ class CodeGenable(ABC):
 	@abstractmethod
 	def codegen(self) -> str:
 		"""Dump this object to Python code"""
-		...
 
 	@staticmethod
 	def quote(s: str) -> str:
@@ -618,14 +622,14 @@ class AZDef(BaseModel, CodeGenable):
 			"""{description}"""
 		{property_c_codegen}
 		{fields}
-		
+
 		{eq}
 		'''
 		).format(name=self.name, description=self.description, property_c_codegen=property_c_codegen, fields=fields, eq=self.codegen_eq())
 
 	def codegen_eq(self) -> str:
 		"""Codegen the `__eq__` method. This is necessary for omitting all the readonly information, which is usually useless for operations like `identity`"""
-		conditions = [f"isinstance(o, self.__class__)"]
+		conditions = ["isinstance(o, self.__class__)"]
 		for field in self.fields:
 			if not field.readonly:
 				conditions.append(f"self.{field.name} == o.{field.name}")
@@ -741,9 +745,9 @@ if __name__ == "__main__":
 				# flake8: noqa
 				from __future__ import annotations
 				from typing import List, Optional, Union
-	
+
 				from pydantic import BaseModel, Field
-	
+
 				from llamazure.azrest.models import AzList, ReadOnly, Req
 				"""
 			)

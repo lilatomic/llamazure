@@ -50,6 +50,7 @@ class AzRest:
 		return cls(session=session, base_url=base_url)
 
 	def to_request(self, req: Req) -> requests.Request:
+		"""Convert a Req into a requests.Request"""
 		r = requests.Request(method=req.method, url=self.base_url + req.path)
 		if req.params:
 			r.params = req.params
@@ -75,6 +76,7 @@ class AzRest:
 		return r
 
 	def batch_to_request(self, batch: BatchReq) -> Req[AzBatchResponses]:
+		"""Convert the BatchReq into the Req that contains the requests"""
 		req = Req(
 			name=batch.name,
 			path="/batch",
@@ -86,12 +88,14 @@ class AzRest:
 		return req
 
 	def _resolve_batch_response(self, req: Req[Ret_T], res) -> Union[Ret_T, AzureError]:
+		"""Deserialise the response to a batch request"""
 		if res.content.get("error"):
 			return AzureErrorResponse.model_validate(res.content)
 		type_adapter = TypeAdapter(req.ret_t)
 		return type_adapter.validate_python(res.content)
 
 	def call_batch(self, req: BatchReq) -> Dict[str, Union[Ret_T, AzureError]]:
+		"""Call a batch request"""
 		batch_request = self.batch_to_request(req)
 
 		batch_response: AzBatchResponses = self.call(batch_request)
@@ -160,6 +164,7 @@ class AzOps:
 		self.azrest = azrest
 
 	def run(self, req: Req[Ret_T]) -> Ret_T:
+		"""Call a request"""
 		return self.azrest.call(req)
 
 

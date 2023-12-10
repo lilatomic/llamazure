@@ -13,7 +13,7 @@ def count_occurrences(filepath, search_string):
 		return 0
 
 
-def search_files(directory, search_string, file_occurrences={}):
+def search_files(directory, search_string, file_occurrences):
 	for filename in os.listdir(directory):
 		filepath = os.path.join(directory, filename)
 
@@ -34,8 +34,9 @@ def search_files(directory, search_string, file_occurrences={}):
 @click.option("--start-directory", default=".", help="The directory to start the search.")
 @click.option("--search-string", prompt="Enter the search string", help="The string to search for in files.")
 def main(start_directory, search_string):
+	"""Search for count occurrences of a string, deduplicating by file name"""
 	# Perform the search
-	file_occurrences = search_files(start_directory, search_string)
+	file_occurrences = search_files(start_directory, search_string, {})
 
 	# Sort files by number of occurrences
 	sorted_files = sorted(file_occurrences.items(), key=lambda x: x[1], reverse=True)
@@ -52,4 +53,4 @@ def main(start_directory, search_string):
 
 
 if __name__ == "__main__":
-	main()
+	main()  # pylint: disable=no-value-for-param

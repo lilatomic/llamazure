@@ -16,8 +16,10 @@ a = AzRest.from_credential(DefaultAzureCredential(), token_scope="https://vault.
 
 ## TODO
 
-1. Batch API
-2. Odata parameters (x-ms-odata) (I'd have to think through the common elements with llamazure.msgraph)
+1. Odata parameters (x-ms-odata) (I'd have to think through the common elements with llamazure.msgraph)
+2. Better retries of Batch elements
+3. Enums (x-ms-enum)
+4. Nullable (x-nullable)
 
 ## Known Issues
 
@@ -39,7 +41,7 @@ a = AzRest.from_credential(DefaultAzureCredential(), token_scope="https://vault.
 | mostly  | x-ms-parameterized-host              | supported, requires a separate AzRest instance                                |
 | no      | x-ms-mutability                      | priority:low                                                                  |
 | never   | x-ms-examples                        | No need for examples in code                                                  |
-| no      | x-ms-error-response                  | priority:high General error support                                           |
+| yes     | x-ms-error-response                  | General error support                                                         |
 | no      | x-ms-text                            | priority:low (only in file and blob operations)                               |
 | no      | x-ms-client-default                  | priority:low You can do this with filters                                     |
 | mostly  | x-ms-pageable                        |                                                                               |
