@@ -7,7 +7,8 @@ backend_packages = [
 	"pants.backend.python.lint.isort",
 	"pants.backend.python.lint.flake8",
 	"pants.backend.python.lint.pylint",
-	"pants.backend.python.typecheck.mypy"
+	"pants.backend.python.typecheck.mypy",
+	"pants.backend.experimental.adhoc",
 ]
 pants_ignore = ["!cicd/secrets.yml"]
 [source]

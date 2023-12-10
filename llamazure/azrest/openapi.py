@@ -309,7 +309,7 @@ class IRTransformer:
 
 		codegened_definitions = [cg.codegen() for cg in output_req]
 		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
-		return "\n\n".join(codegened_definitions + reloaded_definitions)
+		return "\n\n".join(codegened_definitions + reloaded_definitions) + "\n\n"
 
 	def transform_def(self, name: str, obj: OADef) -> IRDef:
 		"""Transform an OpenAPI definition to IR"""
@@ -726,19 +726,20 @@ if __name__ == "__main__":
 
 	transformer = IRTransformer(oa_defs, reader)
 
-	print(
-		dedent(
-			"""\
-			# pylint: disable
-			# flake8: noqa
-			from __future__ import annotations
-			from typing import List, Optional, Union
-
-			from pydantic import BaseModel, Field
-
-			from llamazure.azrest.models import AzList, ReadOnly, Req
-			"""
+	with open(sys.argv[3], mode="w", encoding="utf-8") as f:
+		f.write(
+			dedent(
+				"""\
+				# pylint: disable
+				# flake8: noqa
+				from __future__ import annotations
+				from typing import List, Optional, Union
+	
+				from pydantic import BaseModel, Field
+	
+				from llamazure.azrest.models import AzList, ReadOnly, Req
+				"""
+			)
 		)
-	)
-	print(transformer.transform())
-	print(transformer.transform_paths(reader.paths, reader.apiv))
+		f.write(transformer.transform())
+		f.write(transformer.transform_paths(reader.paths, reader.apiv))
