@@ -245,40 +245,11 @@ class Reader:
 		return json.loads(content)
 
 
-def operations(path_object: dict):
-	"""Extract operations from an OpenAPI Path object"""
-	return {k: v for k, v in path_object.items() if k in {"get", "put", "post", "delete", "options", "head", "patch", "trace"}}
-
-
-def definitions(ds: dict):
-	"""Extract OpenAPI definitions"""
-	parser = TypeAdapter(Dict[str, OADef])
-	return parser.validate_python(ds)
-
-
 def resolve_path(path: str) -> str:
 	"""Resolve a path in an OpenAPI spec to the OpenAPI definition it references"""
 	if path.startswith("#/definitions/"):
 		return path[len("#/definitions/") :]
 	return path
-
-
-def dereference_refs(ds: Dict[str, OADef]) -> Dict[str, OADef]:
-	"""Inflate refs to their objects"""
-	out = {}
-	for name, obj in ds.items():
-		new_props: Dict[str, Union[OADef.Array, OADef.Property, OARef]] = {}
-		for prop_name, prop in obj.properties.items():
-			if isinstance(prop, OARef):
-				ref_target = resolve_path(prop.ref)
-				ref = ds[ref_target]
-				new_props[prop_name] = OADef.Property(type=ref, description=prop.description)
-			else:
-				new_props[prop_name] = prop
-		obj.properties = new_props
-		out[name] = obj
-
-	return out
 
 
 class IRTransformer:
@@ -733,7 +704,8 @@ if __name__ == "__main__":
 	openapi_root, openapi_file = sys.argv[1], sys.argv[2]
 	reader = Reader.load(openapi_root, Path(openapi_file))
 
-	oa_defs = definitions(reader.definitions)
+	parser = TypeAdapter(Dict[str, OADef])
+	oa_defs = parser.validate_python(reader.definitions)
 
 	transformer = IRTransformer(oa_defs, reader)
 
