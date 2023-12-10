@@ -4,7 +4,7 @@ from __future__ import annotations
 import dataclasses
 import uuid
 from dataclasses import dataclass, field
-from typing import Dict, Generic, List, Optional, Type, TypeVar
+from typing import Dict, Generic, List, Optional, Type, TypeVar, Iterator
 
 from pydantic import BaseModel, Field
 
@@ -100,6 +100,10 @@ class AzList(BaseModel, Generic[Ret_T]):
 
 	value: List[Ret_T]
 	nextLink: Optional[str] = None
+
+	def __iter__(self) -> Iterator[Ret_T]:
+		# TODO: explode if there's a nextLink because this won't paginate properly
+		return self.value.__iter__()
 
 
 class AzureError(Exception):
