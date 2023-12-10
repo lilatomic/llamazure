@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Dict, Generic, List, Optional, Type, TypeVar, Any
+from typing import Dict, Generic, List, Optional, Type, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -48,6 +48,29 @@ class Req(Generic[Ret_T]):
 
 	def with_ret_t(self, ret_t: Type[Ret_T]) -> Req:
 		return dataclasses.replace(self, ret_t=ret_t)
+
+
+@dataclass
+class BatchReq:
+	requests: List[Req]
+	name: str = "batch"
+	apiv: str = "2020-06-01"
+
+
+class AzBatch(BaseModel):
+	requests: List[Dict]
+
+
+class AzBatchResponse(BaseModel):
+	"""A single response in a batch"""
+	name: str
+	httpStatusCode: int
+	headers: Dict[str, str] = {}
+	content: Optional[Dict]
+
+
+class AzBatchResponses(BaseModel):
+	responses: List[AzBatchResponse]
 
 
 class AzList(BaseModel, Generic[Ret_T]):

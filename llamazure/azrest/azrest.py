@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Type, Union
+import uuid
+from typing import Type, Union, Tuple
 
 import requests
 from pydantic import TypeAdapter
 
-from llamazure.azrest.models import AzList, Req, Ret_T, AzureError, AzureErrorResponse
+from llamazure.azrest.models import AzList, Req, Ret_T, AzureError, AzureErrorResponse, BatchReq, AzBatch, \
+	AzBatchResponses
 
 l = logging.getLogger(__name__)
 
@@ -58,6 +60,37 @@ class AzRest:
 			r.headers["Content-Type"] = "application/json"
 			r.data = req.body.model_dump_json(exclude_none=True)
 		return r
+
+
+	def _build_url(self, req: Req) -> str:
+		"""Hacky way to get requests to build our url for us"""
+		return self.session.prepare_request(self.to_request(req)).url
+
+	def _to_batchable_request(self, req: Req) -> dict:
+		r = {
+			"httpMethod": req.method,
+			"name": str(uuid.uuid4()),
+			"url": self._build_url(req),
+		}
+		if req.body:
+			r["content"]=req.body
+		return r
+
+	def batch_to_request(self, batch: BatchReq) -> Req:
+		req = Req(
+			name=batch.name,
+			path="/batch",
+			method="POST",
+			apiv=batch.apiv,
+			body=AzBatch(
+				requests=[self._to_batchable_request(r) for r in batch.requests]
+			),
+			ret_t=AzBatchResponses,
+		)
+		return req
+
+	def call_batch(self, req: BatchReq) -> AzBatchResponses:
+		return self.call(self.batch_to_request(req))
 
 	def call(self, req: Req[Ret_T]) -> Ret_T:
 		"""Make the request to Azure"""
