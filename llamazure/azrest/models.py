@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Dict, Generic, List, Optional, Type, TypeVar
+from typing import Dict, Generic, List, Optional, Type, TypeVar, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 Ret_T = TypeVar("Ret_T")
 ReadOnly = Optional
@@ -53,3 +53,33 @@ class Req(Generic[Ret_T]):
 class AzList(BaseModel, Generic[Ret_T]):
 	value: List[Ret_T]
 	nextLink: Optional[str] = None
+
+
+class AzureError(Exception):
+	def __init__(self, error: AzureErrorDetails):
+		self.error = error
+
+
+class AzureErrorResponse(BaseModel):
+	"""The container of an Azure error"""
+	error: AzureErrorDetails
+
+
+class AzureErrorDetails(BaseModel):
+	"""An Azure-specific error"""
+
+	code: str
+	message: str
+	target: Optional[str] = None
+	details: List[AzureErrorDetails] = []
+	additionalInfo: List[AzureErrorAdditionInfo] = []
+
+	def as_exception(self) -> AzureError:
+		return AzureError(self)
+
+
+class AzureErrorAdditionInfo(BaseModel):
+	"""The resource management error additional info."""
+
+	info_type: str = Field(alias="type")
+	info: Dict = {}

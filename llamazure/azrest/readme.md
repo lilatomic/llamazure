@@ -16,9 +16,8 @@ a = AzRest.from_credential(DefaultAzureCredential(), token_scope="https://vault.
 
 ## TODO
 
-1. Odata parameters (x-ms-odata)
-2. Deserialise errors better
-3. Batch API
+1. Batch API
+2. Odata parameters (x-ms-odata) (I'd have to think through the common elements with llamazure.msgraph)
 
 ## Known Issues
 
@@ -43,7 +42,7 @@ a = AzRest.from_credential(DefaultAzureCredential(), token_scope="https://vault.
 | no      | x-ms-error-response                  | priority:high General error support                                           |
 | no      | x-ms-text                            | priority:low (only in file and blob operations)                               |
 | no      | x-ms-client-default                  | priority:low You can do this with filters                                     |
-| mostly  | x-ms-pageable                        | priority:hig                                                                  |
+| mostly  | x-ms-pageable                        |                                                                               |
 | no      | x-ms-long-running-operation          | priority:mid                                                                  |
 | no      | x-ms-long-running-operation-options  | priority:mid                                                                  |
 | no      | x-nullable                           | priority:hig                                                                  |

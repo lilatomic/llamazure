@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from llamazure.azrest.azrest import AzureError
+from llamazure.azrest.models import AzureError
 from llamazure.rbac.conftest import retry
 from llamazure.rbac.resources import Groups, Users
 from llamazure.rbac.role_asn import RoleAssignment

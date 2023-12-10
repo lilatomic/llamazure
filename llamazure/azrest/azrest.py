@@ -2,15 +2,13 @@
 from __future__ import annotations
 
 import dataclasses
-import json
 import logging
-from abc import abstractmethod, ABC
-from typing import Type, Union, Dict, Any, ClassVar
+from typing import Type, Union
 
 import requests
 from pydantic import TypeAdapter
 
-from llamazure.azrest.models import AzList, Req, Ret_T
+from llamazure.azrest.models import AzList, Req, Ret_T, AzureError, AzureErrorResponse
 
 l = logging.getLogger(__name__)
 
@@ -23,13 +21,6 @@ def fmt_req(req: Req) -> str:
 def fmt_log(msg: str, req: Req, **kwargs: str) -> str:
 	arg_s = " ".join(f"{k}={v}" for k,v in kwargs.items())
 	return f"{msg} req={fmt_req(req)} {arg_s}"
-
-
-class AzureError(Exception):
-	"""An Azure-specific error"""
-
-	def __init__(self, json: Any):
-		self.json = json
 
 
 @dataclasses.dataclass
@@ -95,12 +86,12 @@ class AzRest:
 		if isinstance(res, AzureError):
 			retries = 0
 			while retries < self.retry_policy.retries and isinstance(res, AzureError):
-				l.debug(fmt_log("req returned error; retrying", req, err=json.dumps(res.json)))
+				l.debug(fmt_log("req returned error; retrying", req, err=res.error.model_dump_json()))
 				retries += 1
 				res = self._do_call(req, r)
 
 		if isinstance(res, AzureError):
-			l.warning(fmt_log("req returned error; retries exhausted", req, err=json.dumps(res.json)))
+			l.warning(fmt_log("req returned error; retries exhausted", req, err=res.error.model_dump_json()))
 			raise res
 		else:
 			l.debug(fmt_log("req complete", req))
@@ -110,7 +101,7 @@ class AzRest:
 		"""Make a single request to Azure, without retry or pagination"""
 		res = self.session.send(self.session.prepare_request(r))
 		if not res.ok:
-			return AzureError(res.json())
+			return AzureErrorResponse.model_validate_json(res.content).error.as_exception()
 
 		if req.ret_t is Type[None]:  # noqa: E721  # we're comparing types here
 			return None  # type: ignore
