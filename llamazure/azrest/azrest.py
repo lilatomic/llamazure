@@ -3,14 +3,12 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-import uuid
-from typing import Type, Union, Tuple, Dict
+from typing import Dict, Type, Union
 
 import requests
 from pydantic import TypeAdapter
 
-from llamazure.azrest.models import AzList, Req, Ret_T, AzureError, AzureErrorResponse, BatchReq, AzBatch, \
-	AzBatchResponses
+from llamazure.azrest.models import AzBatch, AzBatchResponses, AzList, AzureError, AzureErrorResponse, BatchReq, Req, Ret_T
 
 l = logging.getLogger(__name__)
 
@@ -21,7 +19,8 @@ def fmt_req(req: Req) -> str:
 
 
 def fmt_log(msg: str, req: Req, **kwargs: str) -> str:
-	arg_s = " ".join(f"{k}={v}" for k,v in kwargs.items())
+	"""Format a log statement referencing a request"""
+	arg_s = " ".join(f"{k}={v}" for k, v in kwargs.items())
 	return f"{msg} req={fmt_req(req)} {arg_s}"
 
 
@@ -61,7 +60,6 @@ class AzRest:
 			r.data = req.body.model_dump_json(exclude_none=True)
 		return r
 
-
 	def _build_url(self, req: Req) -> str:
 		"""Hacky way to get requests to build our url for us"""
 		return self.session.prepare_request(self.to_request(req)).url
@@ -73,22 +71,19 @@ class AzRest:
 			"url": self._build_url(req),
 		}
 		if req.body:
-			r["content"]=req.body
+			r["content"] = req.body
 		return r
 
-	def batch_to_request(self, batch: BatchReq) -> Tuple[Dict[str, Req], Req[AzBatchResponses]]:
-		keyed_requests = {str(uuid.uuid4()): r for r in batch.requests}
+	def batch_to_request(self, batch: BatchReq) -> Req[AzBatchResponses]:
 		req = Req(
 			name=batch.name,
 			path="/batch",
 			method="POST",
 			apiv=batch.apiv,
-			body=AzBatch(
-				requests=[self._to_batchable_request(r, batch_id) for batch_id, r in keyed_requests.items()]
-			),
+			body=AzBatch(requests=[self._to_batchable_request(r, batch_id) for batch_id, r in batch.requests.items()]),
 			ret_t=AzBatchResponses,
 		)
-		return keyed_requests, req
+		return req
 
 	def _resolve_batch_response(self, req: Req[Ret_T], res) -> Union[Ret_T, AzureError]:
 		if res.content.get("error"):
@@ -96,11 +91,11 @@ class AzRest:
 		type_adapter = TypeAdapter(req.ret_t)
 		return type_adapter.validate_python(res.content)
 
-	def call_batch(self, req: BatchReq) -> Tuple:
-		keyed_requests, batch_request = self.batch_to_request(req)
+	def call_batch(self, req: BatchReq) -> Dict[str, Union[Ret_T, AzureError]]:
+		batch_request = self.batch_to_request(req)
 
 		batch_response: AzBatchResponses = self.call(batch_request)
-		deserialised_responses = [self._resolve_batch_response(keyed_requests[e.name], e) for e in batch_response.responses]
+		deserialised_responses = {e.name: self._resolve_batch_response(req.requests[e.name], e) for e in batch_response.responses}
 		return deserialised_responses
 
 	def call(self, req: Req[Ret_T]) -> Ret_T:

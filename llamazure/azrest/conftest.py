@@ -16,6 +16,7 @@ def credential():
 		client = secrets["azgraph"]
 		return ClientSecretCredential(tenant_id=client["tenant"], client_id=client["appId"], client_secret=client["password"])
 
+
 @pytest.fixture
 def it_info():
 	secrets = os.environ.get("integration_test_secrets")

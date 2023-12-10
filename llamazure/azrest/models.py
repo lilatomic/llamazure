@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import dataclasses
+import uuid
 from dataclasses import dataclass, field
 from typing import Dict, Generic, List, Optional, Type, TypeVar
 
@@ -52,17 +53,28 @@ class Req(Generic[Ret_T]):
 
 @dataclass
 class BatchReq:
-	requests: List[Req]
+	"""A batch of requests to the Azure API"""
+
+	requests: Dict[str, Req]
 	name: str = "batch"
 	apiv: str = "2020-06-01"
 
+	@classmethod
+	def gather(cls, reqs: List[Req], name: str = "batch", apiv: str = "2020-06-01") -> BatchReq:
+		"""Gather many requests into a batch, automatically assigning them an ID"""
+		keyed_requests = {str(uuid.uuid4()): r for r in reqs}
+		return cls(keyed_requests, name, apiv)
+
 
 class AzBatch(BaseModel, Generic[Ret_T]):
+	"""A serialisable request to the batch API"""
+
 	requests: List[Ret_T]
 
 
 class AzBatchResponse(BaseModel):
 	"""A single response in a batch"""
+
 	name: str
 	httpStatusCode: int
 	headers: Dict[str, str] = {}
@@ -70,21 +82,28 @@ class AzBatchResponse(BaseModel):
 
 
 class AzBatchResponses(BaseModel):
+	"""The bundle of responses from the Azure batch API"""
+
 	responses: List[AzBatchResponse]
 
 
 class AzList(BaseModel, Generic[Ret_T]):
+	"""A deserialisation of a List from Azure"""
+
 	value: List[Ret_T]
 	nextLink: Optional[str] = None
 
 
 class AzureError(Exception):
+	"""An error from the Azure API"""
+
 	def __init__(self, error: AzureErrorDetails):
 		self.error = error
 
 
 class AzureErrorResponse(BaseModel):
 	"""The container of an Azure error"""
+
 	error: AzureErrorDetails
 
 
