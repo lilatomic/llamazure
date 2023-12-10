@@ -72,7 +72,7 @@ class OADef(BaseModel):
 	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef]]
 	t: str = Field(alias="type")
 	description: Optional[str] = None
-	required: Set[str] = {}
+	required: Set[str] = set()
 
 
 class OAParam(BaseModel):
@@ -234,7 +234,7 @@ class Reader:
 	def _load_file(root: str, file_path: Path):
 		"""Load the contents of a file"""
 		if root.startswith("https://") or root.startswith("http://"):
-			content = requests.get(root + file_path.as_posix()).content
+			content = requests.get(root + file_path.as_posix()).content.decode("utf-8")
 		elif root.startswith("file://"):
 			file_root = root.split("://")[1]
 			with (Path(file_root) / file_path).open(mode="r", encoding="utf-8") as fp:

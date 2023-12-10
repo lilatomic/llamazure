@@ -181,7 +181,10 @@ class RoleAssignments(AzRoleAssignments, AzOps):
 		"""
 		asns = self.list_for_role(role_definition)
 		for asn in asns:
-			self.run(self.DeleteById(asn.rid))
+			if asn.rid:
+				self.run(self.DeleteById(asn.rid))
+			else:
+				l.warning("asked to delete RoleAssignment with no rid")
 
 
 class RoleOps:

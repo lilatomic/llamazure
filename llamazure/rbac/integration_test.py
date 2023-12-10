@@ -101,6 +101,7 @@ class TestRoles:
 			scope=sub0,
 		)
 		assert role
+		assert isinstance(role.rid, str)
 		assert role.rid.startswith(sub0)
 
 		def mk_asn(scope):
