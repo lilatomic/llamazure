@@ -9,7 +9,7 @@ from typing import Dict, Generic, List, Optional, Type, TypeVar
 from pydantic import BaseModel, Field
 
 Ret_T = TypeVar("Ret_T")
-ReadOnly = Optional
+ReadOnly = Optional[Ret_T]
 
 
 # pylint: disable=too-many-arguments
