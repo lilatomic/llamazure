@@ -27,10 +27,9 @@ class TestBatches:
 			sub_req(it_info['scopes']['sub0'])
 		])
 		batch_res = azr.call_batch(batch_req)
-		assert len(batch_res.responses) == 1
-		for res in batch_res.responses:
-			assert res.httpStatusCode == 200
-			assert isinstance(res.content['value'], list)
+		assert len(batch_res) == 1
+		for res in batch_res:
+			assert isinstance(res, AzList)
 
 	def test_multiple_items(self, azr, it_info):
 		batch_req = BatchReq([
@@ -38,7 +37,8 @@ class TestBatches:
 			sub_req(it_info['scopes']['sub1']),
 		])
 		batch_res = azr.call_batch(batch_req)
-		assert len(batch_res.responses) == 2
-		for res in batch_res.responses:
-			assert res.httpStatusCode == 200
-			assert isinstance(res.content['value'], list)
+		assert len(batch_res) == 2
+		for res in batch_res:
+			assert isinstance(res, AzList)
+
+		assert len(batch_res[0].value) > 0

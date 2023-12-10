@@ -4,7 +4,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import uuid
-from typing import Type, Union, Tuple
+from typing import Type, Union, Tuple, Dict
 
 import requests
 from pydantic import TypeAdapter
@@ -66,31 +66,42 @@ class AzRest:
 		"""Hacky way to get requests to build our url for us"""
 		return self.session.prepare_request(self.to_request(req)).url
 
-	def _to_batchable_request(self, req: Req) -> dict:
+	def _to_batchable_request(self, req: Req, batch_id: str) -> dict:
 		r = {
 			"httpMethod": req.method,
-			"name": str(uuid.uuid4()),
+			"name": batch_id,
 			"url": self._build_url(req),
 		}
 		if req.body:
 			r["content"]=req.body
 		return r
 
-	def batch_to_request(self, batch: BatchReq) -> Req:
+	def batch_to_request(self, batch: BatchReq) -> Tuple[Dict[str, Req], Req[AzBatchResponses]]:
+		keyed_requests = {str(uuid.uuid4()): r for r in batch.requests}
 		req = Req(
 			name=batch.name,
 			path="/batch",
 			method="POST",
 			apiv=batch.apiv,
 			body=AzBatch(
-				requests=[self._to_batchable_request(r) for r in batch.requests]
+				requests=[self._to_batchable_request(r, batch_id) for batch_id, r in keyed_requests.items()]
 			),
 			ret_t=AzBatchResponses,
 		)
-		return req
+		return keyed_requests, req
 
-	def call_batch(self, req: BatchReq) -> AzBatchResponses:
-		return self.call(self.batch_to_request(req))
+	def _resolve_batch_response(self, req: Req[Ret_T], res) -> Union[Ret_T, AzureError]:
+		if res.content.get("error"):
+			return AzureErrorResponse.model_validate(res.content)
+		type_adapter = TypeAdapter(req.ret_t)
+		return type_adapter.validate_python(res.content)
+
+	def call_batch(self, req: BatchReq) -> Tuple:
+		keyed_requests, batch_request = self.batch_to_request(req)
+
+		batch_response: AzBatchResponses = self.call(batch_request)
+		deserialised_responses = [self._resolve_batch_response(keyed_requests[e.name], e) for e in batch_response.responses]
+		return deserialised_responses
 
 	def call(self, req: Req[Ret_T]) -> Ret_T:
 		"""Make the request to Azure"""

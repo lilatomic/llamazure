@@ -57,8 +57,8 @@ class BatchReq:
 	apiv: str = "2020-06-01"
 
 
-class AzBatch(BaseModel):
-	requests: List[Dict]
+class AzBatch(BaseModel, Generic[Ret_T]):
+	requests: List[Ret_T]
 
 
 class AzBatchResponse(BaseModel):
