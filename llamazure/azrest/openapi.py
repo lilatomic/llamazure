@@ -22,6 +22,7 @@ from pathlib import Path
 from textwrap import dedent, indent
 from typing import Dict, List, Literal, Optional, Set, Type, Union
 
+import requests
 from pydantic import BaseModel, Field, TypeAdapter
 from typing_extensions import NotRequired, TypedDict
 
@@ -171,18 +172,15 @@ class IR_List(BaseModel):
 class Reader:
 	"""Read Microsoft OpenAPI specifications"""
 
-	def __init__(self, root: Path, path: Path, openapi: dict):
+	def __init__(self, root: str, path: Path, openapi: dict):
 		self.root = root
 		self.path = path
 		self.doc = openapi
 
 	@classmethod
-	def load(cls, root: Path, path: Path) -> Reader:
+	def load(cls, root: str, path: Path) -> Reader:
 		"""Load from a path or file-like object"""
-
-		openapi3_file = root / path
-		with open(openapi3_file, mode="r", encoding="utf-8") as fp:
-			return Reader(root, path, json.load(fp))
+		return Reader(root, path, cls._load_file(root, path))
 
 	@property
 	def paths(self):
@@ -211,7 +209,7 @@ class Reader:
 		file_path, _, object_path = self.classify_relative(relative)
 
 		if file_path:
-			file = self._load_file(file_path)
+			file = self._load_file(self.root, self.path.parent / file_path)
 		else:
 			file = self.doc
 
@@ -230,11 +228,19 @@ class Reader:
 			# Raise a custom exception with a helpful message including the object_path
 			raise PathLookupError(object_path)
 
-	def _load_file(self, file_path):
+	@staticmethod
+	def _load_file(root: str, file_path: Path):
 		"""Load the contents of a file"""
-		with (self.root / self.path.parent / file_path).open(mode="r", encoding="utf-8") as fp:
-			file = json.load(fp)
-		return file
+		if root.startswith("https://") or root.startswith("http://"):
+			content = requests.get(root + file_path.as_posix()).content
+		elif root.startswith("file://"):
+			file_root = root.split("://")[1]
+			with (Path(file_root) / file_path).open(mode="r", encoding="utf-8") as fp:
+				content = fp.read()
+		else:
+			scheme = root.split("://")[0]
+			raise ValueError(f"unknown uri scheme scheme={scheme}")
+		return json.loads(content)
 
 
 def operations(path_object: dict):
@@ -720,7 +726,8 @@ class AZOps(BaseModel, CodeGenable):
 if __name__ == "__main__":
 	import sys
 
-	reader = Reader.load(Path(sys.argv[1]), Path(sys.argv[2]))
+	openapi_root, openapi_file = sys.argv[1], sys.argv[2]
+	reader = Reader.load(openapi_root, Path(openapi_file))
 
 	oa_defs = definitions(reader.definitions)
 
