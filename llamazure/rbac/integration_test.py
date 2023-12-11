@@ -139,7 +139,7 @@ class TestRoles:
 		ras.remove_all_assignments(role)
 
 		# cleanup
-		role_ops.delete_by_name(role_name)
+		retry(lambda: role_ops.delete_by_name(role_name), AzureError)
 
 
 class TestUsersAndGroups:

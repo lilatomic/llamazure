@@ -68,15 +68,14 @@ class TestTransformDef:
 				"p0": OADef.Property(type="t.p0"),
 				"p1": OADef.Property(type="t.p1"),
 			},
-			required={"p0", "p1"},
 		)
 		result = IRTransformer({}, None).transform_def("n0", p)
 		expected = IRDef(
 			name="n0",
 			description="d0",
 			properties={
-				"p0": IR_T(t="t.p0"),
-				"p1": IR_T(t="t.p1"),
+				"p0": IR_T(t="t.p0", required=False),
+				"p1": IR_T(t="t.p1", required=False),
 			},
 		)
 		assert result == expected

@@ -68,6 +68,7 @@ class OADef(BaseModel):
 		t: Union[str] = Field(alias="type")
 		description: Optional[str] = None
 		readOnly: bool = False
+		required: bool = False
 
 	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef]]
 	t: str = Field(alias="type")
@@ -304,7 +305,7 @@ class IRTransformer:
 		"""Transform an OpenAPI field"""
 		if isinstance(p, OADef.Property):
 			resolved_type = self.resolve_type(p.t)
-			return IR_T(t=resolved_type, readonly=p.readOnly)
+			return IR_T(t=resolved_type, readonly=p.readOnly, required=p.required)
 		elif isinstance(p, OADef.Array):
 			return self.ir_array(p)
 		elif isinstance(p, OARef):
@@ -328,18 +329,18 @@ class IRTransformer:
 		"""Transform an OpenAPI array to IR"""
 		if isinstance(obj.items, OADef.Property):
 			# Probably a type
-			as_list = IR_List(items=IR_T(t=self.resolve_type(obj.items.t)))
+			as_list = IR_List(items=IR_T(t=self.resolve_type(obj.items.t), required=True))
 		elif isinstance(obj.items, OARef):
 			# TODO: implement actual resolution
 			# ref = self.defs[resolve_path(obj.items.ref)]
 			# l = IR_List(items=IR_T(t=ref))
 
-			as_list = IR_List(items=IR_T(t=resolve_path(obj.items.ref)))
+			as_list = IR_List(items=IR_T(t=resolve_path(obj.items.ref), required=True))
 
 		else:
 			raise NotImplementedError("List of List not supported")
 
-		return IR_T(t=as_list)
+		return IR_T(t=as_list, required=True)
 
 	def ir_azarray(self, obj: IRDef) -> Optional[AZAlias]:
 		"""Transform a definition representing an array into an alias to the wrapped type"""

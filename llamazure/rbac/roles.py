@@ -90,7 +90,6 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 		if scope not in target_role.properties.assignableScopes:
 			l.debug("adding scope to RoleDefinition")
 			target_role.properties.assignableScopes.append(scope)
-		l.info(f"{target_role.properties.assignableScopes=}")
 
 		assert target_role.name, "typeguard failed guard=target_role.name"
 		res = self.run(self.CreateOrUpdate(scope, target_role.name, target_role))
