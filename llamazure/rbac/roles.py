@@ -45,8 +45,11 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 	@staticmethod
 	def rescope(role: RoleDefinition, scope: str) -> RoleDefinition:
 		"""Rescope a role for the target scope"""
+		if not role.rid:
+			raise TypeError(f"attempt to rescope role with no rid name={role.name}")
 		new_rid = RoleDefinitions.rescope_id(role.rid, scope)
-		return role.model_copy(update={"rid": new_rid})
+		rescoped_role = role.model_copy(update={"rid": new_rid})
+		return rescoped_role
 
 	@staticmethod
 	def by_name(roles: List[RoleDefinition]):
@@ -89,6 +92,7 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 			target_role.properties.assignableScopes.append(scope)
 		l.info(f"{target_role.properties.assignableScopes=}")
 
+		assert target_role.name, "typeguard failed guard=target_role.name"
 		res = self.run(self.CreateOrUpdate(scope, target_role.name, target_role))
 		return res
 
@@ -97,6 +101,7 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 
 		# TODO: use batchable api
 		for scope in role.properties.assignableScopes:
+			assert role.name
 			self.run(self.Delete(scope, role.name))
 
 	def delete_by_name(self, name: str):
@@ -135,6 +140,8 @@ class RoleAssignments(AzRoleAssignments, AzOps):
 		"""Just grant a Principal a Role at a Scope, the way you always wanted"""
 		# we need to search everywhere because the role might exist but not in our subscription yet
 		role = self._role_definitions.get_by_name(role_name)
+		if not role.properties.assignableScopes:
+			raise TypeError(f"Existing role {role.rid} did not have any assignable scopes")  # TODO: custom error type for preconditions
 
 		# we might need to update the assignable scopes
 		if scope not in role.properties.assignableScopes:
@@ -153,25 +160,28 @@ class RoleAssignments(AzRoleAssignments, AzOps):
 
 	def put(self, assignment: RoleAssignment.Properties) -> RoleAssignment:
 		"""Create or update a role assignment"""
+		if not assignment.scope:
+			raise TypeError("Role assignment did not have a scope")
 
 		target_role_id = self._role_definitions.rescope_id(assignment.roleDefinitionId, assignment.scope)
-		existing: RoleAssignment = next(
-			(
-				e
-				for e in self.run(self.ListForScope(assignment.scope))
-				if rid_eq(e.properties.roleDefinitionId, target_role_id) and e.properties.principalId == assignment.principalId
-			),
+		assignments_at_scope = self.run(self.ListForScope(assignment.scope))
+		existing: Optional[RoleAssignment] = next(
+			(e for e in assignments_at_scope if rid_eq(e.properties.roleDefinitionId, target_role_id) and e.properties.principalId == assignment.principalId),
 			None,
 		)
 		if existing:
+			target_name = existing.name
 			l.debug(f"found existing role assignment rid={existing.rid}")
 			target = existing.model_copy(update={"properties": assignment})
 		else:
-			name = str(uuid4())
-			l.debug(f"did not find existing role assignment, trying for name={name}")
-			target = RoleAssignment(name=name, properties=assignment)
+			target_name = str(uuid4())
+			l.debug(f"did not find existing role assignment, trying for name={target_name}")
+			target = RoleAssignment(name=target_name, properties=assignment)
 
-		res = self.run(self.Create(target.properties.scope, target.name, target))
+		scope = target.properties.scope
+		if scope is None or target_name is None:
+			raise ValueError(f"invalid target was unassignable {scope=} {target_name=}")
+		res = self.run(self.Create(scope, target_name, target))
 		return res
 
 	def remove_all_assignments(self, role_definition: RoleDefinition):
