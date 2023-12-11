@@ -433,13 +433,16 @@ class IRTransformer:
 	def unify_ir_t(self, ir_ts: List[IR_T]) -> Optional[IR_T]:
 		"""Unify IR types, usually for returns"""
 		ts = set(self.resolve_ir_t_str(t) for t in ir_ts if t)
-		if len(ts) == 0:
+
+		is_required = "None" not in ts
+		non_none = ts - {"None"}
+
+		if len(non_none) == 0:
 			return None
-		elif len(ts) == 1:
-			return IR_T(t=ts.pop())
+		elif len(non_none) == 1:
+			return IR_T(t=non_none.pop(), required=is_required)
 		else:
-			resolved_types = ts
-			return IR_T(t=f"Union[{', '.join(resolved_types)}]")
+			return IR_T(t=f"Union[{', '.join(non_none)}]", required=is_required)
 
 	def transform_paths(self, paths, apiv: str) -> str:
 		"""Transform OpenAPI Paths into the Python code for the Azure objects"""
