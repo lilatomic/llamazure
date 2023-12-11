@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Dict, Type, Union, cast
+from typing import Dict, Optional, Type, Union, cast
 
 import requests
 from pydantic import BaseModel, TypeAdapter
@@ -169,6 +169,6 @@ class AzOps:
 		return self.azrest.call(req)
 
 
-def rid_eq(a: str, b: str) -> bool:
+def rid_eq(a: Optional[str], b: Optional[str]) -> bool:
 	"""Whether 2 Azure resource IDs are the same"""
-	return a.lower() == b.lower()
+	return a is not None and b is not None and a.lower() == b.lower()
