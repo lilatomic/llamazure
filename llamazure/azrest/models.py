@@ -30,10 +30,11 @@ class Req(Generic[Ret_T]):
 		"""Create a GET request"""
 		return cls(name, path, "GET", apiv, ret_t=ret_t)
 
+	# typehinting that NoneType is a perfectly good type is really annoying
 	@classmethod
-	def delete(cls, name: str, path: str, apiv: str, ret_t: Optional[Type[Ret_T]] = Type[None]) -> Req:
+	def delete(cls, name: str, path: str, apiv: str, ret_t: Optional[Type[Ret_T]] = Type[None]) -> Req:  # type: ignore
 		"""Create a DELETE request"""
-		return cls(name, path, "DELETE", apiv, ret_t=ret_t)
+		return cls(name, path, "DELETE", apiv, ret_t=ret_t)  # type: ignore
 
 	@classmethod
 	def put(cls, name: str, path: str, apiv: str, body: Optional[BaseModel], ret_t: Type[Ret_T]) -> Req:
@@ -101,7 +102,7 @@ class AzList(BaseModel, Generic[Ret_T]):
 	value: List[Ret_T]
 	nextLink: Optional[str] = None
 
-	def __iter__(self) -> Iterator[Ret_T]:
+	def __iter__(self) -> Iterator[Ret_T]:  # type: ignore[override]
 		# TODO: explode if there's a nextLink because this won't paginate properly
 		return self.value.__iter__()
 

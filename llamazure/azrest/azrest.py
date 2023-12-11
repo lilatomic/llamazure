@@ -6,7 +6,7 @@ import logging
 from typing import Dict, Type, Union, cast
 
 import requests
-from pydantic import TypeAdapter, BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from llamazure.azrest.models import AzBatch, AzBatchResponses, AzList, AzureError, AzureErrorResponse, BatchReq, Req, Ret_T
 
