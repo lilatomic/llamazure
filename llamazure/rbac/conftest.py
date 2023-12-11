@@ -22,7 +22,9 @@ l = logging.getLogger(__name__)
 def credential():
 	"""Azure credential"""
 	try:
-		return AzureCliCredential()
+		cli_credential = AzureCliCredential()
+		cli_credential.get_token("https://management.azure.com//.default")
+		return cli_credential
 	except CredentialUnavailableError:
 		secrets = yaml.safe_load(os.environ.get("integration_test_secrets"))
 		client = secrets["azgraph"]
