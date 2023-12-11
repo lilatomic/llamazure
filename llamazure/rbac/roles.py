@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import List, cast
+from typing import List, Optional, cast
 from uuid import uuid4
 
 from llamazure.azrest.azrest import AzOps, AzRest, rid_eq

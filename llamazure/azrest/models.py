@@ -4,7 +4,7 @@ from __future__ import annotations
 import dataclasses
 import uuid
 from dataclasses import dataclass, field
-from typing import Dict, Generic, List, Optional, Type, TypeVar, Iterator
+from typing import Dict, Generic, Iterator, List, Optional, Type, TypeVar
 
 from pydantic import BaseModel, Field
 

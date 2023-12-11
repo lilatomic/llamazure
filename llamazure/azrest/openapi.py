@@ -72,7 +72,6 @@ class OADef(BaseModel):
 	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef]]
 	t: str = Field(alias="type")
 	description: Optional[str] = None
-	required: Set[str] = set()
 
 
 class OAParam(BaseModel):
@@ -294,7 +293,7 @@ class IRTransformer:
 
 	def transform_def(self, name: str, obj: OADef) -> IRDef:
 		"""Transform an OpenAPI definition to IR"""
-		ir_properties = {p_name: self.transform_oa_field(p).model_copy(update={"required": p_name in obj.required}) for p_name, p in obj.properties.items()}
+		ir_properties = {p_name: self.transform_oa_field(p) for p_name, p in obj.properties.items()}
 		return IRDef(
 			name=name,
 			properties=ir_properties,

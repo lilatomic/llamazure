@@ -49,6 +49,7 @@ class TestRoles:
 				description="Test creating a role",
 				permissions=[Permission(actions=["Microsoft.Authorization/*/read"])],
 				assignableScopes=[scope, scope_other],
+				type="CustomRole",
 			),
 			scope=scope,
 		)
@@ -97,6 +98,7 @@ class TestRoles:
 				roleName=role_name,
 				description="test finding assignments",
 				permissions=[Permission(actions=["Microsoft.Authorization/*/read"])],
+				type="CustomRole",
 			),
 			scope=sub0,
 		)
