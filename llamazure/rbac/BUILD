@@ -56,7 +56,7 @@ python_distribution(
 	long_description_path="llamazure/rbac/readme.md",
 	provides=python_artifact(
 		name="llamazure.rbac",
-		version="0.0.2",
+		version="0.1.0",
 		description="Azure roles, users, and assignments",
 		author="Daniel Goldman",
 		classifiers=[

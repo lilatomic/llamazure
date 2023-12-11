@@ -12,7 +12,7 @@ python_distribution(
 	long_description_path="llamazure/msgraph/readme.md",
 	provides=python_artifact(
 		name="llamazure.msgraph",
-		version="0.0.2",
+		version="0.0.3",
 		description="Microsoft Graph client",
 		author="Daniel Goldman",
 		classifiers=[
