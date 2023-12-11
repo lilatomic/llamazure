@@ -4,7 +4,7 @@ from __future__ import annotations
 import dataclasses
 import uuid
 from dataclasses import dataclass, field
-from typing import Dict, Generic, Iterator, List, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, Iterator, List, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
@@ -30,9 +30,8 @@ class Req(Generic[Ret_T]):
 		"""Create a GET request"""
 		return cls(name, path, "GET", apiv, ret_t=ret_t)
 
-	# typehinting that NoneType is a perfectly good type is really annoying
 	@classmethod
-	def delete(cls, name: str, path: str, apiv: str, ret_t: Optional[Type[Ret_T]] = Type[None]) -> Req:  # type: ignore
+	def delete(cls, name: str, path: str, apiv: str, ret_t: Union[Any, Optional[Type[Ret_T]]] = Type[None]) -> Req:
 		"""Create a DELETE request"""
 		return cls(name, path, "DELETE", apiv, ret_t=ret_t)  # type: ignore
 
