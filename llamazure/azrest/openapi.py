@@ -21,7 +21,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import Dict, List, Literal, Optional, Set, Type, Union
+from typing import Dict, List, Literal, Optional, Set, Type, Union, cast
 
 import requests
 from pydantic import BaseModel, Field, TypeAdapter
@@ -315,7 +315,7 @@ class IRTransformer:
 		else:
 			raise TypeError("unsupported OpenAPI field")
 
-	def resolve_type(self, t) -> IR_T:
+	def resolve_type(self, t: str) -> Union[str, type]:
 		"""Resolve OpenAPI types to Python types, if applicable"""
 		py_type = {
 			"string": str,
@@ -352,8 +352,11 @@ class IRTransformer:
 			return None
 
 	@staticmethod
-	def resolve_ir_t_str(ir_t: IR_T) -> str:
+	def resolve_ir_t_str(ir_t: Union[IR_T, None]) -> str:
 		"""Resolve the IR type to the stringified Python type"""
+		if ir_t is None:
+			return "None"
+
 		t = ir_t.t
 		if isinstance(t, type):
 			n = t.__name__
@@ -415,15 +418,21 @@ class IRTransformer:
 		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), property_c=property_c)
 
 	def paramOA2IR(self, oaparam: OAParam) -> IR_T:
-		"""Convert an OpenAPI Parameter to IR Parameter"""
+		"""
+		Convert an OpenAPI Parameter to IR Parameter
+
+		If the param belongs in the body, it will have a schema and nothing else
+		Otherwise, it will always have a valid type
+		"""
 		if oaparam.oa_schema:
 			return self.transform_oa_field(oaparam.oa_schema)
 		else:
+			assert oaparam.type, "OAParam without schema does not have a type"
 			return IR_T(t=self.resolve_type(oaparam.type))
 
-	def unify_ir_t(self, ts: List[IR_T]) -> Optional[IR_T]:
+	def unify_ir_t(self, ir_ts: List[IR_T]) -> Optional[IR_T]:
 		"""Unify IR types, usually for returns"""
-		ts = set(self.resolve_ir_t_str(t) for t in ts if t)
+		ts = set(self.resolve_ir_t_str(t) for t in ir_ts if t)
 		if len(ts) == 0:
 			return None
 		elif len(ts) == 1:
@@ -441,20 +450,22 @@ class IRTransformer:
 		for path, path_item in parsed.items():
 			new_path_item = {}
 			for method, op in path_item.items():
+				op = cast(OAOp, op)
 				resolved_parameters = self.resolve_oaparam_refs(op)
 				new_op = op.model_copy(update={"parameters": resolved_parameters})
 
 				new_path_item[method] = new_op
-			resolved[path] = new_path_item
+			resolved[path] = cast(OAPath, new_path_item)
 
 		ops: List[IROp] = []
 		for path, path_item in resolved.items():
 			for method, op in path_item.items():
+				op = cast(OAOp, op)
 				object_name, name = op.operationId.split("_")
 
 				body_types = [self.paramOA2IR(p) for p in op.body_params]
 				body_type = self.unify_ir_t(body_types)
-				body_name = "body" if len(op.body_params) != 1 else op.body_params[0].name
+				body_name = None if len(op.body_params) != 1 else op.body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
 
 				params = {p.name: self.paramOA2IR(p) for p in op.url_params}
 
@@ -486,16 +497,15 @@ class IRTransformer:
 			o = []
 			for x in ir_ops:
 				if x.params:
-					params = {k: self.resolve_ir_t_str(v) for k, v in x.params.items()}
+					az_params = {k: self.resolve_ir_t_str(v) for k, v in x.params.items()}
 				else:
-					params = None
+					az_params = {}
 
-				if x.body:
-					body = self.resolve_ir_t_str(x.body)
-					body_name = x.body_name
+				if x.body or x.body_name:
+					assert x.body and x.body_name, f"Need to provide both body and body_name {name=} {x.name=} {x.body=} {x.body_name=}"  # TODO: solidify this requirement
+					body = AZOp.Body(name=x.body_name, type=self.resolve_ir_t_str(x.body))
 				else:
 					body = None
-					body_name = None
 
 				az_op = AZOp(
 					ops_name=name,
@@ -505,8 +515,7 @@ class IRTransformer:
 					method=x.method,
 					apiv=x.apiv,
 					body=body,
-					body_name=body_name,
-					params=params,
+					params=az_params,
 					ret_t=self.resolve_ir_t_str(x.ret_t),
 				)
 				o.append(az_op)
@@ -633,15 +642,18 @@ class AZAlias(BaseModel, CodeGenable):
 class AZOp(BaseModel, CodeGenable):
 	"""An OpenAPI operation ready for codegen"""
 
+	class Body(BaseModel):
+		type: str
+		name: str
+
 	ops_name: str
 	name: str
 	description: Optional[str] = None
 	path: str
 	method: str
 	apiv: Optional[str]
-	body: Optional[str]
-	body_name: Optional[str] = None
-	params: Optional[Dict[str, str]]
+	body: Optional[Body] = None
+	params: Dict[str, str] = {}
 	ret_t: Optional[str]
 
 	def codegen(self) -> str:
@@ -655,8 +667,8 @@ class AZOp(BaseModel, CodeGenable):
 		if self.params:
 			params.extend([f"{p_name}: {p_type}" for p_name, p_type in self.params.items()])
 		if self.body:
-			params.append(f"{self.body_name}: {self.body}")
-			req_args["body"] = self.body_name
+			params.append(f"{self.body.name}: {self.body.type}")
+			req_args["body"] = self.body.name
 		if self.ret_t:
 			req_args["ret_t"] = self.ret_t
 

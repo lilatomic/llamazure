@@ -1,4 +1,5 @@
 """Integration tests for roles"""
+import logging
 import os
 from typing import Any
 
@@ -11,6 +12,7 @@ from llamazure.rbac.role_asn import RoleAssignment
 from llamazure.rbac.role_def import Permission, RoleDefinition
 from llamazure.rbac.roles import RoleAssignments, RoleDefinitions, RoleOps
 
+l = logging.getLogger(__name__)
 attempts = 5
 
 
@@ -37,12 +39,13 @@ class TestRoles:
 		"""Test a whole cycle of things"""
 		role_name = "llamazure-rbac-0"
 
-		# try to purge role
+		l.info(f"try to purge role name={role_name}")
 		retry(lambda: role_ops.delete_by_name(role_name), AzureError)
 
 		scope = scopes["sub0"]
 		scope_other = scopes["sub1"]
 
+		l.info(f"try to create role name={role_name}")
 		response = rds.put(
 			RoleDefinition.Properties(
 				roleName=role_name,
@@ -61,7 +64,7 @@ class TestRoles:
 			assert role.properties == response.properties
 			return role
 
-		role = retry(assert_role_created, {KeyError})
+		role = retry(assert_role_created, {KeyError}, msg="assert_role_created")
 
 		def assert_role_assigned():
 			asn = ras.put(RoleAssignment.Properties(roleDefinitionId=role.rid, principalId="094238bf-5cf8-412e-8773-8e2a39c45616", principalType="User", scope=scope))
@@ -73,8 +76,10 @@ class TestRoles:
 		# explicitly make a `put` that already exists
 		retry(assert_role_assigned, AzureError)
 
+		l.info("deleting RoleAssignment")
 		ras.DeleteById(asn.rid)
 
+		l.info("cleanup role")
 		retry(lambda: rds.delete_by_name(role.properties.roleName), AzureError)
 
 	@pytest.mark.integration

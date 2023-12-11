@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from llamazure.azrest.azrest import AzOps, AzRest, rid_eq
 from llamazure.azrest.models import AzList, Req
-from llamazure.rbac.role_asn import AzRoleAssignments, RoleAssignment
+from llamazure.rbac.role_asn import AzRoleAssignments, RoleAssignment, RoleAssignmentCreateParameters
 from llamazure.rbac.role_def import AzRoleDefinitions, RoleDefinition
 from llamazure.rid import rid
 
@@ -54,7 +54,7 @@ class RoleDefinitions(AzRoleDefinitions, AzOps):
 	@staticmethod
 	def by_name(roles: List[RoleDefinition]):
 		"""Index RoleDefinitions by their name"""
-		return {e.properties.roleName.lower(): e for e in roles}
+		return {e.properties.roleName.lower(): e for e in roles}  # type: ignore[union-attr]
 
 	def list_all_custom(self) -> Req[List[RoleDefinition]]:
 		"""Custom roles may not appear at the root level if they aren't defined there unless you use a custom filter"""
@@ -123,7 +123,7 @@ class RoleAssignments(AzRoleAssignments, AzOps):
 		"""List assignments for a role at a given scope"""
 		rid_at_scope = self._role_definitions.rescope(role_definition, scope)
 		asns_at_scope = self.ListForScope(scope)
-		asns = [e for e in self.run(asns_at_scope) if e.properties.roleDefinitionId.lower() == rid_at_scope.rid]
+		asns = [e for e in self.run(asns_at_scope) if e.properties.roleDefinitionId.lower() == rid_at_scope.rid]  # type: ignore[union-attr]
 		return asns
 
 	def list_for_role(self, role_definition: RoleDefinition) -> List[RoleAssignment]:
@@ -159,8 +159,10 @@ class RoleAssignments(AzRoleAssignments, AzOps):
 
 	def put(self, assignment: RoleAssignment.Properties) -> RoleAssignment:
 		"""Create or update a role assignment"""
-		if not assignment.scope:
-			raise TypeError("Role assignment did not have a scope")
+		if not assignment.scope:  # TODO: Azure mandatory
+			raise TypeError("RoleAssignment did not have a scope")
+		if not assignment.roleDefinitionId:  # TODO: Azure mandatory
+			raise TypeError("RoleAssignment did not have a roleDefinitionId")
 
 		target_role_id = self._role_definitions.rescope_id(assignment.roleDefinitionId, assignment.scope)
 		assignments_at_scope = self.run(self.ListForScope(assignment.scope))
@@ -180,7 +182,7 @@ class RoleAssignments(AzRoleAssignments, AzOps):
 		scope = target.properties.scope
 		if scope is None or target_name is None:
 			raise ValueError(f"invalid target was unassignable {scope=} {target_name=}")
-		res = self.run(self.Create(scope, target_name, target))
+		res = self.run(self.Create(scope, target_name, RoleAssignmentCreateParameters(properties=RoleAssignmentCreateParameters.Properties(**target.properties.model_dump()))))
 		return res
 
 	def remove_all_assignments(self, role_definition: RoleDefinition):
@@ -189,6 +191,7 @@ class RoleAssignments(AzRoleAssignments, AzOps):
 		Useful for running before deleting a role
 		"""
 		asns = self.list_for_role(role_definition)
+		l.debug(f"delete assignments for role name={role_definition.properties.roleName} count={len(asns)}")
 		for asn in asns:
 			if asn.rid:
 				self.run(self.DeleteById(asn.rid))

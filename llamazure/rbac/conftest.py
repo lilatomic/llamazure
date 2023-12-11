@@ -1,8 +1,10 @@
 """Conftest"""
+import logging
+
 # pylint: disable=redefined-outer-name
 import os
 from time import sleep
-from typing import Callable, Set, Type, TypeVar, Union
+from typing import Callable, Optional, Set, Type, TypeVar, Union
 
 import pytest
 import yaml
@@ -12,6 +14,8 @@ from llamazure.azrest.azrest import AzRest
 from llamazure.msgraph.msgraph import Graph
 from llamazure.rbac.resources import Groups, Users
 from llamazure.rbac.roles import RoleAssignments, RoleDefinitions, RoleOps
+
+l = logging.getLogger(__name__)
 
 
 @pytest.fixture
@@ -74,11 +78,7 @@ def me(users):
 T = TypeVar("T")
 
 
-def retry(
-	fn: Callable[[], T],
-	catching: Union[Type[Exception], Set[Type[Exception]]],
-	attempts=20,
-) -> T:
+def retry(fn: Callable[[], T], catching: Union[Type[Exception], Set[Type[Exception]]], attempts=20, msg: Optional[str] = None) -> T:
 	"""Retry a function catching specific exceptions. Useful for waiting for changes to propagate in Azure"""
 	if isinstance(catching, type) and issubclass(catching, Exception):
 		catching = {catching}
@@ -91,4 +91,6 @@ def retry(
 		except Exception as e:  # pylint: disable=broad-except
 			if type(e) not in catching or i >= attempts:
 				raise
+			if msg:
+				l.debug(f"attempt failed: {msg}")
 			sleep(1)
