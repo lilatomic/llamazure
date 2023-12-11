@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Dict, Type, Union
+from typing import Dict, Type, Union, cast
 
 import requests
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, BaseModel
 
 from llamazure.azrest.models import AzBatch, AzBatchResponses, AzList, AzureError, AzureErrorResponse, BatchReq, Req, Ret_T
 
@@ -63,10 +63,10 @@ class AzRest:
 
 	def _build_url(self, req: Req) -> str:
 		"""Hacky way to get requests to build our url for us"""
-		return self.session.prepare_request(self.to_request(req)).url
+		return cast(str, self.session.prepare_request(self.to_request(req)).url)
 
-	def _to_batchable_request(self, req: Req, batch_id: str) -> dict:
-		r = {
+	def _to_batchable_request(self, req: Req, batch_id: str) -> Dict[str, Union[str, BaseModel]]:
+		r: Dict[str, Union[str, BaseModel]] = {
 			"httpMethod": req.method,
 			"name": batch_id,
 			"url": self._build_url(req),
@@ -90,7 +90,7 @@ class AzRest:
 	def _resolve_batch_response(self, req: Req[Ret_T], res) -> Union[Ret_T, AzureError]:
 		"""Deserialise the response to a batch request"""
 		if res.content.get("error"):
-			return AzureErrorResponse.model_validate(res.content)
+			return AzureErrorResponse.model_validate(res.content).error.as_exception()
 		type_adapter = TypeAdapter(req.ret_t)
 		return type_adapter.validate_python(res.content)
 
@@ -110,28 +110,29 @@ class AzRest:
 			return res
 
 		if isinstance(res, AzList):
+			res_list: AzList = res
 			acc = res.value
 			page = 0
-			while res.nextLink:
+			while res_list.nextLink:
 				page += 1
 				l.debug(fmt_log("paginating req", req, page=str(page)))
 				r = self.to_request(req)
-				r.url = res.nextLink
-				res = self._call_with_retry(req, r)
-				acc.extend(res.value)
-			return acc
+				r.url = res_list.nextLink
+				res_list = self._call_with_retry(req, r)  # type: ignore  # we know the req
+				acc.extend(res_list.value)
+			return acc  # type: ignore  # we're deliberately unwrapping a list into its primitive type
 		else:
 			return res
 
 	def _call_with_retry(self, req: Req[Ret_T], r: requests.Request) -> Ret_T:
 		l.debug(fmt_log("making req", req))
-		res = self._do_call(req, r)
+		res: Union[Ret_T, AzureError] = self._do_call(req, r)  # type: ignore  # mypy binds Ret_T as the union and gets confused, I think?
 		if isinstance(res, AzureError):
 			retries = 0
 			while retries < self.retry_policy.retries and isinstance(res, AzureError):
 				l.debug(fmt_log("req returned error; retrying", req, err=res.error.model_dump_json()))
 				retries += 1
-				res = self._do_call(req, r)
+				res = self._do_call(req, r)  # type: ignore
 
 		if isinstance(res, AzureError):
 			l.warning(fmt_log("req returned error; retries exhausted", req, err=res.error.model_dump_json()))
