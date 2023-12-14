@@ -43,8 +43,11 @@ class PathLookupError(Exception):
 class OARef(BaseModel):
 	"""An OpenAPI reference"""
 
-	ref: str = Field(alias="$ref")
+	ref: str = Field(serialization_alias="$ref")
 	description: Optional[str] = None
+
+	class Config:
+		allow_population_by_field_name = True
 
 	@property
 	def name(self) -> str:
@@ -203,7 +206,7 @@ class Reader:
 	def classify_relative(relative: str) -> tuple[str, str, str]:
 		"""Decompose an OpenAPI reference into its filepath, item type, and path inside that document"""
 		file_path, object_path = relative.split("#")
-		oa_type = object_path.split("/")[0]
+		oa_type = object_path.split("/")[1]
 		return file_path, oa_type, object_path
 
 	def load_relative(self, relative: str) -> dict:
@@ -301,13 +304,14 @@ class IRTransformer:
 			description=obj.description,
 		)
 
-	def transform_oa_field(self, p: Union[OADef.Array, OADef.Property, OARef, None]) -> IR_T:
+	@staticmethod
+	def transform_oa_field(p: Union[OADef.Array, OADef.Property, OARef, None]) -> IR_T:
 		"""Transform an OpenAPI field"""
 		if isinstance(p, OADef.Property):
-			resolved_type = self.resolve_type(p.t)
+			resolved_type = IRTransformer.resolve_type(p.t)
 			return IR_T(t=resolved_type, readonly=p.readOnly, required=p.required)
 		elif isinstance(p, OADef.Array):
-			return self.ir_array(p)
+			return IRTransformer.ir_array(p)
 		elif isinstance(p, OARef):
 			return IR_T(t=resolve_path(p.ref))
 		elif p is None:
@@ -315,7 +319,8 @@ class IRTransformer:
 		else:
 			raise TypeError("unsupported OpenAPI field")
 
-	def resolve_type(self, t: str) -> Union[str, type]:
+	@staticmethod
+	def resolve_type(t: str) -> Union[str, type]:
 		"""Resolve OpenAPI types to Python types, if applicable"""
 		py_type = {
 			"string": str,
@@ -325,11 +330,12 @@ class IRTransformer:
 		}.get(t, t)
 		return py_type
 
-	def ir_array(self, obj: OADef.Array) -> IR_T:
+	@staticmethod
+	def ir_array(obj: OADef.Array) -> IR_T:
 		"""Transform an OpenAPI array to IR"""
 		if isinstance(obj.items, OADef.Property):
 			# Probably a type
-			as_list = IR_List(items=IR_T(t=self.resolve_type(obj.items.t), required=True))
+			as_list = IR_List(items=IR_T(t=IRTransformer.resolve_type(obj.items.t), required=True))
 		elif isinstance(obj.items, OARef):
 			# TODO: implement actual resolution
 			# ref = self.defs[resolve_path(obj.items.ref)]
@@ -338,15 +344,17 @@ class IRTransformer:
 			as_list = IR_List(items=IR_T(t=resolve_path(obj.items.ref), required=True))
 
 		else:
+			# I think this is blocked by Pydantic type definitions
 			raise NotImplementedError("List of List not supported")
 
 		return IR_T(t=as_list, required=True)
 
-	def ir_azarray(self, obj: IRDef) -> Optional[AZAlias]:
+	@staticmethod
+	def ir_azarray(obj: IRDef) -> Optional[AZAlias]:
 		"""Transform a definition representing an array into an alias to the wrapped type"""
 		value = obj.properties.get("value")
 		if value is not None and isinstance(value.t, IR_List):
-			inner = self.resolve_ir_t_str(value.t.items)
+			inner = IRTransformer.resolve_ir_t_str(value.t.items)
 			return AZAlias(name=obj.name, alias=f"{AzList.__name__}[{inner}]")
 		else:
 			return None
@@ -357,24 +365,24 @@ class IRTransformer:
 		if ir_t is None:
 			return "None"
 
-		t = ir_t.t
-		if isinstance(t, type):
-			n = t.__name__
-		elif isinstance(t, IRDef):
-			n = t.name
-		elif isinstance(t, IR_List):
-			n = "List[%s]" % IRTransformer.resolve_ir_t_str(t.items)
-		elif isinstance(t, str):
-			n = t
+		declared_type = ir_t.t
+		if isinstance(declared_type, type):
+			type_as_str = declared_type.__name__
+		elif isinstance(declared_type, IRDef):
+			type_as_str = declared_type.name
+		elif isinstance(declared_type, IR_List):
+			type_as_str = "List[%s]" % IRTransformer.resolve_ir_t_str(declared_type.items)
+		elif isinstance(declared_type, str):
+			type_as_str = declared_type
 		else:
-			raise TypeError(f"Cannot handle {type(t)}")
+			raise TypeError(f"Cannot handle {type(declared_type)}")
 
 		if ir_t.readonly:
-			return "ReadOnly[%s]" % n
+			return "ReadOnly[%s]" % type_as_str
 		elif not ir_t.required:
-			return "Optional[%s]" % n
+			return "Optional[%s]" % type_as_str
 		else:
-			return n
+			return type_as_str
 
 	@staticmethod
 	def fieldsIR2AZ(fields: Dict[str, IR_T]) -> List[AZField]:
