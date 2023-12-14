@@ -26,6 +26,10 @@ python_distribution(
 		],
 		license="Round Robin 2.0.0",
 		long_description_content_type="text/markdown",
+		extras_require={'cli': ["click>8"]},
+		entry_points={
+			"console_scripts": ["llamazure-azrest-openapi=llamazure.azrest.openapi:main"]
+		}
 	),
 )
 

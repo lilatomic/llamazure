@@ -50,6 +50,10 @@ class Req(Generic[Ret_T]):
 		"""Create a PATCH request"""
 		return cls(name, path, "PATCH", apiv, body, ret_t=ret_t)
 
+	def named(self, name: str) -> Req:
+		"""Change the friendly name of this request"""
+		return dataclasses.replace(self, name=name)
+
 	def add_params(self, params: Dict[str, str]) -> Req:
 		"""Add query params to this request"""
 		return dataclasses.replace(self, params={**self.params, **params})

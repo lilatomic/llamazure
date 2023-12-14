@@ -721,7 +721,7 @@ class AZOps(BaseModel, CodeGenable):
 		).format(name=self.name, ops=op_strs, apiv=self.quote(self.apiv))
 
 
-if __name__ == "__main__":
+def main():
 	import sys
 
 	openapi_root, openapi_file = sys.argv[1], sys.argv[2]
@@ -749,3 +749,7 @@ if __name__ == "__main__":
 		)
 		f.write(transformer.transform())
 		f.write(transformer.transform_paths(reader.paths, reader.apiv))
+
+
+if __name__ == "__main__":
+	main()
