@@ -43,7 +43,7 @@ class PathLookupError(Exception):
 class OARef(BaseModel):
 	"""An OpenAPI reference"""
 
-	ref: str = Field(serialization_alias="$ref")
+	ref: str = Field(alias="$ref")
 	description: Optional[str] = None
 
 	class Config:
@@ -262,7 +262,7 @@ class IRTransformer:
 		self.oa_defs: Dict[str, OADef] = defs
 		self.openapi = openapi
 
-	def transform(self) -> str:
+	def transform_definitions(self) -> str:
 		"""Transform the OpenAPI objects into their codegened str"""
 		ir_definitions = {}
 		for name, obj in self.oa_defs.items():
@@ -438,9 +438,10 @@ class IRTransformer:
 			assert oaparam.type, "OAParam without schema does not have a type"
 			return IR_T(t=self.resolve_type(oaparam.type))
 
-	def unify_ir_t(self, ir_ts: List[IR_T]) -> Optional[IR_T]:
+	@staticmethod
+	def unify_ir_t(ir_ts: List[IR_T]) -> Optional[IR_T]:
 		"""Unify IR types, usually for returns"""
-		ts = set(self.resolve_ir_t_str(t) for t in ir_ts if t)
+		ts = set(IRTransformer.resolve_ir_t_str(t) for t in ir_ts if t)
 
 		is_required = "None" not in ts
 		non_none = ts - {"None"}
@@ -747,7 +748,7 @@ def main():
 				"""
 			)
 		)
-		f.write(transformer.transform())
+		f.write(transformer.transform_definitions())
 		f.write(transformer.transform_paths(reader.paths, reader.apiv))
 
 

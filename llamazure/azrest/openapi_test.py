@@ -2,7 +2,7 @@
 # pylint: disable=protected-access
 import pytest
 
-from llamazure.azrest.openapi import IR_T, IR_List, IRDef, IRTransformer, OADef, PathLookupError, Reader, OARef
+from llamazure.azrest.openapi import IR_T, IR_List, IRDef, IRTransformer, OADef, OARef, PathLookupError, Reader
 
 
 class TestResolveReference:
@@ -73,6 +73,7 @@ class TestClassifyRelative:
 		with pytest.raises(IndexError):
 			Reader.classify_relative("file_path#")
 
+
 class TestIRTransformerTransformOAField:
 	@staticmethod
 	def test_transform_oa_field_property():
@@ -89,7 +90,7 @@ class TestIRTransformerTransformOAField:
 
 	@staticmethod
 	def test_transform_oa_field_ref():
-		oa_ref = OARef(ref="#/definitions/ExampleDefinition", description="Example reference")
+		oa_ref = OARef(**{"$ref": "#/definitions/ExampleDefinition", "description": "Example reference"})
 		result = IRTransformer.transform_oa_field(oa_ref)
 		assert result == IR_T(t="ExampleDefinition")
 
@@ -115,7 +116,7 @@ class TestIRTransformerIRArray:
 
 	@staticmethod
 	def test_ir_array_ref_items():
-		array_items = OARef(ref="#/definitions/ExampleDefinition", description="Example reference")
+		array_items = OARef(**{"$ref": "#/definitions/ExampleDefinition", "description": "Example reference"})
 		array_obj = OADef.Array(items=array_items, description="Example array field")
 		result = IRTransformer.ir_array(array_obj)
 		expected_result = IR_T(t=IR_List(items=IR_T(t="ExampleDefinition", required=True)), required=True)
@@ -155,6 +156,7 @@ class TestIRTransformerResolveIRTStr:
 		result = IRTransformer.resolve_ir_t_str(ir_t)
 		assert result == "None"
 
+
 class TestIRTransformerResolveIRTStrReadOnlyAndRequired:
 	@staticmethod
 	def test_readonly():
@@ -187,15 +189,36 @@ class TestTransformPrimitives:
 		assert IRTransformer({}, None).resolve_type(p.t) == str
 
 
-class TestTransformArray:
-	"""Test transforming OADef.Array into an IR_List"""
+class TestIRTransformerUnifyIRT:
+	@staticmethod
+	def test_empty_list():
+		ir_ts = []
+		result = IRTransformer.unify_ir_t(ir_ts)
+		assert result is None
 
-	def test_string_array(self):
-		p = OADef.Array(
-			items=OADef.Property(type="string", description="d0"),
-			description="d1",
-		)
-		assert IRTransformer({}, None).ir_array(p) == IR_T(t=IR_List(items=IR_T(t=str)))
+	@staticmethod
+	def test_single_type():
+		ir_ts = [IR_T(t=str)]
+		result = IRTransformer.unify_ir_t(ir_ts)
+		assert result == IR_T(t="str", required=True)
+
+	@staticmethod
+	def test_multiple_types():
+		ir_ts = [IR_T(t=int), IR_T(t=str)]
+		result = IRTransformer.unify_ir_t(ir_ts)
+		assert result == IR_T(t="Union[str, int]", required=True) or result == IR_T(t="Union[int, str]", required=True)
+
+	@staticmethod
+	def test_optional_type():
+		ir_ts = [IR_T(t=int), IR_T(t="None")]
+		result = IRTransformer.unify_ir_t(ir_ts)
+		assert result == IR_T(t="int", required=False)
+
+	@staticmethod
+	def test_all_optional_types():
+		ir_ts = [IR_T(t="None"), IR_T(t="None")]
+		result = IRTransformer.unify_ir_t(ir_ts)
+		assert result is None
 
 
 class TestTransformDef:
