@@ -443,7 +443,8 @@ class IRTransformer:
 
 		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), property_c=property_c)
 
-	def paramOA2IR(self, oaparam: OAParam) -> IR_T:
+	@staticmethod
+	def paramOA2IR(oaparam: OAParam) -> IR_T:
 		"""
 		Convert an OpenAPI Parameter to IR Parameter
 
@@ -451,10 +452,10 @@ class IRTransformer:
 		Otherwise, it will always have a valid type
 		"""
 		if oaparam.oa_schema:
-			return self.transform_oa_field(oaparam.oa_schema)
+			return IRTransformer.transform_oa_field(oaparam.oa_schema)
 		else:
 			assert oaparam.type, "OAParam without schema does not have a type"
-			return IR_T(t=self.resolve_type(oaparam.type))
+			return IR_T(t=IRTransformer.resolve_type(oaparam.type))
 
 	@staticmethod
 	def unify_ir_t(ir_ts: List[IR_T]) -> Optional[IR_T]:
@@ -476,6 +477,54 @@ class IRTransformer:
 		parser = TypeAdapter(Dict[str, OAPath])
 		parsed = parser.validate_python(paths)
 
+		resolved = self.resolve_parameters_in_oapath(parsed)
+
+		ops: List[IROp] = []
+		for path, path_item in resolved.items():
+			for method, op in path_item.items():
+				ops.append(self.oa2ir_op(apiv, path, method, op))
+
+		az_objs: Dict[str, List[IROp]] = defaultdict(list)
+		for ir_op in ops:
+			az_objs[ir_op.object_name].append(ir_op)
+
+		az_ops = []
+		for name, ir_ops in az_objs.items():
+			az_ops.append(
+				AZOps(
+					name=name,
+					ops=[self.ir2az_op(name, x) for x in ir_ops],
+					apiv=apiv,
+				)
+			)
+
+		return "\n\n".join([cg.codegen() for cg in az_ops])
+
+	@staticmethod
+	def oa2ir_op(apiv: str, path: str, method: str, op: OAOp):
+		object_name, name = op.operationId.split("_")
+		body_types = [IRTransformer.paramOA2IR(p) for p in op.body_params]
+		body_type = IRTransformer.unify_ir_t(body_types)
+		body_name = None if len(op.body_params) != 1 else op.body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
+		params = {p.name: IRTransformer.paramOA2IR(p) for p in op.url_params}
+		rets_ts = [IRTransformer.transform_oa_field(r.oa_schema) for r_name, r in (op.responses.items()) if r_name != "default"]
+		ret_t = IRTransformer.unify_ir_t(rets_ts)
+		ir_op = IROp(
+			object_name=object_name,
+			name=name,
+			description=op.description,
+			path=path,
+			method=method,
+			apiv=apiv,
+			body=body_type,
+			body_name=body_name,
+			params=params or None,
+			ret_t=ret_t,
+		)
+		return ir_op
+
+	def resolve_parameters_in_oapath(self, parsed: Dict[str, OAPath]) -> Dict[str, OAPath]:
+		"""Resolve params of OAOps (methods) of an OAPath"""
 		resolved: Dict[str, OAPath] = {}
 		for path, path_item in parsed.items():
 			new_path_item = {}
@@ -486,75 +535,31 @@ class IRTransformer:
 
 				new_path_item[method] = new_op
 			resolved[path] = cast(OAPath, new_path_item)
+		return resolved
 
-		ops: List[IROp] = []
-		for path, path_item in resolved.items():
-			for method, op in path_item.items():
-				op = cast(OAOp, op)
-				object_name, name = op.operationId.split("_")
-
-				body_types = [self.paramOA2IR(p) for p in op.body_params]
-				body_type = self.unify_ir_t(body_types)
-				body_name = None if len(op.body_params) != 1 else op.body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
-
-				params = {p.name: self.paramOA2IR(p) for p in op.url_params}
-
-				rets = op.responses.items()
-				rets_ts = [self.transform_oa_field(r[1].oa_schema) for r in rets if r[0] != "default"]
-				ret_t = self.unify_ir_t(rets_ts)
-
-				ops.append(
-					IROp(
-						object_name=object_name,
-						name=name,
-						description=op.description,
-						path=path,
-						method=method,
-						apiv=apiv,
-						body=body_type,
-						body_name=body_name,
-						params=params or None,
-						ret_t=ret_t,
-					)
-				)
-
-		az_objs: Dict[str, List[IROp]] = defaultdict(list)
-		for ir_op in ops:
-			az_objs[ir_op.object_name].append(ir_op)
-
-		az_ops = []
-		for name, ir_ops in az_objs.items():
-			o = []
-			for x in ir_ops:
-				if x.params:
-					az_params = {k: self.resolve_ir_t_str(v) for k, v in x.params.items()}
-				else:
-					az_params = {}
-
-				if x.body or x.body_name:
-					assert x.body and x.body_name, f"Need to provide both body and body_name {name=} {x.name=} {x.body=} {x.body_name=}"  # TODO: solidify this requirement
-					body = AZOp.Body(name=x.body_name, type=self.resolve_ir_t_str(x.body))
-				else:
-					body = None
-
-				az_op = AZOp(
-					ops_name=name,
-					name=x.name,
-					description=x.description,
-					path=x.path,
-					method=x.method,
-					apiv=x.apiv,
-					body=body,
-					params=az_params,
-					ret_t=self.resolve_ir_t_str(x.ret_t),
-				)
-				o.append(az_op)
-
-			a = AZOps(name=name, ops=o, apiv=apiv)
-
-			az_ops.append(a)
-
-		return "\n\n".join([cg.codegen() for cg in az_ops])
+	@staticmethod
+	def ir2az_op(name: str, op: IROp):
+		if op.params:
+			az_params = {k: IRTransformer.resolve_ir_t_str(v) for k, v in op.params.items()}
+		else:
+			az_params = {}
+		if op.body or op.body_name:
+			assert op.body and op.body_name, f"Need to provide both body and body_name {name=} {op.name=} {op.body=} {op.body_name=}"  # TODO: solidify this requirement
+			body = AZOp.Body(name=op.body_name, type=IRTransformer.resolve_ir_t_str(op.body))
+		else:
+			body = None
+		az_op = AZOp(
+			ops_name=name,
+			name=op.name,
+			description=op.description,
+			path=op.path,
+			method=op.method,
+			apiv=op.apiv,
+			body=body,
+			params=az_params,
+			ret_t=IRTransformer.resolve_ir_t_str(op.ret_t),
+		)
+		return az_op
 
 	def resolve_oaparam_refs(self, op: OAOp) -> List[OAParam]:
 		"""Resolve OpenAPI parameters which are references to the definition that they reference"""
