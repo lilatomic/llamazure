@@ -1,4 +1,6 @@
 """Integration tests for AzRest"""
+from typing import Dict
+
 # pylint: disable=redefined-outer-name
 import pytest
 
@@ -13,6 +15,23 @@ def azr(credential) -> AzRest:
 
 def sub_req(sub: str) -> Req:
 	return Req.get("test-batch-single", f"{sub}/resourcegroups", "2022-09-01", AzList)
+
+
+class TestList:
+	"""Test AzRest's handling of Lists of things"""
+
+	def test_nothing(self):
+		"""Prevent collection problems for partitions"""
+
+	@pytest.mark.integration
+	def test_paginated(self, azr, it_info):
+		"""Test following the pagination"""
+		scope = it_info["scopes"]["sub0"]
+		ret_t = AzList[Dict]
+		req = Req.get(name="Resources.List", path=f"/{scope}/resources", apiv="2021-04-01", ret_t=ret_t).add_params({"$top": "1"})
+		res = azr.call(req)
+
+		assert len(res) > 5
 
 
 class TestBatches:

@@ -116,8 +116,9 @@ class AzRest:
 			while res_list.nextLink:
 				page += 1
 				l.debug(fmt_log("paginating req", req, page=str(page)))
-				r = self.to_request(req)
-				r.url = res_list.nextLink
+				# This is basically always a GET
+				# TODO: support the nextLink.operationName
+				r = requests.Request(method="GET", url=res_list.nextLink)
 				res_list = self._call_with_retry(req, r)  # type: ignore  # we know the req
 				acc.extend(res_list.value)
 			return acc  # type: ignore  # we're deliberately unwrapping a list into its primitive type
