@@ -747,10 +747,7 @@ class AZOps(BaseModel, CodeGenable):
 		).format(name=self.name, ops=op_strs, apiv=self.quote(self.apiv))
 
 
-def main():
-	import sys
-
-	openapi_root, openapi_file = sys.argv[1], sys.argv[2]
+def main(openapi_root, openapi_file, output_file):
 	reader = Reader.load(openapi_root, Path(openapi_file))
 
 	parser = TypeAdapter(Dict[str, OADef])
@@ -758,7 +755,7 @@ def main():
 
 	transformer = IRTransformer(oa_defs, reader)
 
-	with open(sys.argv[3], mode="w", encoding="utf-8") as f:
+	with open(output_file, mode="w", encoding="utf-8") as f:
 		f.write(
 			dedent(
 				"""\
@@ -778,4 +775,6 @@ def main():
 
 
 if __name__ == "__main__":
-	main()
+	import sys
+
+	main(*sys.argv[1:])

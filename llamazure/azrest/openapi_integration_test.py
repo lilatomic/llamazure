@@ -1,6 +1,21 @@
+import ast
+from pathlib import Path
 from textwrap import dedent
 
-from llamazure.azrest.openapi import IRTransformer, OADef, OARef
+from llamazure.azrest import openapi
+from llamazure.azrest.openapi import IRTransformer, OADef, OARef, Reader
+
+
+class TestLoading:
+	def test_load_url(self):
+		root = "https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/"
+		path = Path("specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json")
+
+		reader = Reader(root=root, path=path, openapi={})
+
+		r = reader.load_relative("../../../../../common-types/resource-management/v2/types.json#/parameters/SubscriptionIdParameter")
+		assert r is not None
+		assert r["name"] == "subscriptionId"
 
 
 class TestTransformDefs:
@@ -124,3 +139,21 @@ class TestTransformPaths:
 		'''
 			).strip()
 		)
+
+
+class TestScript:
+	def test_run(self, tmp_file):
+		"""Test running the script"""
+		openapi.main(
+			"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
+			"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json",
+			tmp_file,
+		)
+
+		with open(tmp_file, mode="r", encoding="utf-8") as output_file:
+			output = output_file.read()
+			assert len(output) > 0
+
+		parsed = ast.parse(output)
+		assert isinstance(parsed, ast.Module)
+		assert len(parsed.body) > 0

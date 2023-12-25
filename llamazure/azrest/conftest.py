@@ -27,3 +27,9 @@ def it_info():
 		with open("cicd/secrets.yml", mode="r", encoding="utf-8") as f:
 			secrets = f.read()
 	return yaml.safe_load(secrets)["azrest"]
+
+
+@pytest.fixture
+def tmp_file(tmp_path):
+	"""Fixture: a temporary file"""
+	return tmp_path / "out.py"
