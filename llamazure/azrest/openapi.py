@@ -21,11 +21,10 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import Dict, List, Literal, Optional, Set, Type, Union, cast
+from typing import Dict, List, Literal, Optional, Sequence, Tuple, Type, Union, cast
 
 import requests
 from pydantic import BaseModel, Field, TypeAdapter
-from typing_extensions import NotRequired, TypedDict
 
 from llamazure.azrest.models import AzList
 
@@ -123,16 +122,19 @@ class OAOp(BaseModel):
 		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "path"]
 
 
-class OAPath(TypedDict):
+class OAPath(BaseModel):
 	"""An OpenAPI Path item"""
 
-	get: NotRequired[OAOp]
-	put: NotRequired[OAOp]
-	post: NotRequired[OAOp]
-	delete: NotRequired[OAOp]
-	options: NotRequired[OAOp]
-	head: NotRequired[OAOp]
-	patch: NotRequired[OAOp]
+	get: Optional[OAOp] = None
+	put: Optional[OAOp] = None
+	post: Optional[OAOp] = None
+	delete: Optional[OAOp] = None
+	options: Optional[OAOp] = None
+	head: Optional[OAOp] = None
+	patch: Optional[OAOp] = None
+
+	def items(self) -> Sequence[Tuple[str, OAOp]]:
+		return [(k, v) for k, v in dict(self).items() if v is not None]
 
 
 class IROp(BaseModel):
@@ -472,7 +474,7 @@ class IRTransformer:
 		else:
 			return IR_T(t=f"Union[{', '.join(non_none)}]", required=is_required)
 
-	def transform_paths(self, paths, apiv: str) -> str:
+	def transform_paths(self, paths: dict, apiv: str) -> str:
 		"""Transform OpenAPI Paths into the Python code for the Azure objects"""
 		parser = TypeAdapter(Dict[str, OAPath])
 		parsed = parser.validate_python(paths)

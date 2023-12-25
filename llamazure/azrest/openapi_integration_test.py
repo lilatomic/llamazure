@@ -80,3 +80,47 @@ class TestTransformDefs:
 			'''
 			).strip()
 		)
+
+
+class TestTransformPaths:
+	def test_all_contained(self):
+		"""Test an OpenAPI Path with no refs to objects in other files"""
+		paths = {
+			"/path0/{arg0}": {
+				"put": {
+					"tags": [],
+					"operationId": "Ops0_Op0",
+					"description": "Description of op0.",
+					"parameters": [
+						{"name": "arg0", "in": "path", "required": True, "type": "string", "description": "Unused"},
+						{"name": "arg1", "in": "body", "required": True, "description": "Unused", "schema": {"$ref": "#/definitions/Def0"}},
+					],
+					"responses": {"200": {"description": "Unused", "schema": {"$ref": "#/definitions/Ret0"}}},
+				}
+			}
+		}
+		oa_defs = {}
+
+		tx = IRTransformer(oa_defs, None)
+
+		r = tx.transform_paths(paths, "apiv0")
+
+		assert (
+			r.strip()
+			== dedent(
+				'''\
+			class AzOps0:
+				apiv = "apiv0"
+				@staticmethod
+				def Op0(arg0: str, arg1: Def0) -> Req[Ret0]:
+					"""Description of op0."""
+					return Req.put(
+						name="Ops0.Op0",
+						path=f"/path0/{arg0}",
+						apiv="apiv0",
+						body=arg1,
+						ret_t=Ret0
+					)
+		'''
+			).strip()
+		)
