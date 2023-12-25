@@ -268,29 +268,47 @@ class IRTransformer:
 		for name, obj in self.oa_defs.items():
 			ir_definitions[name] = self.transform_def(name, obj)
 
-		ir_props = {}
+		ir_properties_classes = self.identify_definition_properties_classes(ir_definitions)
+
+		ir_azlists = self.identify_azlists(ir_definitions)
+
+		azs = self.identify_definitions(ir_azlists, ir_definitions, ir_properties_classes)
+
+		output_req: List[CodeGenable] = azs + list(ir_azlists.values())
+
+		return self.codegen_definitions(azs, ir_azlists, output_req)
+
+	@staticmethod
+	def identify_definition_properties_classes(ir_definitions: Dict[str, IRDef]):
+		"""Identify the classes that are nested Properties classes"""
+		ir_properties_classes = {}
 		for name, ir in ir_definitions.items():
 			if "properties" in ir.properties:
 				prop_t = ir.properties["properties"].t
 				assert isinstance(prop_t, str)  # TODO: Better checking or coercion
 				prop_ref = prop_t
-				ir_props[prop_ref] = ir_definitions[prop_ref]
+				ir_properties_classes[prop_ref] = ir_definitions[prop_ref]
+		return ir_properties_classes
 
+	def identify_azlists(self, ir_definitions):
 		ir_azlists: Dict[str, AZAlias] = {}
 		for name, ir in ir_definitions.items():
 			azlist = self.ir_azarray(ir)
 			if azlist:
 				ir_azlists[name] = azlist
+		return ir_azlists
 
+	def identify_definitions(self, ir_azlists, ir_definitions, ir_props):
 		ir_consumed = ir_props.keys() | ir_azlists.keys()
 		ir_defs = {}
 		for name, ir in ir_definitions.items():
 			if name not in ir_consumed:
 				ir_defs[name] = ir
 		azs = [self.defIR2AZ(ir) for ir in ir_defs.values()]
+		return azs
 
-		output_req: List[CodeGenable] = azs + list(ir_azlists.values())
-
+	@staticmethod
+	def codegen_definitions(azs: List[AZDef], ir_azlists: Dict[str, AZAlias], output_req: List[CodeGenable]):
 		codegened_definitions = [cg.codegen() for cg in output_req]
 		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
 		return "\n\n".join(codegened_definitions + reloaded_definitions) + "\n\n"
