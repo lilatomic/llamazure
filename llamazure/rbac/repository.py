@@ -1,3 +1,4 @@
+"""TODO: is this good?"""
 from __future__ import annotations
 
 from typing import Dict
@@ -9,6 +10,8 @@ UsersT = Dict
 
 
 class Repository:
+	"""A helpful store of your users and groups"""
+
 	def __init__(self, users: Dict[str, UsersT], groups: Dict[str, GroupsT]):
 		self.users = users
 		self.groups = groups

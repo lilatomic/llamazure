@@ -40,6 +40,11 @@ jobs:
         run: |
           pants test :: -- -m "not integration"
         if: success() || failure()
+      - name: Test Integration
+        run: |
+          pants --tag="integration" test --output=all :: -- -m 'integration and not admin'
+        env:
+          integration_test_secrets: ${{secrets.integration_test_secrets}}
       - name: Upload test coverage to Codecov
         uses: codecov/codecov-action@v3
         with:

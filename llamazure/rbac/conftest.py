@@ -1,25 +1,31 @@
 """Conftest"""
+import logging
+
+# pylint: disable=redefined-outer-name
 import os
-import shutil
 from time import sleep
-from typing import Callable, Set, Type, TypeVar, Union
+from typing import Callable, Optional, Set, Type, TypeVar, Union
 
 import pytest
 import yaml
-from azure.identity import AzureCliCredential, ClientSecretCredential
+from azure.identity import AzureCliCredential, ClientSecretCredential, CredentialUnavailableError
 
 from llamazure.azrest.azrest import AzRest
 from llamazure.msgraph.msgraph import Graph
 from llamazure.rbac.resources import Groups, Users
 from llamazure.rbac.roles import RoleAssignments, RoleDefinitions, RoleOps
 
+l = logging.getLogger(__name__)
+
 
 @pytest.fixture
 def credential():
 	"""Azure credential"""
-	if shutil.which("az"):
-		return AzureCliCredential()
-	else:
+	try:
+		cli_credential = AzureCliCredential()
+		cli_credential.get_token("https://management.azure.com//.default")
+		return cli_credential
+	except CredentialUnavailableError:
 		secrets = yaml.safe_load(os.environ.get("integration_test_secrets"))
 		client = secrets["azgraph"]
 		return ClientSecretCredential(tenant_id=client["tenant"], client_id=client["appId"], client_secret=client["password"])
@@ -27,7 +33,12 @@ def credential():
 
 @pytest.fixture
 def scopes():
-	return yaml.safe_load(os.environ.get("integration_test_secrets"))["rbac"]["scopes"]
+	"""Fixture: subscriptions and ids for testing"""
+	secrets = os.environ.get("integration_test_secrets")
+	if not secrets:
+		with open("cicd/secrets.yml", mode="r", encoding="utf-8") as f:
+			secrets = f.read()
+	return yaml.safe_load(secrets)["rbac"]["scopes"]
 
 
 @pytest.fixture
@@ -69,11 +80,7 @@ def me(users):
 T = TypeVar("T")
 
 
-def retry(
-	fn: Callable[[], T],
-	catching: Union[Type[Exception], Set[Type[Exception]]],
-	attempts=20,
-) -> T:
+def retry(fn: Callable[[], T], catching: Union[Type[Exception], Set[Type[Exception]]], attempts=20, msg: Optional[str] = None) -> T:
 	"""Retry a function catching specific exceptions. Useful for waiting for changes to propagate in Azure"""
 	if isinstance(catching, type) and issubclass(catching, Exception):
 		catching = {catching}
@@ -83,7 +90,9 @@ def retry(
 		i += 1
 		try:
 			return fn()
-		except Exception as e:
+		except Exception as e:  # pylint: disable=broad-except
 			if type(e) not in catching or i >= attempts:
-				raise e
+				raise
+			if msg:
+				l.debug(f"attempt failed: {msg}")
 			sleep(1)

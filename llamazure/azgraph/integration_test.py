@@ -19,10 +19,15 @@ def print_output(name: str, output: Any):
 
 
 @pytest.fixture()
+@pytest.mark.integration
 def graph():
 	"""Run integration test"""
 
-	secrets = yaml.safe_load(os.environ.get("integration_test_secrets"))
+	secrets = os.environ.get("integration_test_secrets")
+	if not secrets:
+		with open("cicd/secrets.yml", mode="r", encoding="utf-8") as f:
+			secrets = f.read()
+	secrets = yaml.safe_load(secrets)
 	client = secrets["azgraph"]
 
 	credential = ClientSecretCredential(tenant_id=client["tenant"], client_id=client["appId"], client_secret=client["password"])

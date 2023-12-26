@@ -31,7 +31,7 @@ class Graph:
 	@classmethod
 	def from_credential(cls, credential) -> Graph:
 		"""Create from an Azure credential"""
-		token = credential.get_token("https://graph.microsoft.com/")
+		token = credential.get_token("https://graph.microsoft.com/.default")
 		return cls(token)
 
 	def q(self, q: str) -> Union[Any, ResErr]:

@@ -1,3 +1,4 @@
+"""RBAC Users and Groups and other resources"""
 import dataclasses
 from copy import copy
 from typing import Any, List
@@ -7,6 +8,7 @@ from llamazure.msgraph.msgraph import Graph
 
 
 def get_or_raise(res_maybe: ResMaybe) -> Any:
+	"""Unwrap a ResMaybe and return its value or raise its error"""
 	if isinstance(res_maybe, Res):
 		return res_maybe.value
 	else:
@@ -14,26 +16,34 @@ def get_or_raise(res_maybe: ResMaybe) -> Any:
 
 
 class Users:
+	"""More helpful operations for users"""
+
 	def __init__(self, graph: Graph):
 		self.g = graph
 
 	def current(self):
+		"""Get the current user"""
 		return get_or_raise(self.g.query(Req("me", options=QueryOpts(expand={"memberOf"}))))
 
 	def list(self, opts: QueryOpts = QueryOpts()) -> List:
+		"""List users"""
 		return get_or_raise(self.g.query(Req("users", options=opts)))
 
 	def list_with_memberOf(self, opts: QueryOpts = QueryOpts()) -> List:
+		"""List users with the groups they are a member of"""
 		new_opts = dataclasses.replace(opts, expand=copy(opts.expand))
 		new_opts.expand.add("memberOf")
 		return self.list(new_opts)
 
 
 class Groups:
+	"""More helpful operations for groups"""
+
 	def __init__(self, graph: Graph):
 		self.g = graph
 
 	def list(self, opts: QueryOpts = QueryOpts()):
+		"""List groups"""
 		return get_or_raise(self.g.query(Req("groups", options=opts)))
 
 	def list_with_memberships(self, opts: QueryOpts = QueryOpts()):

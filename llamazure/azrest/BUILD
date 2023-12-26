@@ -12,7 +12,7 @@ python_distribution(
 	long_description_path="llamazure/azrest/readme.md",
 	provides=python_artifact(
 		name="llamazure.azrest",
-		version="0.0.2",
+		version="0.1.0",
 		description="Azure REST client",
 		author="Daniel Goldman",
 		classifiers=[
@@ -26,5 +26,11 @@ python_distribution(
 		],
 		license="Round Robin 2.0.0",
 		long_description_content_type="text/markdown",
+		extras_require={"cli": ["click>8"]},
+		entry_points={"console_scripts": ["llamazure-azrest-openapi=llamazure.azrest.openapi:main"]},
 	),
+)
+
+python_test_utils(
+	name="test_utils",
 )
