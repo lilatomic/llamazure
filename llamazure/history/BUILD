@@ -1,5 +1,5 @@
 python_sources(
-	name="rid",
+	name="history",
 )
 
 python_tests(
@@ -7,13 +7,13 @@ python_tests(
 )
 
 python_distribution(
-	name="llamazure.rid",
-	dependencies=[":rid"],
-	long_description_path="llamazure/rid/readme.md",
+	name="llamazure.history",
+	dependencies=[":history"],
+	long_description_path="llamazure/history/readme.md",
 	provides=python_artifact(
-		name="llamazure.rid",
-		version="0.0.5",
-		description="Azure Resource IDs you can use",
+		name="llamazure.history",
+		version="0.0.1",
+		description="Build a history of an Azure tenancy",
 		author="Daniel Goldman",
 		classifiers=[
 			"Development Status :: 3 - Alpha",
