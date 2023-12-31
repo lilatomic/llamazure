@@ -1,6 +1,7 @@
 import json
 import os
 from dataclasses import is_dataclass, asdict
+import datetime
 
 from azure.identity import DefaultAzureCredential
 
@@ -27,7 +28,6 @@ def reformat(resources):
 if __name__ == "__main__":
 	tsdb = TSDB(connstr=os.environ.get("connstr"))
 	db = DB(tsdb)
-
 	db.create_tables()
 
 	g = Graph.from_credential(DefaultAzureCredential())
@@ -36,4 +36,10 @@ if __name__ == "__main__":
 	tree = TresourceMPData()
 	tree.add_many(reformat(resources))
 
-	print(json.dumps(tree, cls=DataclassEncoder, indent=2))
+	snapshot_time = datetime.datetime.utcnow()
+
+	for path, mpdata in tree.resources.items():
+		db.insert_resource(snapshot_time, path, mpdata.data)
+
+
+	# print(json.dumps(tree, cls=DataclassEncoder, indent=2))

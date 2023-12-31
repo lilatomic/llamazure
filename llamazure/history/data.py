@@ -1,7 +1,11 @@
 from textwrap import dedent
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 import psycopg2
+import psycopg2.extras
+import psycopg2.extensions
+
+psycopg2.extensions.register_adapter(dict, psycopg2.extras.Json)
 
 
 class TSDB:
@@ -33,9 +37,13 @@ class DB:
 				CREATE TABLE IF NOT EXISTS res (
 					time	TIMESTAMPTZ NOT NULL,
 					rid		VARCHAR,
-					body	JSONB
+					data	JSONB
 				)
 				"""
 			)
 		)
 		self.db.create_hypertable("res", "time")
+
+	def insert_resource(self, time, rid, data):
+		"""Insert a resource into the DB"""
+		self.db.exec("""INSERT INTO res (time, rid, data) values (%s, %s, %s)""", (time, rid, data),)
