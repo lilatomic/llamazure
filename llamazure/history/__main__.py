@@ -38,8 +38,6 @@ if __name__ == "__main__":
 
 	snapshot_time = datetime.datetime.utcnow()
 
-	for path, mpdata in tree.resources.items():
-		db.insert_resource(snapshot_time, path, mpdata.data)
-
+	db.insert_snapshot(snapshot_time, ((path, mpdata.data) for path, mpdata in tree.resources.items()))
 
 	# print(json.dumps(tree, cls=DataclassEncoder, indent=2))
