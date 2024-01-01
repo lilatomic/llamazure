@@ -2,6 +2,7 @@
 import datetime
 from textwrap import dedent
 from typing import Any, Iterable, Optional, Tuple
+from uuid import UUID
 
 import psycopg
 from psycopg.types.json import Jsonb
@@ -49,8 +50,9 @@ class DB:
 			dedent(
 				"""\
 				CREATE TABLE IF NOT EXISTS snapshot (
-					id SERIAL PRIMARY KEY,
-					time TIMESTAMPTZ NOT NULL
+					id 				SERIAL PRIMARY KEY,
+					time			TIMESTAMPTZ NOT NULL,
+					azure_tenant 	UUID
 				)
 				"""
 			)
@@ -61,9 +63,10 @@ class DB:
 				"""\
 				CREATE TABLE IF NOT EXISTS res (
 					time TIMESTAMPTZ NOT NULL,
-					snapshot 	INTEGER,
-					rid			VARCHAR,
-					data		JSONB,
+					snapshot 		INTEGER,
+					azure_tenant 	UUID,
+					rid				VARCHAR,
+					data			JSONB,
 					FOREIGN KEY (snapshot) REFERENCES snapshot (id)
 				)
 				"""
@@ -71,22 +74,22 @@ class DB:
 		)
 		self.db.create_hypertable("res", "time")
 
-	def insert_resource(self, time: datetime.datetime, snapshot_id, rid: str, data: dict):
+	def insert_resource(self, time: datetime.datetime, azure_tenant: UUID, snapshot_id, rid: str, data: dict):
 		"""Insert a resource into the DB"""
 		self.db.exec(
-			"""INSERT INTO res (time, snapshot, rid, data) VALUES (%s, %s, %s, %s)""",
-			(time, snapshot_id, rid, Jsonb(data)),
+			"""INSERT INTO res (time, snapshot, azure_tenant, rid, data) VALUES (%s, %s, %s, %s, %s)""",
+			(time, snapshot_id, azure_tenant, rid, Jsonb(data)),
 		)
 
-	def insert_snapshot(self, time: datetime.datetime, resources: Iterable[Tuple[str, dict]]):
+	def insert_snapshot(self, time: datetime.datetime, azure_tenant: UUID, resources: Iterable[Tuple[str, dict]]):
 		"""Insert a complete snapshot into the DB"""
-		snapshot_id = self.db.exec_returning("""INSERT INTO snapshot (time) VALUES (%s) RETURNING id""", (time,))
+		snapshot_id = self.db.exec_returning("""INSERT INTO snapshot (time, azure_tenant) VALUES (%s, %s) RETURNING id""", (time, azure_tenant))
 		for rid, data in resources:
-			self.insert_resource(time, snapshot_id, rid, data)
+			self.insert_resource(time, azure_tenant, snapshot_id, rid, data)
 
-	def insert_delta(self, time: datetime.datetime, rid: str, data: dict):
+	def insert_delta(self, time: datetime.datetime, azure_tenant: UUID, rid: str, data: dict):
 		"""Insert a single delta into the DB"""
-		return self.insert_resource(time, None, rid, data)
+		return self.insert_resource(time, azure_tenant, None, rid, data)
 
 	def read_snapshot(self, time: datetime.datetime):
 		"""Read a complete snapshot. Does not include any deltas"""
