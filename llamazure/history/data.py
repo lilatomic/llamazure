@@ -1,10 +1,10 @@
 import datetime
 from textwrap import dedent
-from typing import Optional, Tuple, Iterable, Any
+from typing import Any, Iterable, Optional, Tuple
 
 import psycopg2
-import psycopg2.extras
 import psycopg2.extensions
+import psycopg2.extras
 
 psycopg2.extensions.register_adapter(dict, psycopg2.extras.Json)
 
@@ -70,17 +70,23 @@ class DB:
 
 	def insert_resource(self, time: datetime.datetime, snapshot_id, rid: str, data: dict):
 		"""Insert a resource into the DB"""
-		self.db.exec("""INSERT INTO res (time, snapshot, rid, data) VALUES (%s, %s, %s, %s)""", (time, snapshot_id, rid, data),)
+		self.db.exec(
+			"""INSERT INTO res (time, snapshot, rid, data) VALUES (%s, %s, %s, %s)""",
+			(time, snapshot_id, rid, data),
+		)
 
 	def insert_snapshot(self, time: datetime.datetime, resources: Iterable[Tuple[str, dict]]):
+		"""Insert a complete snapshot into the DB"""
 		snapshot_id = self.db.exec_returning("""INSERT INTO snapshot (time) VALUES (%s) RETURNING id""", (time,))
 		for rid, data in resources:
 			self.insert_resource(time, snapshot_id, rid, data)
 
 	def insert_delta(self, time: datetime.datetime, rid: str, data: dict):
+		"""Insert a single delta into the DB"""
 		return self.insert_resource(time, None, rid, data)
 
 	def read_snapshot(self, time: datetime.datetime):
+		"""Read a complete snapshot. Does not include any deltas"""
 		res = self.db.exec(
 			dedent(
 				"""\
@@ -88,10 +94,16 @@ class DB:
 					SELECT id FROM snapshot WHERE time < %s ORDER BY time DESC LIMIT 1
 				)
 				SELECT * FROM res WHERE snapshot = (SELECT id FROM LatestSnapshot);
-				"""),
-		(time,)
+				"""
+			),
+			(time,),
 		).fetchall()
 		return res
 
 	def read_latest(self):
+		"""Read the latest information for all resources. Includes deltas."""
 		return self.db.exec("""SELECT DISTINCT ON (rid) * FROM res ORDER BY rid, time DESC;""").fetchall()
+
+	def read_at(self, time: datetime.datetime):
+		"""Read the information for all resources at a point in time. Includes deltas."""
+		return self.db.exec("""SELECT DISTINCT ON (rid) * FROM res WHERE time < %s ORDER BY rid, time DESC;""", (time,)).fetchall()
