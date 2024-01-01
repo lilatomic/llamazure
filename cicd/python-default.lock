@@ -13,7 +13,7 @@
 //     "click~=8.0",
 //     "hypothesis<7,>=6",
 //     "mypy>=1.5.0",
-//     "psycopg2~=2.9",
+//     "psycopg~=3.1",
 //     "pydantic>=2.0",
 //     "pytest<8,>7",
 //     "pyyaml~=6.0",
@@ -181,6 +181,37 @@
           ],
           "requires_python": ">=3.7",
           "version": "1.15.0"
+        },
+        {
+          "artifacts": [
+            {
+              "algorithm": "sha256",
+              "hash": "7b0a64cda4145548fed9efc10322770f929b944ce5cee6c0dfe0c87bf4c0c8c9",
+              "url": "https://files.pythonhosted.org/packages/1a/ab/3e941e3fcf1b7d3ab3d0233194d99d6a0ed6b24f8f956fc81e47edc8c079/backports.zoneinfo-0.2.1-cp38-cp38-manylinux1_x86_64.whl"
+            },
+            {
+              "algorithm": "sha256",
+              "hash": "8961c0f32cd0336fb8e8ead11a1f8cd99ec07145ec2931122faaac1c8f7fd987",
+              "url": "https://files.pythonhosted.org/packages/4a/6d/eca004eeadcbf8bd64cc96feb9e355536147f0577420b44d80c7cac70767/backports.zoneinfo-0.2.1-cp38-cp38-macosx_10_14_x86_64.whl"
+            },
+            {
+              "algorithm": "sha256",
+              "hash": "fadbfe37f74051d024037f223b8e001611eac868b5c5b06144ef4d8b799862f2",
+              "url": "https://files.pythonhosted.org/packages/ad/85/475e514c3140937cf435954f78dedea1861aeab7662d11de232bdaa90655/backports.zoneinfo-0.2.1.tar.gz"
+            },
+            {
+              "algorithm": "sha256",
+              "hash": "e81b76cace8eda1fca50e345242ba977f9be6ae3945af8d46326d776b4cf78d1",
+              "url": "https://files.pythonhosted.org/packages/c1/8f/9b1b920a6a95652463143943fa3b8c000cb0b932ab463764a6f2a2416560/backports.zoneinfo-0.2.1-cp38-cp38-manylinux1_i686.whl"
+            }
+          ],
+          "project_name": "backports-zoneinfo",
+          "requires_dists": [
+            "importlib-resources; python_version < \"3.7\"",
+            "tzdata; extra == \"tzdata\""
+          ],
+          "requires_python": ">=3.6",
+          "version": "0.2.1"
         },
         {
           "artifacts": [
@@ -1276,14 +1307,43 @@
           "artifacts": [
             {
               "algorithm": "sha256",
-              "hash": "d1454bde93fb1e224166811694d600e746430c006fbb031ea06ecc2ea41bf156",
-              "url": "https://files.pythonhosted.org/packages/c9/5e/dc6acaf46d78979d6b03458b7a1618a68e152a6776fce95daac5e0f0301b/psycopg2-2.9.9.tar.gz"
+              "hash": "0bfe9741f4fb1c8115cadd8fe832fa91ac277e81e0652ff7fa1400f0ef0f59ba",
+              "url": "https://files.pythonhosted.org/packages/e1/5c/94460062d3c1036bc9cbcfe12698f48bde31fcfb4f1fbce6c05effd4a5ec/psycopg-3.1.16-py3-none-any.whl"
+            },
+            {
+              "algorithm": "sha256",
+              "hash": "a34d922fd7df3134595e71c3428ba6f1bd5f4968db74857fe95de12db2d6b763",
+              "url": "https://files.pythonhosted.org/packages/3b/19/5c75740c48f77eb07e4e799c4f4fdec8918724ab610c03e9ae95005dca80/psycopg-3.1.16.tar.gz"
             }
           ],
-          "project_name": "psycopg2",
-          "requires_dists": [],
+          "project_name": "psycopg",
+          "requires_dists": [
+            "Sphinx>=5.0; extra == \"docs\"",
+            "anyio<4.0,>=3.6.2; extra == \"test\"",
+            "backports.zoneinfo>=0.2.0; python_version < \"3.9\"",
+            "black>=23.1.0; extra == \"dev\"",
+            "codespell>=2.2; extra == \"dev\"",
+            "dnspython>=2.1; extra == \"dev\"",
+            "flake8>=4.0; extra == \"dev\"",
+            "furo==2022.6.21; extra == \"docs\"",
+            "mypy>=1.4.1; extra == \"dev\"",
+            "mypy>=1.4.1; extra == \"test\"",
+            "pproxy>=2.7; extra == \"test\"",
+            "psycopg-binary==3.1.16; implementation_name != \"pypy\" and extra == \"binary\"",
+            "psycopg-c==3.1.16; implementation_name != \"pypy\" and extra == \"c\"",
+            "psycopg-pool; extra == \"pool\"",
+            "pytest-cov>=3.0; extra == \"test\"",
+            "pytest-randomly>=3.5; extra == \"test\"",
+            "pytest>=6.2.5; extra == \"test\"",
+            "sphinx-autobuild>=2021.3.14; extra == \"docs\"",
+            "sphinx-autodoc-typehints>=1.12; extra == \"docs\"",
+            "types-setuptools>=57.4; extra == \"dev\"",
+            "typing-extensions>=4.1",
+            "tzdata; sys_platform == \"win32\"",
+            "wheel>=0.37; extra == \"dev\""
+          ],
           "requires_python": ">=3.7",
-          "version": "2.9.9"
+          "version": "3.1.16"
         },
         {
           "artifacts": [
@@ -2102,7 +2162,7 @@
     "click~=8.0",
     "hypothesis<7,>=6",
     "mypy>=1.5.0",
-    "psycopg2~=2.9",
+    "psycopg~=3.1",
     "pydantic>=2.0",
     "pytest<8,>7",
     "pyyaml~=6.0",

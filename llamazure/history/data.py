@@ -2,11 +2,8 @@ import datetime
 from textwrap import dedent
 from typing import Any, Iterable, Optional, Tuple
 
-import psycopg2
-import psycopg2.extensions
-import psycopg2.extras
-
-psycopg2.extensions.register_adapter(dict, psycopg2.extras.Json)
+import psycopg
+from psycopg.types.json import Jsonb
 
 
 class TSDB:
@@ -17,7 +14,7 @@ class TSDB:
 
 	def exec(self, q, data: Optional[Tuple] = None):
 		"""Execute a query"""
-		with psycopg2.connect(self.connstr) as conn:
+		with psycopg.connect(self.connstr) as conn:
 			cur = conn.cursor()
 			cur.execute(q, data)
 			conn.commit()
@@ -25,7 +22,7 @@ class TSDB:
 
 	def exec_returning(self, q, data: Optional[Tuple] = None) -> Any:
 		"""Execute a query"""
-		with psycopg2.connect(self.connstr) as conn:
+		with psycopg.connect(self.connstr) as conn:
 			cur = conn.cursor()
 			cur.execute(q, data)
 			res = cur.fetchone()[0]
@@ -72,7 +69,7 @@ class DB:
 		"""Insert a resource into the DB"""
 		self.db.exec(
 			"""INSERT INTO res (time, snapshot, rid, data) VALUES (%s, %s, %s, %s)""",
-			(time, snapshot_id, rid, data),
+			(time, snapshot_id, rid, Jsonb(data)),
 		)
 
 	def insert_snapshot(self, time: datetime.datetime, resources: Iterable[Tuple[str, dict]]):

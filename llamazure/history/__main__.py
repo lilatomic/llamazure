@@ -12,15 +12,18 @@ from llamazure.tresource.mp import MPData, TresourceMPData
 
 
 class MyEncoder(json.JSONEncoder):
-	def default(self, obj):
-		if is_dataclass(obj):
-			return asdict(obj)
-		if isinstance(obj, datetime.datetime):
-			return obj.isoformat()
-		return super().default(obj)
+	"""Encoder for more types"""
+
+	def default(self, o):
+		if is_dataclass(o):
+			return asdict(o)
+		if isinstance(o, datetime.datetime):
+			return o.isoformat()
+		return super().default(o)
 
 
-def reformat(resources):
+def reformat_resources_for_tresource(resources):
+	"""Reformat mp_resources for TresourceMPData"""
 	for r in resources:
 		path, azobj = mp.parse(r["id"])
 		mpdata = MPData(azobj, r)
@@ -36,7 +39,7 @@ if __name__ == "__main__":
 	resources = g.q("Resources")
 
 	tree = TresourceMPData()
-	tree.add_many(reformat(resources))
+	tree.add_many(reformat_resources_for_tresource(resources))
 
 	snapshot_time = datetime.datetime.utcnow()
 
