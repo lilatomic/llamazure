@@ -77,7 +77,10 @@ class DB:
 		for rid, data in resources:
 			self.insert_resource(time, snapshot_id, rid, data)
 
-	def read_at(self, time: datetime.datetime):
+	def insert_delta(self, time: datetime.datetime, rid: str, data: dict):
+		return self.insert_resource(time, None, rid, data)
+
+	def read_snapshot(self, time: datetime.datetime):
 		res = self.db.exec(
 			dedent(
 				"""\
@@ -89,3 +92,6 @@ class DB:
 		(time,)
 		).fetchall()
 		return res
+
+	def read_latest(self):
+		return self.db.exec("""SELECT DISTINCT ON (rid) * FROM res ORDER BY rid, time DESC;""").fetchall()

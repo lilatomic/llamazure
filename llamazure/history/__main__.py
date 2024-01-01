@@ -42,4 +42,8 @@ if __name__ == "__main__":
 
 	db.insert_snapshot(snapshot_time, ((path, mpdata.data) for path, mpdata in tree.resources.items()))
 
-	print(json.dumps(db.read_at(datetime.datetime.utcnow()), indent=2, cls=MyEncoder))
+	delta = g.q("Resources | take(1)")[0]
+	db.insert_delta(snapshot_time + datetime.timedelta(seconds=1), delta["id"].lower(), delta)
+
+	print(json.dumps(db.read_latest(), indent=2, cls=MyEncoder))
+	# print(json.dumps(db.read_snapshot(snapshot_time + datetime.timedelta(seconds=2)), indent=2, cls=MyEncoder))
