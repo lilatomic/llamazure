@@ -1,3 +1,4 @@
+"""Interface with the TimescaleDB"""
 import datetime
 from textwrap import dedent
 from typing import Any, Iterable, Optional, Tuple
@@ -25,7 +26,9 @@ class TSDB:
 		with psycopg.connect(self.connstr) as conn:
 			cur = conn.cursor()
 			cur.execute(q, data)
-			res = cur.fetchone()[0]
+			res = cur.fetchone()
+			if res is not None:
+				res = res[0]
 			conn.commit()
 		return res
 
@@ -35,10 +38,13 @@ class TSDB:
 
 
 class DB:
+	"""Store, load, and create tables"""
+
 	def __init__(self, db: TSDB):
 		self.db = db
 
 	def create_tables(self):
+		"""Create the tables in TimescaleDB"""
 		self.db.exec(
 			dedent(
 				"""\
