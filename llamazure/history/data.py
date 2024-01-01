@@ -21,6 +21,7 @@ class TSDB:
 			cur = conn.cursor()
 			cur.execute(q, data)
 			conn.commit()
+		return cur
 
 	def exec_returning(self, q, data: Optional[Tuple] = None) -> Any:
 		"""Execute a query"""
@@ -75,3 +76,16 @@ class DB:
 		snapshot_id = self.db.exec_returning("""INSERT INTO snapshot (time) VALUES (%s) RETURNING id""", (time,))
 		for rid, data in resources:
 			self.insert_resource(time, snapshot_id, rid, data)
+
+	def read_at(self, time: datetime.datetime):
+		res = self.db.exec(
+			dedent(
+				"""\
+				WITH LatestSnapshot AS (
+					SELECT id FROM snapshot WHERE time < %s ORDER BY time DESC LIMIT 1
+				)
+				SELECT * FROM res WHERE snapshot = (SELECT id FROM LatestSnapshot);
+				"""),
+		(time,)
+		).fetchall()
+		return res

@@ -11,10 +11,12 @@ from llamazure.rid import mp
 from llamazure.tresource.mp import TresourceMPData, MPData
 
 
-class DataclassEncoder(json.JSONEncoder):
+class MyEncoder(json.JSONEncoder):
 	def default(self, obj):
 		if is_dataclass(obj):
 			return asdict(obj)
+		if isinstance(obj, datetime.datetime):
+			return obj.isoformat()
 		return super().default(obj)
 
 
@@ -40,4 +42,4 @@ if __name__ == "__main__":
 
 	db.insert_snapshot(snapshot_time, ((path, mpdata.data) for path, mpdata in tree.resources.items()))
 
-	# print(json.dumps(tree, cls=DataclassEncoder, indent=2))
+	print(json.dumps(db.read_at(datetime.datetime.utcnow()), indent=2, cls=MyEncoder))
