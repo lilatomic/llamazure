@@ -1,6 +1,6 @@
 import random
 import string
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pytest
 from psycopg.conninfo import make_conninfo
@@ -8,6 +8,7 @@ from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_for
 
 from llamazure.history.data import TSDB
+from llamazure.test.util import Fixture
 
 
 class TimescaledbContainer(DockerContainer):
@@ -26,7 +27,7 @@ class TimescaledbContainer(DockerContainer):
 		admin_user: str = _ADMIN_USER,
 		admin_password: str = _ADMIN_PASSWORD,
 		db: str = _DB,
-		config_overrides: Dict[str, Any] = None,
+		config_overrides: Optional[Dict[str, Any]] = None,
 		**kwargs,
 	):
 		super().__init__(image, **kwargs)
@@ -68,17 +69,20 @@ class TimescaledbContainer(DockerContainer):
 		)
 
 	def try_connecting(self) -> bool:
+		"""Attempt to connect to this container"""
 		db = TSDB(connstr=self.connstr)
 		if not db.ping():
 			raise ConnectionError()
+		return True
 
 	def start(self):
+		"""Start the container"""
 		ret = super().start()
 		wait_for(self.try_connecting)
 		return ret
 
 
 @pytest.fixture(scope="module")
-def timescaledb_container() -> TimescaledbContainer:
+def timescaledb_container() -> Fixture[TimescaledbContainer]:
 	with TimescaledbContainer() as tsdb:
 		yield tsdb

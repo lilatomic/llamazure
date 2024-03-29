@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from uuid import UUID
 
 import psycopg
-from psycopg import OperationalError
+from psycopg import Cursor, OperationalError
 from psycopg.types.json import Jsonb
 
 
@@ -18,7 +18,8 @@ class Res:
 	rows: List[Tuple]
 
 	@staticmethod
-	def decode(cursor: psycopg.cursor, result) -> Res:
+	def decode(cursor: Cursor, result) -> Res:
+		assert cursor.description is not None
 		return Res(
 			cols={desc[0]: i for i, desc in enumerate(cursor.description)},
 			rows=result,

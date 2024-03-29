@@ -1,37 +1,19 @@
 """Integration test against a real, live Azure"""
 # pylint: disable=redefined-outer-name
 
-import os
-from typing import Any
-
 import pytest
-import yaml
-from azure.identity import ClientSecretCredential
 
 from llamazure.azgraph.azgraph import Graph
 from llamazure.azgraph.models import Req, Res, ResErr
-
-
-def print_output(name: str, output: Any):
-	should_print = os.environ.get("INTEGRATION_PRINT_OUTPUT", "False") == "True"
-	if should_print:
-		print(name, output)
+from llamazure.test.credentials import credentials
+from llamazure.test.inspect import print_output
 
 
 @pytest.fixture()
 @pytest.mark.integration
 def graph():
 	"""Run integration test"""
-
-	secrets = os.environ.get("integration_test_secrets")
-	if not secrets:
-		with open("cicd/secrets.yml", mode="r", encoding="utf-8") as f:
-			secrets = f.read()
-	secrets = yaml.safe_load(secrets)
-	client = secrets["azgraph"]
-
-	credential = ClientSecretCredential(tenant_id=client["tenant"], client_id=client["appId"], client_secret=client["password"])
-
+	credential = credentials()
 	g = Graph.from_credential(credential)
 	return g
 

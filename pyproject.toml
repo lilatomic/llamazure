@@ -27,6 +27,7 @@ module = [
     "ansible.errors",
     "azure.cli.*",
     "knack.*",
+    "testcontainers.*",
 ]
 ignore_missing_imports = true
 

@@ -2,8 +2,6 @@ import datetime
 from typing import Dict, cast
 from uuid import UUID
 
-from azure.identity import DefaultAzureCredential
-
 from llamazure.azgraph.azgraph import Graph
 from llamazure.azgraph.models import ResErr
 from llamazure.azrest.azrest import AzRest
@@ -12,6 +10,7 @@ from llamazure.azrest.models import Req as AzReq
 from llamazure.history.app import reformat_resources_for_tresource
 from llamazure.history.conftest import TimescaledbContainer
 from llamazure.history.data import DB, TSDB
+from llamazure.test.credentials import credentials
 from llamazure.tresource.mp import TresourceMPData
 
 
@@ -29,7 +28,7 @@ def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 	db = DB(tsdb)
 	db.create_tables()
 
-	credential = DefaultAzureCredential()
+	credential = credentials()
 	g = Graph.from_credential(credential)
 	azr = AzRest.from_credential(credential)
 
