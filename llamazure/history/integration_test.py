@@ -1,8 +1,4 @@
-"""Demo for the `llamazure.history` application"""
 import datetime
-import json
-import os
-from dataclasses import asdict, is_dataclass
 from typing import Dict, cast
 from uuid import UUID
 
@@ -14,25 +10,22 @@ from llamazure.azrest.azrest import AzRest
 from llamazure.azrest.models import AzList
 from llamazure.azrest.models import Req as AzReq
 from llamazure.history.app import reformat_resources_for_tresource
+from llamazure.history.conftest import TimescaledbContainer
 from llamazure.history.data import DB, TSDB
 from llamazure.tresource.mp import TresourceMPData
 
 
-class MyEncoder(json.JSONEncoder):
-	"""Encoder for more types"""
-
-	def default(self, o):
-		if is_dataclass(o):
-			return asdict(o)
-		if isinstance(o, datetime.datetime):
-			return o.isoformat()
-		if isinstance(o, UUID):
-			return str(o)
-		return super().default(o)
-
-
-if __name__ == "__main__":
-	tsdb = TSDB(connstr=os.environ["connstr"])
+def test_integration(timescaledb_container: TimescaledbContainer) -> None:
+	"""
+	End-to-end test that:
+	- creates tables
+	- loads data from azure
+	- converts to a tresource
+	- inserts into the tsdb
+	- synthesises a delta
+	- inserts a delta
+	"""
+	tsdb = TSDB(connstr=timescaledb_container.connstr)
 	db = DB(tsdb)
 	db.create_tables()
 
@@ -50,7 +43,7 @@ if __name__ == "__main__":
 	tree: TresourceMPData[Dict] = TresourceMPData()
 	tree.add_many(reformat_resources_for_tresource(resources))
 
-	snapshot_time = datetime.datetime.utcnow()
+	snapshot_time = datetime.datetime.now(datetime.timezone.utc)
 
 	db.insert_snapshot(snapshot_time, tenant_id, ((cast(str, path), mpdata.data) for path, mpdata in tree.resources.items() if mpdata.data is not None))
 
@@ -58,7 +51,14 @@ if __name__ == "__main__":
 	if isinstance(delta_q, ResErr):
 		raise RuntimeError(ResErr)
 	delta = delta_q[0]
-	db.insert_delta(snapshot_time + datetime.timedelta(seconds=1), tenant_id, delta["id"].lower(), delta)
+	delta_id = delta["id"].lower()
+	delta_time = snapshot_time + datetime.timedelta(seconds=1)
+	db.insert_delta(delta_time, tenant_id, delta_id, delta)
 
-	print(json.dumps(db.read_latest(), indent=2, cls=MyEncoder))
-	# print(json.dumps(db.read_snapshot(snapshot_time + datetime.timedelta(seconds=2)), indent=2, cls=MyEncoder))
+	latest = db.read_latest()
+	found_resources = {e[latest.cols["rid"]]: e for e in latest.rows}
+
+	assert delta_id in found_resources, "did not find delta in resources"
+	found_delta = found_resources[delta_id]
+	assert found_delta[latest.cols["time"]] == delta_time
+	assert set(tree.resources) == set(found_resources), "snapshot did not contain same resources"

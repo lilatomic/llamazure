@@ -1,11 +1,28 @@
 """Interface with the TimescaleDB"""
+from __future__ import annotations
+
 import datetime
+from dataclasses import dataclass
 from textwrap import dedent
-from typing import Any, Iterable, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from uuid import UUID
 
 import psycopg
+from psycopg import OperationalError
 from psycopg.types.json import Jsonb
+
+
+@dataclass(frozen=True)
+class Res:
+	cols: Dict[str, int]
+	rows: List[Tuple]
+
+	@staticmethod
+	def decode(cursor: psycopg.cursor, result) -> Res:
+		return Res(
+			cols={desc[0]: i for i, desc in enumerate(cursor.description)},
+			rows=result,
+		)
 
 
 class TSDB:
@@ -36,6 +53,15 @@ class TSDB:
 	def create_hypertable(self, name: str, time_col: str):
 		"""Convert a table into a hypertable"""
 		self.exec(f"""SELECT create_hypertable('{name}', by_range('{time_col}'), if_not_exists => TRUE)""")
+
+	def ping(self) -> bool:
+		"""Check connectivity to postgresql"""
+		try:
+			r = self.exec_returning("select version();")
+			assert r
+			return True
+		except OperationalError:
+			return False
 
 
 class DB:
@@ -106,10 +132,12 @@ class DB:
 		).fetchall()
 		return res
 
-	def read_latest(self):
+	def read_latest(self) -> Res:
 		"""Read the latest information for all resources. Includes deltas."""
-		return self.db.exec("""SELECT DISTINCT ON (rid) * FROM res ORDER BY rid, time DESC;""").fetchall()
+		cur = self.db.exec("""SELECT DISTINCT ON (rid) * FROM res ORDER BY rid, time DESC;""")
+		return Res.decode(cur, cur.fetchall())
 
-	def read_at(self, time: datetime.datetime):
+	def read_at(self, time: datetime.datetime) -> Res:
 		"""Read the information for all resources at a point in time. Includes deltas."""
-		return self.db.exec("""SELECT DISTINCT ON (rid) * FROM res WHERE time < %s ORDER BY rid, time DESC;""", (time,)).fetchall()
+		cur = self.db.exec("""SELECT DISTINCT ON (rid) * FROM res WHERE time < %s ORDER BY rid, time DESC;""", (time,))
+		return Res.decode(cur, cur.fetchall())
