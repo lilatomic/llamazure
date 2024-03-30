@@ -8,7 +8,7 @@ from llamazure.azgraph.models import ResErr
 from llamazure.azrest.azrest import AzRest
 from llamazure.azrest.models import AzList
 from llamazure.azrest.models import Req as AzReq
-from llamazure.history.app import Collector
+from llamazure.history.collect import Collector
 from llamazure.history.conftest import TimescaledbContainer
 from llamazure.history.data import DB, TSDB, Res
 from llamazure.test.credentials import credentials
@@ -42,13 +42,13 @@ def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 	tenants = azr.call(AzReq.get("GetTenants", "/tenants", "2022-12-01", AzList[dict]))
 	tenant_id = UUID(tenants[0]["tenantId"])
 
-	history = Collector(g, azr, db, tenant_id)
-	history.take_snapshot()
+	history = Collector(g, azr, db)
+	history.take_snapshot(tenant_id)
 
 	delta_q = g.q("Resources | take(1)")
 	if isinstance(delta_q, ResErr):
 		raise RuntimeError(ResErr)
-	history.insert_deltas(delta_q)
+	history.insert_deltas(tenant_id, delta_q)
 
 	latest = db.read_latest()
 	found_resources = {e[latest.cols["rid"]]: e for e in latest.rows}

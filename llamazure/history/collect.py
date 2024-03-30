@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import Dict, Generator, Tuple, cast
+from typing import Dict, Generator, Tuple, cast, List
 from uuid import UUID
 
 from llamazure.azgraph import azgraph
@@ -28,9 +28,8 @@ class Collector:
 	g: azgraph.Graph
 	azr: AzRest
 	db: DB
-	tenant_id: UUID
 
-	def take_snapshot(self):
+	def take_snapshot(self, tenant_id: UUID):
 		"""Take a snapshot and insert it into the DB"""
 		resources = self.g.q("Resources")
 		if isinstance(resources, azgraph.ResErr):
@@ -41,16 +40,16 @@ class Collector:
 
 		self.db.insert_snapshot(
 			time=self.snapshot_time(),
-			azure_tenant=self.tenant_id,
+			azure_tenant=tenant_id,
 			resources=reformat_resources_for_db(tree),
 		)
 
-	def insert_deltas(self, deltas):
+	def insert_deltas(self, tenant_id: UUID, deltas: List[Dict]):
 		tree: TresourceMPData[Dict] = TresourceMPData()
 		tree.add_many(reformat_resources_for_tresource(deltas))
 
 		for rid, data in reformat_resources_for_db(tree):
-			self.db.insert_delta(time=self.snapshot_time(), azure_tenant=self.tenant_id, rid=rid, data=data)
+			self.db.insert_delta(time=self.snapshot_time(), azure_tenant=tenant_id, rid=rid, data=data)
 
 	@staticmethod
 	def snapshot_time() -> datetime.datetime:
