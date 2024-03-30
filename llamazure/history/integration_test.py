@@ -31,7 +31,7 @@ def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 	- synthesises a delta
 	- inserts a delta
 	"""
-	tsdb = TSDB(connstr=timescaledb_container.connstr)
+	tsdb = TSDB(connstr=timescaledb_container.new_db())
 	db = DB(tsdb)
 	db.create_tables()
 

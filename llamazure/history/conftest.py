@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from uuid import UUID
 
+import psycopg
 import pytest
 from psycopg.conninfo import make_conninfo
 from testcontainers.core.container import DockerContainer
@@ -60,8 +61,7 @@ class TimescaledbContainer(DockerContainer):
 		for k, v in self.conf.items():
 			self.with_env(k, v)
 
-	@property
-	def connstr(self) -> str:
+	def connstr(self, db: str) -> str:
 		"""Get the connstr for connecting"""
 		return make_conninfo(
 			"",
@@ -69,14 +69,14 @@ class TimescaledbContainer(DockerContainer):
 				"host": "localhost",
 				"user": self.user,
 				"port": self.port,
-				"dbname": self.db,
+				"dbname": db,
 				"password": self.password,
 			},
 		)
 
 	def try_connecting(self) -> bool:
 		"""Attempt to connect to this container"""
-		db = TSDB(connstr=self.connstr)
+		db = TSDB(connstr=self.connstr(self.db))
 		if not db.ping():
 			raise ConnectionError()
 		return True
@@ -86,6 +86,19 @@ class TimescaledbContainer(DockerContainer):
 		ret = super().start()
 		wait_for(self.try_connecting)
 		return ret
+
+	def new_db(self, db_name: Optional[str] = None) -> str:
+		"""Create a new DB and return the connection info"""
+		if db_name is None:
+			db_name = "".join(random.choice(string.ascii_lowercase) for i in range(10))
+
+		with psycopg.connect(self.connstr(self.db), autocommit=True) as conn:
+			cur = conn.cursor()
+			cur.execute(f"""CREATE DATABASE {db_name};""")
+			cur.execute(f"""GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {self.user}""")
+			conn.commit()
+
+		return self.connstr(db_name)
 
 
 @pytest.fixture(scope="module")
