@@ -1,13 +1,19 @@
+"""Test fixtures for History"""
 import random
 import string
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 import pytest
 from psycopg.conninfo import make_conninfo
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.waiting_utils import wait_for
 
+from llamazure.azgraph import azgraph
+from llamazure.history.collect import CredentialCache
 from llamazure.history.data import TSDB
+from llamazure.test.credentials import credentials
 from llamazure.test.util import Fixture
 
 
@@ -84,5 +90,14 @@ class TimescaledbContainer(DockerContainer):
 
 @pytest.fixture(scope="module")
 def timescaledb_container() -> Fixture[TimescaledbContainer]:
+	"""A running TimescaledbContainer fixture"""
 	with TimescaledbContainer() as tsdb:
 		yield tsdb
+
+
+@dataclass
+class CredentialCacheIntegrationTest(CredentialCache):
+	"""Load credentials from the integration test secrets"""
+
+	def azgraph(self, tenant_id: UUID) -> azgraph.Graph:
+		return azgraph.Graph.from_credential(credentials())

@@ -1,10 +1,10 @@
 import datetime
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, Generator, Tuple, cast, List
+from typing import Dict, Generator, List, Tuple, cast
 from uuid import UUID
 
 from llamazure.azgraph import azgraph
-from llamazure.azrest.azrest import AzRest
 from llamazure.history.data import DB
 from llamazure.rid import mp
 from llamazure.tresource.mp import MPData, TresourceMPData
@@ -22,16 +22,22 @@ def reformat_resources_for_db(tree: TresourceMPData) -> Generator[Tuple[str, Dic
 	return ((cast(str, path), mpdata.data) for path, mpdata in tree.resources.items() if mpdata.data is not None)
 
 
+class CredentialCache(ABC):
+	@abstractmethod
+	def azgraph(self, tenant_id: UUID) -> azgraph.Graph:
+		"""Get the azgraph.Graph instance for this tenant"""
+
+
 @dataclass
 class Collector:
 	"""Load data from Azure Resource Manager and put into the DB"""
-	g: azgraph.Graph
-	azr: AzRest
+
+	credentials: CredentialCache
 	db: DB
 
 	def take_snapshot(self, tenant_id: UUID):
 		"""Take a snapshot and insert it into the DB"""
-		resources = self.g.q("Resources")
+		resources = self.credentials.azgraph(tenant_id).q("Resources")
 		if isinstance(resources, azgraph.ResErr):
 			raise RuntimeError(azgraph.ResErr)
 

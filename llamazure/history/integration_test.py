@@ -9,7 +9,7 @@ from llamazure.azrest.azrest import AzRest
 from llamazure.azrest.models import AzList
 from llamazure.azrest.models import Req as AzReq
 from llamazure.history.collect import Collector
-from llamazure.history.conftest import TimescaledbContainer
+from llamazure.history.conftest import CredentialCacheIntegrationTest, TimescaledbContainer
 from llamazure.history.data import DB, TSDB, Res
 from llamazure.test.credentials import credentials
 
@@ -42,7 +42,7 @@ def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 	tenants = azr.call(AzReq.get("GetTenants", "/tenants", "2022-12-01", AzList[dict]))
 	tenant_id = UUID(tenants[0]["tenantId"])
 
-	history = Collector(g, azr, db)
+	history = Collector(CredentialCacheIntegrationTest(), db)
 	history.take_snapshot(tenant_id)
 
 	delta_q = g.q("Resources | take(1)")
@@ -60,4 +60,10 @@ def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 	found_by_time = group_by_time(latest)
 	found_delta_time = found_delta[latest.cols["time"]]
 	assert found_by_time[found_delta_time] == {delta_id}
-	assert {e["id"].lower() for e in g.q("Resources")} == set(found_resources), "snapshot did not contain same resources"
+
+	resources = g.q("Resources")
+	if isinstance(delta_q, ResErr):
+		raise RuntimeError(ResErr)
+	assert isinstance(resources, list)
+	assert len(resources) == len(found_resources), "snapshot and resources had different count"
+	assert {e["id"].lower() for e in resources} == set(found_resources), "snapshot did not contain same resources"
