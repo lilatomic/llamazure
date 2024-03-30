@@ -13,7 +13,7 @@ from testcontainers.core.waiting_utils import wait_for
 
 from llamazure.azgraph import azgraph
 from llamazure.history.collect import CredentialCache
-from llamazure.history.data import TSDB
+from llamazure.history.data import DB, TSDB
 from llamazure.test.credentials import credentials
 from llamazure.test.util import Fixture
 
@@ -87,7 +87,7 @@ class TimescaledbContainer(DockerContainer):
 		wait_for(self.try_connecting)
 		return ret
 
-	def new_db(self, db_name: Optional[str] = None) -> str:
+	def new_db(self, db_name: Optional[str] = None) -> DB:
 		"""Create a new DB and return the connection info"""
 		if db_name is None:
 			db_name = "".join(random.choice(string.ascii_lowercase) for i in range(10))
@@ -98,7 +98,9 @@ class TimescaledbContainer(DockerContainer):
 			cur.execute(f"""GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {self.user}""")
 			conn.commit()
 
-		return self.connstr(db_name)
+		db = DB(TSDB(connstr=(self.connstr(db_name))))
+		db.create_tables()
+		return db
 
 
 @pytest.fixture(scope="module")

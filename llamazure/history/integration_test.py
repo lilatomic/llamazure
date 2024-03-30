@@ -10,7 +10,7 @@ from llamazure.azrest.models import AzList
 from llamazure.azrest.models import Req as AzReq
 from llamazure.history.collect import Collector
 from llamazure.history.conftest import CredentialCacheIntegrationTest, TimescaledbContainer
-from llamazure.history.data import DB, TSDB, Res
+from llamazure.history.data import Res
 from llamazure.test.credentials import credentials
 
 
@@ -31,9 +31,7 @@ def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 	- synthesises a delta
 	- inserts a delta
 	"""
-	tsdb = TSDB(connstr=timescaledb_container.new_db())
-	db = DB(tsdb)
-	db.create_tables()
+	db = timescaledb_container.new_db()
 
 	credential = credentials()
 	g = Graph.from_credential(credential)
