@@ -1,6 +1,9 @@
 azure-identity>=1.4.0,<2.0.0
 click~=8.0
+fastapi~=0.110.0
 psycopg~=3.1
 pydantic>=2.0
+pydantic-settings>=2.0
 pyyaml~=6.0
 requests>=2,<3
+uvicorn~=0.29
