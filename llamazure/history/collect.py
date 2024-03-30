@@ -54,8 +54,9 @@ class Collector:
 		tree: TresourceMPData[Dict] = TresourceMPData()
 		tree.add_many(reformat_resources_for_tresource(deltas))
 
+		request_snapshot_time = self.snapshot_time()
 		for rid, data in reformat_resources_for_db(tree):
-			self.db.insert_delta(time=self.snapshot_time(), azure_tenant=tenant_id, rid=rid, data=data)
+			self.db.insert_delta(time=request_snapshot_time, azure_tenant=tenant_id, rid=rid, data=data)
 
 	@staticmethod
 	def snapshot_time() -> datetime.datetime:
