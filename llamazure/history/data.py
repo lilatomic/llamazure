@@ -130,8 +130,8 @@ class DB:
 				"""
 			),
 			(time,),
-		).fetchall()
-		return res
+		)
+		return Res.decode(cur, cur.fetchall())
 
 	def read_latest(self) -> Res:
 		"""Read the latest information for all resources. Includes deltas."""

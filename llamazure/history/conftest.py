@@ -1,8 +1,10 @@
 """Test fixtures for History"""
+import datetime
 import random
 import string
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 import psycopg
@@ -13,7 +15,7 @@ from testcontainers.core.waiting_utils import wait_for
 
 from llamazure.azgraph import azgraph
 from llamazure.history.collect import CredentialCache
-from llamazure.history.data import DB, TSDB
+from llamazure.history.data import DB, TSDB, Res
 from llamazure.test.credentials import credentials
 from llamazure.test.util import Fixture
 
@@ -110,9 +112,85 @@ def timescaledb_container() -> Fixture[TimescaledbContainer]:
 		yield tsdb
 
 
+@pytest.fixture(scope="function")
+def newdb(timescaledb_container: TimescaledbContainer) -> DB:
+	"""Fixture for DB"""
+	return timescaledb_container.new_db()
+
+
+@pytest.fixture
+def now() -> datetime.datetime:
+	"""Fixture for current time"""
+	return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
 @dataclass
 class CredentialCacheIntegrationTest(CredentialCache):
 	"""Load credentials from the integration test secrets"""
 
 	def azgraph(self, tenant_id: UUID) -> azgraph.Graph:
 		return azgraph.Graph.from_credential(credentials())
+
+
+@dataclass
+class FakeDataFactory:
+	"""
+	All the fake data you need.
+
+	Generator functions accept a kw-only parameter `idx`.
+	This key is used to store the value generated.
+	Re-invoke this function to retrieve the generated value
+	"""
+
+	tenants: dict = field(default_factory=dict)
+	resources: dict = field(default_factory=dict)
+	snapshots: dict = field(default_factory=dict)
+
+	def _get_or_gen(self, db: dict, gen: Callable, idx: Union[str, int]):
+		if idx in db:
+			return db[idx]
+		else:
+			v = gen()
+			db[idx] = v
+			return v
+
+	def tenant(self, *, idx: Union[str, int]) -> UUID:
+		"""A fake tenant"""
+		return self._get_or_gen(self.tenants, uuid.uuid4, idx)
+
+	def _resource(self, rev=0) -> dict:
+		return {"id": "/subscriptions/s0/fakeResource/", "k0": rev}
+
+	def resource(self, rev=0, *, idx: Union[str, int]) -> dict:
+		"""A single fake resource"""
+		return self._get_or_gen(self.resources, lambda: self._resource(rev), idx)
+
+	def snapshot(self, i=4, *, idx: Union[str, int]) -> List[Tuple[str, dict]]:
+		"""A fake snapshot"""
+
+		def _mk_snapshot():
+			resources = [self._resource(rev) for rev in range(0, i)]
+			return [(e["id"], e) for e in resources]
+
+		return self._get_or_gen(self.snapshots, _mk_snapshot, idx)
+
+	def res2snapshot(self, res: Res) -> List[Tuple[str, dict]]:
+		"""Convert a Res into the original snapshot"""
+		return [(e[res.cols["rid"]], e[res.cols["data"]]) for e in res.rows]
+
+	def compare_snapshot(self, r: Res, *idxs) -> bool:
+		"""Assert that a result of reading a snapshot is the same as the snapshot inserted"""
+		merged = sum((self.snapshot(idx=idx) for idx in idxs), start=[])
+		assert self.res2snapshot(r) == merged
+		return True
+
+	def assert_snapshot_at(self, r: Res, at: datetime.datetime) -> bool:
+		"""Assert that a snapshot happened at the given time"""
+		assert all(e[r.cols["time"]] == at for e in r.rows)
+		return True
+
+
+@pytest.fixture(scope="function")
+def fdf() -> FakeDataFactory:
+	"""Fixture for FakeDataFactory"""
+	return FakeDataFactory()
