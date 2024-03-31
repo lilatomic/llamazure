@@ -32,7 +32,6 @@ class TimescaledbContainer(DockerContainer):
 	def __init__(
 		self,
 		image: str = _IMAGE,
-		port: int = _PORT,
 		admin_user: str = _ADMIN_USER,
 		admin_password: str = _ADMIN_PASSWORD,
 		db: str = _DB,
@@ -42,8 +41,7 @@ class TimescaledbContainer(DockerContainer):
 		super().__init__(image, **kwargs)
 		self.conf = {}
 		# port
-		self.port = port
-		self.with_bind_ports(container=5432, host=port)
+		self.with_exposed_ports(self._PORT)
 		self.db = db
 		self._set_conf("POSTGRES_DB", db)
 		self.user = admin_user
@@ -55,6 +53,10 @@ class TimescaledbContainer(DockerContainer):
 			self.conf.update(config_overrides)
 
 		self._apply_conf()
+
+	@property
+	def port(self) -> int:
+		return int(self.get_exposed_port(self._PORT))
 
 	def _set_conf(self, k, v):
 		self.conf[k] = v
