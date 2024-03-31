@@ -36,3 +36,7 @@ markers = [
     "integration: integration tests",
     "admin: tests that need some amount of admin",
 ]
+
+pytest_plugins = [
+    "llamazure.tests",
+]

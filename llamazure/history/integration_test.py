@@ -3,6 +3,8 @@ from collections import defaultdict
 from typing import Dict, Set
 from uuid import UUID
 
+import pytest
+
 from llamazure.azgraph.azgraph import Graph
 from llamazure.azgraph.models import ResErr
 from llamazure.azrest.azrest import AzRest
@@ -11,7 +13,7 @@ from llamazure.azrest.models import Req as AzReq
 from llamazure.history.collect import Collector
 from llamazure.history.conftest import CredentialCacheIntegrationTest, TimescaledbContainer
 from llamazure.history.data import Res
-from llamazure.test.credentials import credentials
+from llamazure.test.credentials import load_credentials
 
 
 def group_by_time(snapshot: Res) -> Dict[datetime.datetime, Set[str]]:
@@ -21,6 +23,11 @@ def group_by_time(snapshot: Res) -> Dict[datetime.datetime, Set[str]]:
 	return out
 
 
+def test_nothing():
+	"""Prevent collection problems for partitions"""
+
+
+@pytest.mark.integration
 def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 	"""
 	End-to-end test that:
@@ -33,7 +40,7 @@ def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 	"""
 	db = timescaledb_container.new_db()
 
-	credential = credentials()
+	credential = load_credentials()
 	g = Graph.from_credential(credential)
 	azr = AzRest.from_credential(credential)
 

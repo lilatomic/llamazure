@@ -1,4 +1,5 @@
 """Conftest"""
+# noqa: F811
 import logging
 
 # pylint: disable=redefined-outer-name
@@ -13,7 +14,7 @@ from llamazure.azrest.azrest import AzRest
 from llamazure.msgraph.msgraph import Graph
 from llamazure.rbac.resources import Groups, Users
 from llamazure.rbac.roles import RoleAssignments, RoleDefinitions, RoleOps
-from llamazure.test.credentials import credentials
+from llamazure.test.conftest import credentials as credentials  # noqa: F401
 
 l = logging.getLogger(__name__)
 
@@ -29,33 +30,33 @@ def scopes():
 
 
 @pytest.fixture
-def rds() -> RoleDefinitions:
+def rds(credentials) -> RoleDefinitions:
 	"""Fixture: RoleDefinitions"""
-	return RoleDefinitions(AzRest.from_credential(credentials()))
+	return RoleDefinitions(AzRest.from_credential(credentials))
 
 
 @pytest.fixture
-def ras() -> RoleAssignments:
+def ras(credentials) -> RoleAssignments:
 	"""Fixture: RoleAssignments"""
-	return RoleAssignments(AzRest.from_credential(credentials()))
+	return RoleAssignments(AzRest.from_credential(credentials))
 
 
 @pytest.fixture
-def role_ops() -> RoleOps:
+def role_ops(credentials) -> RoleOps:
 	"""Fixture: RoleOps"""
-	return RoleOps(AzRest.from_credential(credentials()))
+	return RoleOps(AzRest.from_credential(credentials))
 
 
 @pytest.fixture
-def users() -> Users:
+def users(credentials) -> Users:
 	"""Fixture: Users"""
-	return Users(Graph.from_credential(credentials()))
+	return Users(Graph.from_credential(credentials))
 
 
 @pytest.fixture
-def groups() -> Groups:
+def groups(credentials) -> Groups:
 	"""Fixture: Users"""
-	return Groups(Graph.from_credential(credentials()))
+	return Groups(Graph.from_credential(credentials))
 
 
 @pytest.fixture

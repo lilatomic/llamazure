@@ -14,13 +14,13 @@ class TestSnapshotsSingleTenant:
 		r = newdb.read_snapshot(now)
 		assert fdf.compare_snapshot(r, 0)
 
-	def test_in_past(self, fdf: FakeDataFactory, newdb: DB, now: datetime):
+	def test_in_past(self, fdf: FakeDataFactory, newdb: DB, now: datetime.datetime):
 		"""Test that we read the snapshot even if we're after the latest one"""
 		newdb.insert_snapshot(now, fdf.tenant(idx=0), fdf.snapshot(idx=0))
 		r = newdb.read_snapshot(now + datetime.timedelta(days=1))
 		assert fdf.compare_snapshot(r, 0)
 
-	def test_multiple(self, fdf: FakeDataFactory, newdb: DB, now: datetime):
+	def test_multiple(self, fdf: FakeDataFactory, newdb: DB, now: datetime.datetime):
 		"""Test with multiple snapshots"""
 		newdb.insert_snapshot(now, fdf.tenant(idx=0), fdf.snapshot(idx=0))
 		time_2 = now + datetime.timedelta(days=2)
@@ -36,7 +36,7 @@ class TestSnapshotsSingleTenant:
 
 
 class TestSnapshotMultiTenant:
-	def test_single_per_tenant(self, fdf: FakeDataFactory, newdb: DB, now: datetime):
+	def test_single_per_tenant(self, fdf: FakeDataFactory, newdb: DB, now: datetime.datetime):
 		"""Test that the latest is retrieved for each of multiple tenants"""
 		newdb.insert_snapshot(now, fdf.tenant(idx=0), fdf.snapshot(idx=0))
 		newdb.insert_snapshot(now, fdf.tenant(idx=1), fdf.snapshot(idx=1))

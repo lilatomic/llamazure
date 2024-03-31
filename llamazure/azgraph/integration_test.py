@@ -5,7 +5,7 @@ import pytest
 
 from llamazure.azgraph.azgraph import Graph
 from llamazure.azgraph.models import Req, Res, ResErr
-from llamazure.test.credentials import credentials
+from llamazure.test.credentials import load_credentials
 from llamazure.test.inspect import print_output
 
 
@@ -13,7 +13,7 @@ from llamazure.test.inspect import print_output
 @pytest.mark.integration
 def graph():
 	"""Run integration test"""
-	credential = credentials()
+	credential = load_credentials()
 	g = Graph.from_credential(credential)
 	return g
 

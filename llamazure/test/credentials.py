@@ -4,7 +4,7 @@ import yaml
 from azure.identity import AzureCliCredential, ClientSecretCredential, CredentialUnavailableError
 
 
-def credentials():
+def load_credentials():
 	"""Load credentials for a Service Principal"""
 	secrets = os.environ.get("integration_test_secrets")
 	if not secrets:

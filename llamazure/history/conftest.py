@@ -16,7 +16,7 @@ from testcontainers.core.waiting_utils import wait_for
 from llamazure.azgraph import azgraph
 from llamazure.history.collect import CredentialCache
 from llamazure.history.data import DB, TSDB, Res
-from llamazure.test.credentials import credentials
+from llamazure.test.credentials import load_credentials
 from llamazure.test.util import Fixture
 
 
@@ -131,7 +131,7 @@ class CredentialCacheIntegrationTest(CredentialCache):
 	"""Load credentials from the integration test secrets"""
 
 	def azgraph(self, tenant_id: UUID) -> azgraph.Graph:
-		return azgraph.Graph.from_credential(credentials())
+		return azgraph.Graph.from_credential(load_credentials())
 
 
 @dataclass
