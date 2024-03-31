@@ -37,6 +37,7 @@ class TestSnapshotsSingleTenant:
 
 class TestSnapshotMultiTenant:
 	def test_single_per_tenant(self, fdf: FakeDataFactory, newdb: DB, now: datetime):
+		"""Test that the latest is retrieved for each of multiple tenants"""
 		newdb.insert_snapshot(now, fdf.tenant(idx=0), fdf.snapshot(idx=0))
 		newdb.insert_snapshot(now, fdf.tenant(idx=1), fdf.snapshot(idx=1))
 
