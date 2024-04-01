@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import List
+from typing import Generator, List, Optional, TypeVar
 from uuid import UUID
 
 from azure.identity import DefaultAzureCredential
@@ -13,6 +13,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from llamazure.azgraph import azgraph
 from llamazure.history.collect import Collector, CredentialCache
 from llamazure.history.data import DB, TSDB, Res
+
+T = TypeVar("T")
+Provider = Generator[T, None, None]
 
 
 class CredentialCacheDefault(CredentialCache):
@@ -40,10 +43,10 @@ class Settings(BaseSettings):
 	db: Settings.DB
 
 
-settings = Settings()
+settings = Settings()  # type: ignore
 
 
-def get_collector() -> Collector:
+def get_collector() -> Provider[Collector]:
 	"""FastAPI Dependency for Collector"""
 	yield Collector(
 		CredentialCacheDefault(),
@@ -51,7 +54,7 @@ def get_collector() -> Collector:
 	)
 
 
-def get_db() -> DB:
+def get_db() -> Provider[DB]:
 	"""FastAPI Dependency for DB"""
 	yield DB(TSDB(settings.db.connstr))
 
@@ -78,7 +81,7 @@ async def collect_deltas(tenant_id: UUID, deltas: List[dict], collector: Collect
 
 
 @app.get("/history")
-async def read_history(db: DB = Depends(get_db), at: datetime.datetime = None) -> Res:
+async def read_history(db: DB = Depends(get_db), at: Optional[datetime.datetime] = None) -> Res:
 	"""Read history at a point in time"""
 	if at is None:
 		return db.read_latest()
