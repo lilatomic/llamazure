@@ -193,3 +193,21 @@ class DB:
 		"""Read the information for all resources at a point in time. Includes deltas."""
 		cur = self.db.exec("""SELECT DISTINCT ON (rid) * FROM res WHERE time < %s ORDER BY rid, time DESC;""", (time,))
 		return Res.decode(cur, cur.fetchall())
+
+	def read_resource(self, rid: str, ti: Optional[datetime.datetime] = None, tf: Optional[datetime.datetime] = None) -> Res:
+		"""Read all the history of a resource, between specified time"""
+		data: tuple
+		if ti is None and tf is None:
+			q = """SELECT * FROM res WHERE rid = %s ORDER BY time ASC;"""
+			data = (rid,)
+		elif ti is not None and tf is None:
+			q = """SELECT * FROM res WHERE rid = %s AND time >= %s ORDER BY time ASC;"""
+			data = (rid, ti)
+		elif ti is None and tf is not None:
+			q = """SELECT * FROM res WHERE rid = %s AND time < %s ORDER BY time ASC;"""
+			data = (rid, tf)
+		else:
+			q = """SELECT * FROM res WHERE rid = %s AND time >= %s and time < %s ORDER BY time ASC;"""
+			data = (rid, ti, tf)
+		cur = self.db.exec(q, data)
+		return Res.decode(cur, cur.fetchall())

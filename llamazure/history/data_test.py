@@ -43,3 +43,36 @@ class TestSnapshotMultiTenant:
 
 		r = newdb.read_snapshot(now)
 		assert fdf.compare_snapshot(r, 0, 1)
+
+
+class TestReadResource:
+	name = "readresource"
+
+	def seed_db(self, fdf: FakeDataFactory, newdb: DB, now: datetime.datetime):
+		datas = [fdf.resource(name=self.name, rev=i, idx=i) for i in range(3)]
+		for i, d in enumerate(datas):
+			newdb.insert_delta(now + datetime.timedelta(days=i * 2), fdf.tenant(idx=0), d["id"], d)
+
+	def test_no_bounds(self, fdf: FakeDataFactory, newdb: DB, now: datetime.datetime):
+		self.seed_db(fdf, newdb, now)
+
+		r = newdb.read_resource(fdf.resource(idx=0)["id"])
+		assert len(r.rows) == 3
+
+	def test_ti(self, fdf: FakeDataFactory, newdb: DB, now: datetime.datetime):
+		self.seed_db(fdf, newdb, now)
+
+		r = newdb.read_resource(fdf.resource(idx=0)["id"], ti=now + datetime.timedelta(days=1))
+		assert len(r.rows) == 2
+
+	def test_tf(self, fdf: FakeDataFactory, newdb: DB, now: datetime.datetime):
+		self.seed_db(fdf, newdb, now)
+
+		r = newdb.read_resource(fdf.resource(idx=0)["id"], tf=now + datetime.timedelta(days=3))
+		assert len(r.rows) == 2
+
+	def test_both(self, fdf: FakeDataFactory, newdb: DB, now: datetime.datetime):
+		self.seed_db(fdf, newdb, now)
+
+		r = newdb.read_resource(fdf.resource(idx=0)["id"], ti=now + datetime.timedelta(days=1), tf=now + datetime.timedelta(days=3))
+		assert len(r.rows) == 1

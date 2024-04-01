@@ -160,18 +160,18 @@ class FakeDataFactory:
 		"""A fake tenant"""
 		return self._get_or_gen(self.tenants, uuid.uuid4, idx)
 
-	def _resource(self, rev=0) -> dict:
-		return {"id": "/subscriptions/s0/fakeResource/", "k0": rev}
+	def _resource(self, name: str, rev=0) -> dict:
+		return {"id": f"/subscriptions/s0/fakeResource/{name}", "k0": rev}
 
-	def resource(self, rev=0, *, idx: Union[str, int]) -> dict:
+	def resource(self, name: str = "res", rev=0, *, idx: Union[str, int]) -> dict:
 		"""A single fake resource"""
-		return self._get_or_gen(self.resources, lambda: self._resource(rev), idx)
+		return self._get_or_gen(self.resources, lambda: self._resource(name, rev), idx)
 
-	def snapshot(self, i=4, *, idx: Union[str, int]) -> List[Tuple[str, dict]]:
+	def snapshot(self, count=4, rev=0, *, idx: Union[str, int]) -> List[Tuple[str, dict]]:
 		"""A fake snapshot"""
 
 		def _mk_snapshot():
-			resources = [self._resource(rev) for rev in range(0, i)]
+			resources = [self._resource(str(i), rev) for i in range(0, count)]
 			return [(e["id"], e) for e in resources]
 
 		return self._get_or_gen(self.snapshots, _mk_snapshot, idx)

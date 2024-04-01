@@ -81,12 +81,22 @@ async def collect_deltas(tenant_id: UUID, deltas: List[dict], collector: Collect
 
 
 @app.get("/history")
-async def read_history(db: DB = Depends(get_db), at: Optional[datetime.datetime] = None) -> Res:
+async def read_history(at: Optional[datetime.datetime] = None, db: DB = Depends(get_db)) -> Res:
 	"""Read history at a point in time"""
 	if at is None:
 		return db.read_latest()
 	else:
 		return db.read_at(at)
+
+
+@app.get("/resources/{resource_id}")
+async def read_resource(
+	resource_id: str,
+	ti: Optional[datetime.datetime] = None,
+	tf: Optional[datetime.datetime] = None,
+	db: DB = Depends(get_db),
+) -> Res:
+	return db.read_resource(resource_id, ti, tf)
 
 
 @app.get("/ping")
