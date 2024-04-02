@@ -191,7 +191,7 @@ class DB:
 
 	def read_at(self, time: datetime.datetime) -> Res:
 		"""Read the information for all resources at a point in time. Includes deltas."""
-		cur = self.db.exec("""SELECT DISTINCT ON (rid) * FROM res WHERE time < %s ORDER BY rid, time DESC;""", (time,))
+		cur = self.db.exec("""SELECT DISTINCT ON (rid) * FROM res WHERE time <= %s ORDER BY rid, time DESC;""", (time,))
 		return Res.decode(cur, cur.fetchall())
 
 	def read_resource(self, rid: str, ti: Optional[datetime.datetime] = None, tf: Optional[datetime.datetime] = None) -> Res:

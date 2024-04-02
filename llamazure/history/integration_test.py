@@ -27,6 +27,10 @@ def test_nothing():
 	"""Prevent collection problems for partitions"""
 
 
+def _rids_in_res(res: Res) -> Set[str]:
+	return {e[res.cols["rid"]] for e in res.rows}
+
+
 @pytest.mark.integration
 def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 	"""
@@ -49,6 +53,7 @@ def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 
 	history = Collector(CredentialCacheIntegrationTest(), db)
 	history.take_snapshot(tenant_id)
+	original_resources = db.read_latest()
 
 	delta_q = g.q("Resources | take(1)")
 	if isinstance(delta_q, ResErr):
@@ -60,15 +65,22 @@ def test_integration(timescaledb_container: TimescaledbContainer) -> None:
 
 	delta_id = delta_q[0]["id"].lower()
 
+	# assert that our delta is correctly given to us
 	assert delta_id in found_resources, "did not find delta in resources"
 	found_delta = found_resources[delta_id]
 	found_by_time = group_by_time(latest)
 	found_delta_time = found_delta[latest.cols["time"]]
 	assert found_by_time[found_delta_time] == {delta_id}
 
+	# assert that all the resources were included in the
 	resources = g.q("Resources")
 	if isinstance(delta_q, ResErr):
 		raise RuntimeError(ResErr)
 	assert isinstance(resources, list)
 	assert len(resources) == len(found_resources), "snapshot and resources had different count"
-	assert {e["id"].lower() for e in resources} == set(found_resources), "snapshot did not contain same resources"
+	assert {e["id"].lower() for e in resources} == _rids_in_res(latest), "snapshot did not contain same resources"
+
+	# assert that read_at in the past returns the resources from that time
+	original_time = original_resources.rows[0][original_resources.cols["time"]]
+	past_resources = db.read_at(original_time)
+	assert _rids_in_res(original_resources) == _rids_in_res(past_resources), "snapshot of past did not contain same contents as in past"
