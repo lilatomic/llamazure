@@ -11,4 +11,22 @@ There are several variants of Tresources.
 
 ## Examples
 
+Load all resources into a tresource, indexable by rid, including data:
+
+```python
+from azure.identity import DefaultAzureCredential
+
+from llamazure.azgraph.azgraph import Graph
+from llamazure.rid import mp
+from llamazure.tresource.mp import TresourceMPData
+
+g = Graph.from_credential(DefaultAzureCredential())
+resources = g.q("Resources")
+
+t = TresourceMPData()
+
+for resource in resources:
+    t.set_data(mp.parse(resource["id"])[1], resource)
+```
+
 ## Design notes

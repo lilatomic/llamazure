@@ -1,7 +1,5 @@
 """Integration tests for roles"""
 import logging
-import os
-from typing import Any
 
 import pytest
 
@@ -14,13 +12,6 @@ from llamazure.rbac.roles import RoleAssignments, RoleDefinitions, RoleOps
 
 l = logging.getLogger(__name__)
 attempts = 5
-
-
-def print_output(name: str, output: Any):
-	"""Print output if requested, so we don't always print potentially sensitive information to the logs"""
-	should_print = os.environ.get("INTEGRATION_PRINT_OUTPUT", "False") == "True"
-	if should_print:
-		print(name, output)
 
 
 class TestRoles:
