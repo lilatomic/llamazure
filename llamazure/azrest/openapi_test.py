@@ -1,8 +1,11 @@
 """Test the OpenAPI codegen"""
+from typing import Dict, Union
+
 # pylint: disable=protected-access
 import pytest
+from pydantic import TypeAdapter
 
-from llamazure.azrest.openapi import IR_T, IR_List, IRDef, IRTransformer, OADef, OARef, PathLookupError, Reader
+from llamazure.azrest.openapi import IR_T, IR_List, IRDef, IRTransformer, OADef, OARef, PathLookupError, Reader, OAEnum
 
 
 class TestResolveReference:
@@ -103,6 +106,40 @@ class TestIRTransformerTransformOAField:
 	def test_transform_oa_field_invalid_type():
 		with pytest.raises(TypeError):
 			IRTransformer.transform_oa_field("", "invalid_type")
+
+
+
+class TestExamples:
+	parser = TypeAdapter(Dict[str, Union[OAEnum, OADef]])
+
+	def _load(self, raw):
+		return self.parser.validate_python(raw)
+
+	def test_rel(self):
+		v = {
+			"Workbook": {
+				"description": "A workbook definition.",
+				"type": "object",
+				"allOf": [
+					{
+						"$ref": "#/definitions/WorkbookResource"
+					}
+				],
+				"properties": {
+					"properties": {
+						"x-ms-client-flatten": True,
+						"description": "Metadata describing a workbook for an Azure resource.",
+						"$ref": "#/definitions/WorkbookProperties"
+					},
+					"systemData": {
+						"$ref": "../../../../../common-types/resource-management/v1/types.json#/definitions/systemData",
+						"readOnly": True
+					}
+				}
+			}
+		}
+		t = self._load(v)
+		assert not t
 
 
 class TestIRTransformerIRArray:

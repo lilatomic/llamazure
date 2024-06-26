@@ -19,6 +19,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent, indent
 from typing import Dict, List, Literal, Optional, Sequence, Tuple, Type, Union, cast
@@ -54,6 +55,16 @@ class OARef(BaseModel):
 		return self.ref.split("/")[-1]
 
 
+class JSONSchema(BaseModel):
+	class Ref(BaseModel):
+		ref: str = Field(alias="$ref")
+
+	properties: Optional[Dict[str, Union[JSONSchema.Ref, JSONSchema]]] = None
+	allOf: Optional[List[Union[JSONSchema.Ref, JSONSchema]]] = None
+	# anyOf: Optional[Dict[str, OADef.JSONSchemaProperty]] = None
+	required: Optional[List[str]] = None
+
+
 class OADef(BaseModel):
 	"""An OpenAPI definition"""
 
@@ -72,15 +83,16 @@ class OADef(BaseModel):
 		readOnly: bool = False
 		required: bool = False
 
-	class JSONSchemaProperty(BaseModel):
-		type: Optional[str] = None
-		description: Optional[str] = None
-		properties: Optional[Dict[str, OADef.JSONSchemaProperty]] = None
-		required: Optional[List[str]] = None
-
-	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef, OADef.JSONSchemaProperty]]
+	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef, JSONSchema]]
 	t: str = Field(alias="type")
 	description: Optional[str] = None
+
+
+class OAEnum(BaseModel):
+	t: Union[str] = Field(alias="type")
+	description: Optional[str] = None
+	enum: List[str]
+	# TOOD: x-ms-enum?
 
 
 class OAParam(BaseModel):
@@ -110,7 +122,7 @@ class OAMSPageable(BaseModel):
 class OAOp(BaseModel):
 	"""An OpenAPI Operation"""
 
-	tags: List[str]
+	tags: List[str] = []
 	operationId: str
 	description: str
 	parameters: List[Union[OAParam, OARef]]
@@ -170,7 +182,7 @@ class IRDef(BaseModel):
 class IR_T(BaseModel):
 	"""An IR Type descriptor"""
 
-	t: Union[Type, IRDef, IR_List, str]  # TODO: upconvert str
+	t: Union[Type, IRDef, IR_List,IR_Enum, str]  # TODO: upconvert str
 	readonly: bool = False
 	required: bool = True
 
@@ -182,6 +194,14 @@ class IR_List(BaseModel):
 	required: bool = True
 
 
+class IR_Enum(BaseModel):
+	"""An IR descriptor for an Enum"""
+	name: str
+	values: List[str]
+	description: Optional[str] = None
+
+
+@dataclass
 class Reader:
 	"""Read Microsoft OpenAPI specifications"""
 
@@ -193,7 +213,7 @@ class Reader:
 	@classmethod
 	def load(cls, root: str, path: Path) -> Reader:
 		"""Load from a path or file-like object"""
-		return Reader(root, path, cls._load_file(root, path))
+		return cls._load_file(root, path)
 
 	@property
 	def paths(self):
@@ -217,16 +237,17 @@ class Reader:
 		oa_type = object_path.split("/")[1]
 		return file_path, oa_type, object_path
 
-	def load_relative(self, relative: str) -> dict:
+	def load_relative(self, relative: str) -> Tuple[Reader, dict]:
 		"""Load an object from a relative path"""
 		file_path, _, object_path = self.classify_relative(relative)
 
 		if file_path:
-			file = self._load_file(self.root, self.path.parent / file_path)
+			reader = self._load_file(self.root, self.path.parent / file_path)
 		else:
-			file = self.doc
+			reader = self
 
-		return self._get_from_object_at_path(file, object_path)
+		file = reader.doc
+		return reader, self._get_from_object_at_path(file, object_path)
 
 	@staticmethod
 	def _get_from_object_at_path(file: dict, object_path: str) -> dict:
@@ -242,7 +263,7 @@ class Reader:
 			raise PathLookupError(object_path)
 
 	@staticmethod
-	def _load_file(root: str, file_path: Path):
+	def _load_file(root: str, file_path: Path) -> Reader:
 		"""Load the contents of a file"""
 		if root.startswith("https://") or root.startswith("http://"):
 			content = requests.get(root + file_path.as_posix()).content.decode("utf-8")
@@ -253,7 +274,9 @@ class Reader:
 		else:
 			scheme = root.split("://")[0]
 			raise ValueError(f"unknown uri scheme scheme={scheme}")
-		return json.loads(content)
+		loaded = json.loads(content)
+
+		return Reader(root, file_path, loaded)
 
 
 def resolve_path(path: str) -> str:
@@ -269,6 +292,14 @@ class IRTransformer:
 	def __init__(self, defs: Dict[str, OADef], openapi: Reader):
 		self.oa_defs: Dict[str, OADef] = defs
 		self.openapi = openapi
+
+		self.jsonparser = JSONSchemaSubparser(defs, openapi)
+
+	@classmethod
+	def from_reader(cls, reader: Reader) -> IRTransformer:
+		parser = TypeAdapter(Dict[str, Union[OAEnum, OADef, JSONSchema]])
+		oa_defs = parser.validate_python(reader.definitions)
+		return IRTransformer(oa_defs, reader)
 
 	def transform_definitions(self) -> str:
 		"""Transform the OpenAPI objects into their codegened str"""
@@ -321,48 +352,33 @@ class IRTransformer:
 		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
 		return "\n\n".join(codegened_definitions + reloaded_definitions) + "\n\n"
 
-	def transform_def(self, name: str, obj: OADef) -> IRDef:
+	def transform_def(self, name: str, obj: Union[OADef, OAEnum]) -> Union[IRDef, IR_Enum]:
 		"""Transform an OpenAPI definition to IR"""
-		ir_properties = {p_name: self.transform_oa_field(p_name, p) for p_name, p in obj.properties.items()}
-		return IRDef(
-			name=name,
-			properties=ir_properties,
-			description=obj.description,
-		)
-
-	@staticmethod
-	def transform_jsonschema_t(name: str, obj: OADef.JSONSchemaProperty, required_properties: Optional[List[str]]) -> IRDef | IR_T:
-		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
-		required_properties = required_properties or []
-		if obj.properties is not None:
-			# we're transforming an object
-			resolved_properties = {n: IRTransformer.transform_jsonschema_t(n, e, obj.required or []) for n, e in obj.properties.items()}
-			return IR_T(
-				t=IRDef(
-					name=name,
-					properties=resolved_properties,
-					description=obj.description,
-				),
-				required=name in required_properties,
+		if isinstance(obj, OADef):
+			ir_properties = {p_name: self.transform_oa_field(p_name, p) for p_name, p in obj.properties.items()}
+			return IRDef(
+				name=name,
+				properties=ir_properties,
+				description=obj.description,
 			)
-		else:
-			return IR_T(
-				t=IRTransformer.resolve_type(obj.type),
-				required=name in required_properties,
+		elif isinstance(obj, OAEnum):
+			return IR_Enum(
+				name=name,
+				values=obj.enum,
+				description=obj.description,
 			)
 
-	@staticmethod
-	def transform_oa_field(name: str, p: Union[OADef.Array, OADef.Property, OARef, None]) -> IR_T:
+	def transform_oa_field(self, name: str, p: Union[OADef.Array, OADef.Property, OARef, None]) -> IR_T:
 		"""Transform an OpenAPI field"""
 		if isinstance(p, OADef.Property):
 			resolved_type = IRTransformer.resolve_type(p.t)
 			return IR_T(t=resolved_type, readonly=p.readOnly, required=p.required)
 		elif isinstance(p, OADef.Array):
-			return IRTransformer.ir_array(p)
+			return self.ir_array(name, p)
 		elif isinstance(p, OARef):
-			return IR_T(t=resolve_path(p.ref))
-		elif isinstance(p, OADef.JSONSchemaProperty):
-			return IRTransformer.transform_jsonschema_t(name.capitalize(), p, p.required)
+			return IR_T(t=self.resolve_oaref(name, p))
+		elif isinstance(p, JSONSchema):
+			return self.jsonparser.transform(name.capitalize(), p, p.required)
 		elif p is None:
 			return IR_T(t="None")
 		else:
@@ -376,21 +392,19 @@ class IRTransformer:
 			"number": float,
 			"integer": int,
 			"boolean": bool,
+			"object": object,
 		}.get(t, t)
 		return py_type
 
-	@staticmethod
-	def ir_array(obj: OADef.Array) -> IR_T:
+	def ir_array(self, name, obj: OADef.Array) -> IR_T:
 		"""Transform an OpenAPI array to IR"""
 		if isinstance(obj.items, OADef.Property):
 			# Probably a type
 			as_list = IR_List(items=IR_T(t=IRTransformer.resolve_type(obj.items.t), required=True))
 		elif isinstance(obj.items, OARef):
-			# TODO: implement actual resolution
-			# ref = self.defs[resolve_path(obj.items.ref)]
-			# l = IR_List(items=IR_T(t=ref))
 
-			as_list = IR_List(items=IR_T(t=resolve_path(obj.items.ref), required=True))
+			t = self.resolve_oaref(name, obj.items)
+			as_list = IR_List(items=IR_T(t=t, required=True))
 
 		else:
 			# I think this is blocked by Pydantic type definitions
@@ -398,9 +412,22 @@ class IRTransformer:
 
 		return IR_T(t=as_list, required=True)
 
+	def resolve_oaref(self, name, ref: OARef) -> Union[IR_T, IRDef]:
+		reader, resolved = self.openapi.load_relative(ref.ref)
+		relative_transformer = IRTransformer.from_reader(reader)
+
+		parser = TypeAdapter(Union[OAEnum, OADef])
+		resolved_loaded = parser.validate_python(resolved)
+		return relative_transformer.transform_def(name, resolved_loaded)
+
+
+
 	@staticmethod
-	def ir_azarray(obj: IRDef) -> Optional[AZAlias]:
+	def ir_azarray(obj: Union[IRDef, IR_Enum]) -> Optional[AZAlias]:
 		"""Transform a definition representing an array into an alias to the wrapped type"""
+		if isinstance(obj, IR_Enum):
+			return None
+
 		value = obj.properties.get("value")
 		if value is not None and isinstance(value.t, IR_List):
 			inner = IRTransformer.resolve_ir_t_str(value.t.items)
@@ -477,8 +504,7 @@ class IRTransformer:
 
 		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), subclasses=property_c)
 
-	@staticmethod
-	def paramOA2IR(oaparam: OAParam) -> IR_T:
+	def paramOA2IR(self, oaparam: OAParam) -> IR_T:
 		"""
 		Convert an OpenAPI Parameter to IR Parameter
 
@@ -486,7 +512,7 @@ class IRTransformer:
 		Otherwise, it will always have a valid type
 		"""
 		if oaparam.oa_schema:
-			return IRTransformer.transform_oa_field(oaparam.name, oaparam.oa_schema)
+			return self.transform_oa_field(oaparam.name, oaparam.oa_schema)
 		else:
 			assert oaparam.type, "OAParam without schema does not have a type"
 			return IR_T(t=IRTransformer.resolve_type(oaparam.type))
@@ -534,14 +560,13 @@ class IRTransformer:
 
 		return "\n\n".join([cg.codegen() for cg in az_ops])
 
-	@staticmethod
-	def oa2ir_op(apiv: str, path: str, method: str, op: OAOp):
+	def oa2ir_op(self, apiv: str, path: str, method: str, op: OAOp):
 		object_name, name = op.operationId.split("_")
-		body_types = [IRTransformer.paramOA2IR(p) for p in op.body_params]
+		body_types = [self.paramOA2IR(p) for p in op.body_params]
 		body_type = IRTransformer.unify_ir_t(body_types)
 		body_name = None if len(op.body_params) != 1 else op.body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
-		params = {p.name: IRTransformer.paramOA2IR(p) for p in op.url_params}
-		rets_ts = [IRTransformer.transform_oa_field(r_name, r.oa_schema) for r_name, r in (op.responses.items()) if r_name != "default"]
+		params = {p.name: self.paramOA2IR(p) for p in op.url_params}
+		rets_ts = [self.transform_oa_field(r_name, r.oa_schema) for r_name, r in (op.responses.items()) if r_name != "default"]
 		ret_t = IRTransformer.unify_ir_t(rets_ts)
 		ir_op = IROp(
 			object_name=object_name,
@@ -603,8 +628,60 @@ class IRTransformer:
 			if isinstance(param, OAParam):
 				resolved_parameters.append(param)
 			else:
-				resolved_parameters.append(OAParam(**(self.openapi.load_relative(param.ref))))
+				_, relative_param = self.openapi.load_relative(param.ref)
+				resolved_parameters.append(OAParam(**(relative_param)))
 		return resolved_parameters
+
+
+class JSONSchemaSubparser:
+	def __init__(self, defs: Dict[str, OADef], openapi: Reader):
+		self.oa_defs: Dict[str, OADef] = defs
+		self.openapi = openapi
+
+	def _is_full_inherit(self, obj: JSONSchema):
+		return obj.properties is None and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], JSONSchema.Ref)
+
+	def resolve_reference(self, name, ref: JSONSchema.Ref, required_properties: List[str]) -> IRDef | IR_T:
+		reader, resolved = self.openapi.load_relative(ref.ref)
+		relative_transformer = JSONSchemaSubparser(self.oa_defs, reader)
+		resolved_loaded = JSONSchema(**resolved)
+		return relative_transformer.transform(name, resolved_loaded, required_properties)
+
+	def transform(self, name: str, obj: Union[JSONSchema.Ref, JSONSchema], required_properties: Optional[List[str]]) -> IRDef | IR_T:
+		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
+		required_properties = required_properties or []
+
+		if isinstance(obj, JSONSchema.Ref):
+			return self.resolve_reference(name, obj, required_properties)
+
+		if not obj.properties and not obj.allOf:
+			return IR_T(
+				t=IRTransformer.resolve_type(obj.type),
+				required=name in required_properties,
+			)
+
+		if self._is_full_inherit(obj):
+			return self.resolve_reference(name, obj.allOf[0], required_properties)
+
+		properties = {}
+		if obj.properties is not None:
+			# we're transforming an object
+			properties.update({n: self.transform(n, e, obj.required or []) for n, e in obj.properties.items()})
+
+		if obj.allOf is not None:
+			if len(obj.allOf) == 1 and "$ref" in obj.allOf:
+				# only one object is referenced, so we can just use it as a type
+				# TODO: follow and import
+				properties.append()
+
+		return IR_T(
+			t=IRDef(
+				name=name,
+				properties=properties,
+				description=obj.description,
+			),
+			required=name in required_properties,
+		)
 
 
 class CodeGenable(ABC):
@@ -781,11 +858,7 @@ class AZOps(BaseModel, CodeGenable):
 
 def main(openapi_root, openapi_file, output_file):
 	reader = Reader.load(openapi_root, Path(openapi_file))
-
-	parser = TypeAdapter(Dict[str, OADef])
-	oa_defs = parser.validate_python(reader.definitions)
-
-	transformer = IRTransformer(oa_defs, reader)
+	transformer = IRTransformer.from_reader(reader)
 
 	with open(output_file, mode="w", encoding="utf-8") as f:
 		f.write(

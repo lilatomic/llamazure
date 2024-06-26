@@ -162,7 +162,7 @@ class TestScript:
 		"""Test running the script with a spec that contains nested defs"""
 		openapi.main(
 			"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
-			"specification/portal/resource-manager/Microsoft.Portal/preview/2020-09-01-preview/portal.json",
+			"specification/applicationinsights/resource-manager/Microsoft.Insights/stable/2023-06-01/workbooks_API.json",
 			tmp_file,
 		)
 
