@@ -343,12 +343,12 @@ class IRTransformer:
 					properties=resolved_properties,
 					description=obj.description,
 				),
-				readonly=name in required_properties,
+				required=name in required_properties,
 			)
 		else:
 			return IR_T(
 				t=IRTransformer.resolve_type(obj.type),
-				readonly=name in required_properties,
+				required=name in required_properties,
 			)
 
 	@staticmethod
