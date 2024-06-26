@@ -33,6 +33,10 @@ from llamazure.azrest.models import AzList
 logger = logging.getLogger(__name__)
 
 
+def mk_typename(typename: str) -> str:
+	return typename.capitalize()
+
+
 class PathLookupError(Exception):
 	"""Could not look up an OpenAPI reference"""
 
@@ -392,7 +396,7 @@ class IRTransformer:
 		elif isinstance(p, OARef):
 			return IR_T(t=self.resolve_oaref(name, p))
 		elif isinstance(p, OADef):
-			return self.jsonparser.transform(name.capitalize(), p, p.required)
+			return self.jsonparser.transform(mk_typename(name), p, p.required)
 		elif p is None:
 			return IR_T(t="None")
 		else:
@@ -463,7 +467,7 @@ class IRTransformer:
 		elif isinstance(declared_type, IR_List):
 			type_as_str = "List[%s]" % IRTransformer.resolve_ir_t_str(declared_type.items)
 		elif isinstance(declared_type, str):
-			type_as_str = declared_type
+			type_as_str = mk_typename(declared_type)
 		else:
 			raise TypeError(f"Cannot handle {type(declared_type)}")
 
@@ -501,25 +505,25 @@ class IRTransformer:
 		"""Convert IR Defs to AZ Defs"""
 
 		property_c = []
-		if "properties" in irdef.properties:
-			prop_container = irdef.properties["properties"]
-			prop_t = prop_container.t
-
-			if isinstance(prop_t, IRDef):
-				prop_c_ir = prop_t
-			else:
-				assert isinstance(prop_t, str)  # TODO: Better checking or coercion
-				prop_ref = prop_t
-				prop_c_oa = self.oa_defs[prop_ref]
-				prop_c_ir = self.transform_def(prop_ref, prop_c_oa)
-			prop_c_az = self.defIR2AZ(prop_c_ir)
-
-			property_c.append(prop_c_az.model_copy(update={"name": "Properties"}))
-
 		for name, prop in irdef.properties.items():
-			if isinstance(prop.t, IRDef):
+			if name == "properties":
+				prop_container = irdef.properties["properties"]
+				prop_t = prop_container.t
+
+				if isinstance(prop_t, IRDef):
+					prop_c_ir = prop_t
+				else:
+					assert isinstance(prop_t, str)  # TODO: Better checking or coercion
+					prop_ref = prop_t
+					prop_c_oa = self.oa_defs[prop_ref]
+					prop_c_ir = self.transform_def(prop_ref, prop_c_oa)
+				prop_c_az = self.defIR2AZ(prop_c_ir)
+
+				property_c.append(prop_c_az.model_copy(update={"name": "Properties"}))
+
+			elif isinstance(prop.t, IRDef):
 				prop_c_az = self.defIR2AZ(prop.t)
-				property_c.append(prop_c_az.model_copy(update={"name": name.capitalize()}))
+				property_c.append(prop_c_az.model_copy(update={"name": mk_typename(name)}))
 
 		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), subclasses=property_c)
 
