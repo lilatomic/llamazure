@@ -459,6 +459,7 @@ class IRTransformer:
 	def defIR2AZ(self, irdef: IRDef) -> AZDef:
 		"""Convert IR Defs to AZ Defs"""
 
+		property_c = []
 		if "properties" in irdef.properties:
 			prop_container = irdef.properties["properties"]
 			prop_t = prop_container.t
@@ -467,10 +468,12 @@ class IRTransformer:
 			prop_c_ir = self.transform_def(prop_t, prop_c_oa)
 			prop_c_az = self.defIR2AZ(prop_c_ir)
 
-			property_c = [prop_c_az.model_copy(update={"name": "Properties"})]
+			property_c.append(prop_c_az.model_copy(update={"name": "Properties"}))
 
-		else:
-			property_c = []
+		for name, prop in irdef.properties.items():
+			if isinstance(prop.t, IRDef):
+				prop_c_az = self.defIR2AZ(prop.t)
+				property_c.append(prop_c_az.model_copy(update={"name": name.capitalize()}))
 
 		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), subclasses=property_c)
 
