@@ -467,12 +467,12 @@ class IRTransformer:
 			prop_c_ir = self.transform_def(prop_t, prop_c_oa)
 			prop_c_az = self.defIR2AZ(prop_c_ir)
 
-			property_c = prop_c_az.model_copy(update={"name": "Properties"})
+			property_c = [prop_c_az.model_copy(update={"name": "Properties"})]
 
 		else:
-			property_c = None
+			property_c = []
 
-		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), property_c=property_c)
+		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), subclasses=property_c)
 
 	@staticmethod
 	def paramOA2IR(oaparam: OAParam) -> IR_T:
@@ -652,11 +652,11 @@ class AZDef(BaseModel, CodeGenable):
 	name: str
 	description: Optional[str]
 	fields: List[AZField]
-	property_c: Optional[AZDef] = None
+	subclasses: List[AZDef] = []
 
 	def codegen(self) -> str:
-		if self.property_c:
-			property_c_codegen = indent(self.property_c.codegen(), "\t")
+		if self.subclasses:
+			property_c_codegen = indent("\n\n".join([e.codegen() for e in self.subclasses]), "\t")
 		else:
 			property_c_codegen = ""
 
@@ -664,13 +664,13 @@ class AZDef(BaseModel, CodeGenable):
 
 		return dedent(
 			'''\
-		class {name}(BaseModel):
-			"""{description}"""
-		{property_c_codegen}
-		{fields}
+			class {name}(BaseModel):
+				"""{description}"""
+			{property_c_codegen}
+			{fields}
 
-		{eq}
-		'''
+			{eq}
+			'''
 		).format(name=self.name, description=self.description, property_c_codegen=property_c_codegen, fields=fields, eq=self.codegen_eq())
 
 	def codegen_eq(self) -> str:
