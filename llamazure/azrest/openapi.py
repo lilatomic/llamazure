@@ -323,7 +323,7 @@ class IRTransformer:
 
 	def transform_def(self, name: str, obj: OADef) -> IRDef:
 		"""Transform an OpenAPI definition to IR"""
-		ir_properties = {p_name: self.transform_oa_field(p) for p_name, p in obj.properties.items()}
+		ir_properties = {p_name: self.transform_oa_field(p_name, p) for p_name, p in obj.properties.items()}
 		return IRDef(
 			name=name,
 			properties=ir_properties,
@@ -352,7 +352,7 @@ class IRTransformer:
 			)
 
 	@staticmethod
-	def transform_oa_field(p: Union[OADef.Array, OADef.Property, OARef, None]) -> IR_T:
+	def transform_oa_field(name: str, p: Union[OADef.Array, OADef.Property, OARef, None]) -> IR_T:
 		"""Transform an OpenAPI field"""
 		if isinstance(p, OADef.Property):
 			resolved_type = IRTransformer.resolve_type(p.t)
@@ -362,7 +362,7 @@ class IRTransformer:
 		elif isinstance(p, OARef):
 			return IR_T(t=resolve_path(p.ref))
 		elif isinstance(p, OADef.JSONSchemaProperty):
-			return IRTransformer.transform_jsonschema_t("properties", p, p.required)
+			return IRTransformer.transform_jsonschema_t(name.capitalize(), p, p.required)
 		elif p is None:
 			return IR_T(t="None")
 		else:
@@ -486,7 +486,7 @@ class IRTransformer:
 		Otherwise, it will always have a valid type
 		"""
 		if oaparam.oa_schema:
-			return IRTransformer.transform_oa_field(oaparam.oa_schema)
+			return IRTransformer.transform_oa_field(oaparam.name, oaparam.oa_schema)
 		else:
 			assert oaparam.type, "OAParam without schema does not have a type"
 			return IR_T(t=IRTransformer.resolve_type(oaparam.type))
@@ -541,7 +541,7 @@ class IRTransformer:
 		body_type = IRTransformer.unify_ir_t(body_types)
 		body_name = None if len(op.body_params) != 1 else op.body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
 		params = {p.name: IRTransformer.paramOA2IR(p) for p in op.url_params}
-		rets_ts = [IRTransformer.transform_oa_field(r.oa_schema) for r_name, r in (op.responses.items()) if r_name != "default"]
+		rets_ts = [IRTransformer.transform_oa_field(r_name, r.oa_schema) for r_name, r in (op.responses.items()) if r_name != "default"]
 		ret_t = IRTransformer.unify_ir_t(rets_ts)
 		ir_op = IROp(
 			object_name=object_name,

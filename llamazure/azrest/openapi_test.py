@@ -78,31 +78,31 @@ class TestIRTransformerTransformOAField:
 	@staticmethod
 	def test_transform_oa_field_property():
 		oa_field = OADef.Property(type="string", description="Example property", readOnly=True, required=True)
-		result = IRTransformer.transform_oa_field(oa_field)
+		result = IRTransformer.transform_oa_field("", oa_field)
 		assert result == IR_T(t=str, readonly=True, required=True)
 
 	@staticmethod
 	def test_transform_oa_field_array():
 		array_items = OADef.Property(type="integer", description="Example array item")
 		oa_field = OADef.Array(items=array_items, description="Example array field")
-		result = IRTransformer.transform_oa_field(oa_field)
+		result = IRTransformer.transform_oa_field("", oa_field)
 		assert result == IR_T(t=IR_List(items=IR_T(t=int, description="Example array item")))
 
 	@staticmethod
 	def test_transform_oa_field_ref():
 		oa_ref = OARef(**{"$ref": "#/definitions/ExampleDefinition", "description": "Example reference"})
-		result = IRTransformer.transform_oa_field(oa_ref)
+		result = IRTransformer.transform_oa_field("", oa_ref)
 		assert result == IR_T(t="ExampleDefinition")
 
 	@staticmethod
 	def test_transform_oa_field_none():
-		result = IRTransformer.transform_oa_field(None)
+		result = IRTransformer.transform_oa_field("", None)
 		assert result == IR_T(t="None")
 
 	@staticmethod
 	def test_transform_oa_field_invalid_type():
 		with pytest.raises(TypeError):
-			IRTransformer.transform_oa_field("invalid_type")
+			IRTransformer.transform_oa_field("", "invalid_type")
 
 
 class TestIRTransformerIRArray:

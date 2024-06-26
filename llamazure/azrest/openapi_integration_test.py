@@ -157,3 +157,19 @@ class TestScript:
 		parsed = ast.parse(output)
 		assert isinstance(parsed, ast.Module)
 		assert len(parsed.body) > 0
+
+	def test_run_includes_nested_defs(self, tmp_file):
+		"""Test running the script with a spec that contains nested defs"""
+		openapi.main(
+			"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
+			"specification/portal/resource-manager/Microsoft.Portal/preview/2020-09-01-preview/portal.json",
+			tmp_file,
+		)
+
+		with open(tmp_file, mode="r", encoding="utf-8") as output_file:
+			output = output_file.read()
+			assert len(output) > 0
+
+		parsed = ast.parse(output)
+		assert isinstance(parsed, ast.Module)
+		assert len(parsed.body) > 0
