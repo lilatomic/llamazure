@@ -1,4 +1,6 @@
-python_sources()
+python_sources(
+	dependencies=[":az_dashboards"],
+)
 
 adhoc_tool(
 	name="az_dashboards",
