@@ -72,7 +72,13 @@ class OADef(BaseModel):
 		readOnly: bool = False
 		required: bool = False
 
-	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef]]
+	class JSONSchemaProperty(BaseModel):
+		type: Optional[str] = None
+		description: Optional[str] = None
+		properties: Optional[Dict[str, OADef.JSONSchemaProperty]] = None
+		required: Optional[List[str]] = None
+
+	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef, OADef.JSONSchemaProperty]]
 	t: str = Field(alias="type")
 	description: Optional[str] = None
 
@@ -325,6 +331,27 @@ class IRTransformer:
 		)
 
 	@staticmethod
+	def transform_jsonschema_t(name: str, obj: OADef.JSONSchemaProperty, required_properties: Optional[List[str]]) -> IRDef | IR_T:
+		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
+		required_properties = required_properties or []
+		if obj.properties is not None:
+			# we're transforming an object
+			resolved_properties = {n: IRTransformer.transform_jsonschema_t(n, e, obj.required or []) for n, e in obj.properties.items()}
+			return IR_T(
+				t=IRDef(
+					name=name,
+					properties=resolved_properties,
+					description=obj.description,
+				),
+				readonly=name in required_properties,
+			)
+		else:
+			return IR_T(
+				t=IRTransformer.resolve_type(obj.type),
+				readonly=name in required_properties,
+			)
+
+	@staticmethod
 	def transform_oa_field(p: Union[OADef.Array, OADef.Property, OARef, None]) -> IR_T:
 		"""Transform an OpenAPI field"""
 		if isinstance(p, OADef.Property):
@@ -334,6 +361,8 @@ class IRTransformer:
 			return IRTransformer.ir_array(p)
 		elif isinstance(p, OARef):
 			return IR_T(t=resolve_path(p.ref))
+		elif isinstance(p, OADef.JSONSchemaProperty):
+			return IRTransformer.transform_jsonschema_t("properties", p, p.required)
 		elif p is None:
 			return IR_T(t="None")
 		else:
