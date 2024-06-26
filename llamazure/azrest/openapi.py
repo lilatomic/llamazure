@@ -22,8 +22,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import Dict, List, Literal, Optional, Sequence, Tuple, Type, Union, cast
+from typing import Dict, List, Literal, Optional, Sequence, Tuple, Type, Union, cast, ClassVar
 
+import pydantic
 import requests
 from pydantic import BaseModel, Field, TypeAdapter
 
@@ -40,6 +41,14 @@ class PathLookupError(Exception):
 		super().__init__(f"Error while looking up path: {object_path}")
 
 
+class LoadError(Exception):
+
+	def __init__(self, path, obj):
+		self.path = path
+		self.obj = obj
+		super().__init__(f"Error deserialising {path=}")
+
+
 class OARef(BaseModel):
 	"""An OpenAPI reference"""
 
@@ -53,16 +62,6 @@ class OARef(BaseModel):
 	def name(self) -> str:
 		"""The name of this Definition"""
 		return self.ref.split("/")[-1]
-
-
-class JSONSchema(BaseModel):
-	class Ref(BaseModel):
-		ref: str = Field(alias="$ref")
-
-	properties: Optional[Dict[str, Union[JSONSchema.Ref, JSONSchema]]] = None
-	allOf: Optional[List[Union[JSONSchema.Ref, JSONSchema]]] = None
-	# anyOf: Optional[Dict[str, OADef.JSONSchemaProperty]] = None
-	required: Optional[List[str]] = None
 
 
 class OADef(BaseModel):
@@ -83,10 +82,13 @@ class OADef(BaseModel):
 		readOnly: bool = False
 		required: bool = False
 
-	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef, JSONSchema]]
-	t: str = Field(alias="type")
+	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef, OADef]] = {}
+	t: Optional[str] = Field(alias="type", default=None)
 	description: Optional[str] = None
 
+	allOf: Optional[List[OAObj]] = None
+	# anyOf: Optional[Dict[str, OADef.JSONSchemaProperty]] = None
+	required: Optional[List[str]] = None
 
 class OAEnum(BaseModel):
 	t: Union[str] = Field(alias="type")
@@ -297,9 +299,13 @@ class IRTransformer:
 
 	@classmethod
 	def from_reader(cls, reader: Reader) -> IRTransformer:
-		parser = TypeAdapter(Dict[str, Union[OAEnum, OADef, JSONSchema]])
-		oa_defs = parser.validate_python(reader.definitions)
-		return IRTransformer(oa_defs, reader)
+		parser = TypeAdapter(Dict[str, Union[OAEnum, OADef]])
+		try:
+			oa_defs = parser.validate_python(reader.definitions)
+			return IRTransformer(oa_defs, reader)
+		except pydantic.ValidationError as e:
+			print(e.errors())
+			raise LoadError(reader.path, reader.definitions) from e
 
 	def transform_definitions(self) -> str:
 		"""Transform the OpenAPI objects into their codegened str"""
@@ -307,7 +313,8 @@ class IRTransformer:
 		for name, obj in self.oa_defs.items():
 			ir_definitions[name] = self.transform_def(name, obj)
 
-		ir_properties_classes = self.identify_definition_properties_classes(ir_definitions)
+		# ir_properties_classes = self.identify_definition_properties_classes(ir_definitions)
+		ir_properties_classes = {}
 
 		ir_azlists = self.identify_azlists(ir_definitions)
 
@@ -324,9 +331,16 @@ class IRTransformer:
 		for name, ir in ir_definitions.items():
 			if "properties" in ir.properties:
 				prop_t = ir.properties["properties"].t
-				assert isinstance(prop_t, str)  # TODO: Better checking or coercion
-				prop_ref = prop_t
-				ir_properties_classes[prop_ref] = ir_definitions[prop_ref]
+
+				if isinstance(prop_t, IRDef):
+					found = prop_t
+					prop_ref = prop_t.name
+				else:
+					assert isinstance(prop_t, str)  # TODO: Better checking or coercion
+					found = ir_definitions[prop_t]
+					prop_ref = prop_t
+
+				ir_properties_classes[prop_ref] = found
 		return ir_properties_classes
 
 	def identify_azlists(self, ir_definitions):
@@ -368,7 +382,7 @@ class IRTransformer:
 				description=obj.description,
 			)
 
-	def transform_oa_field(self, name: str, p: Union[OADef.Array, OADef.Property, OARef, None]) -> IR_T:
+	def transform_oa_field(self, name: str, p: Union[OADef.Array, OADef.Property, OARef, OADef, None]) -> IR_T:
 		"""Transform an OpenAPI field"""
 		if isinstance(p, OADef.Property):
 			resolved_type = IRTransformer.resolve_type(p.t)
@@ -377,7 +391,7 @@ class IRTransformer:
 			return self.ir_array(name, p)
 		elif isinstance(p, OARef):
 			return IR_T(t=self.resolve_oaref(name, p))
-		elif isinstance(p, JSONSchema):
+		elif isinstance(p, OADef):
 			return self.jsonparser.transform(name.capitalize(), p, p.required)
 		elif p is None:
 			return IR_T(t="None")
@@ -490,9 +504,14 @@ class IRTransformer:
 		if "properties" in irdef.properties:
 			prop_container = irdef.properties["properties"]
 			prop_t = prop_container.t
-			assert isinstance(prop_t, str)  # TODO: Better checking or coercion
-			prop_c_oa = self.oa_defs[prop_t]
-			prop_c_ir = self.transform_def(prop_t, prop_c_oa)
+
+			if isinstance(prop_t, IRDef):
+				prop_c_ir = prop_t
+			else:
+				assert isinstance(prop_t, str)  # TODO: Better checking or coercion
+				prop_ref = prop_t
+				prop_c_oa = self.oa_defs[prop_ref]
+				prop_c_ir = self.transform_def(prop_ref, prop_c_oa)
 			prop_c_az = self.defIR2AZ(prop_c_ir)
 
 			property_c.append(prop_c_az.model_copy(update={"name": "Properties"}))
@@ -633,25 +652,30 @@ class IRTransformer:
 		return resolved_parameters
 
 
+OAObj = Union[OADef, OARef, OAEnum]
+
 class JSONSchemaSubparser:
+
+	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OADef, OARef, OAEnum])
+
 	def __init__(self, defs: Dict[str, OADef], openapi: Reader):
 		self.oa_defs: Dict[str, OADef] = defs
 		self.openapi = openapi
 
-	def _is_full_inherit(self, obj: JSONSchema):
-		return obj.properties is None and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], JSONSchema.Ref)
+	def _is_full_inherit(self, obj: OAObj):
+		return obj.properties is None and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef)
 
-	def resolve_reference(self, name, ref: JSONSchema.Ref, required_properties: List[str]) -> IRDef | IR_T:
+	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IRDef | IR_T:
 		reader, resolved = self.openapi.load_relative(ref.ref)
 		relative_transformer = JSONSchemaSubparser(self.oa_defs, reader)
-		resolved_loaded = JSONSchema(**resolved)
+		resolved_loaded = self.oaparser.validate_python(resolved)
 		return relative_transformer.transform(name, resolved_loaded, required_properties)
 
-	def transform(self, name: str, obj: Union[JSONSchema.Ref, JSONSchema], required_properties: Optional[List[str]]) -> IRDef | IR_T:
+	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IRDef | IR_T:
 		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
 		required_properties = required_properties or []
 
-		if isinstance(obj, JSONSchema.Ref):
+		if isinstance(obj, OARef):
 			return self.resolve_reference(name, obj, required_properties)
 
 		if not obj.properties and not obj.allOf:
