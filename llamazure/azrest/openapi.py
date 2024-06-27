@@ -270,6 +270,11 @@ class Reader:
 			raise PathLookupError(object_path)
 
 	@staticmethod
+	def extract_remote_object_name(object_path: str) -> str:
+		"""Extract the name of a remote object. Useful for registering class references while instantiating."""
+		return object_path.split("/")[-1]
+
+	@staticmethod
 	def _load_file(root: str, file_path: Path) -> Reader:
 		"""Load the contents of a file"""
 		if root.startswith("https://") or root.startswith("http://"):
@@ -293,6 +298,37 @@ def resolve_path(path: str) -> str:
 	return path
 
 
+class RefCache:
+	ref_initialising = object()
+
+	def __init__(self):
+		self.cache = {}
+
+	def __getitem__(self, ref: str):
+		if ref in self.cache:
+			value = self.cache[ref]
+			if value is not RefCache.ref_initialising:
+				return value
+			else:
+				return None
+
+	def mark_initialising(self, ref: str):
+		"""Mark that we've started initialising this reference, so we know if we're in a recursive loop."""
+		self.cache[ref] = RefCache.ref_initialising
+
+	def mark_referenceable(self, ref: str, value: IR_T):
+		"""
+		Mark that we have enough information to provide a reference to this class,
+		even if we haven't fully resolved it.
+
+		For example, we can provide a class name even if we don't know all of its members
+		"""
+		self.cache[ref] = value
+
+	def __setitem__(self, ref: str, value):
+		self.cache[ref] = value
+
+
 class IRTransformer:
 	"""Transformer to and from the IR"""
 
@@ -301,6 +337,7 @@ class IRTransformer:
 		self.openapi = openapi
 
 		self.jsonparser = JSONSchemaSubparser(defs, openapi)
+		self.refcache = RefCache()
 
 	@classmethod
 	def from_reader(cls, reader: Reader) -> IRTransformer:
@@ -421,7 +458,11 @@ class IRTransformer:
 		elif isinstance(obj.items, OARef):
 
 			t = self.resolve_oaref(name, obj.items)
-			as_list = IR_List(items=IR_T(t=t, required=True))
+			if isinstance(t, IRDef):
+				t = IR_T(t=t, required=True)
+			else:
+				t = IR_T(t=t.t, required=True)
+			as_list = IR_List(items=t)
 
 		else:
 			# I think this is blocked by Pydantic type definitions
@@ -430,14 +471,29 @@ class IRTransformer:
 		return IR_T(t=as_list, required=True)
 
 	def resolve_oaref(self, name, ref: OARef) -> Union[IR_T, IRDef]:
+		l.info(f"resolve oaref {name=} ref={ref.ref}")
+
+		if self.refcache[ref.ref]:
+			return self.refcache[ref.ref]
+
+		self.refcache.mark_initialising(ref.ref)
+		ref_name = self.openapi.extract_remote_object_name(ref.ref)
+		self.refcache.mark_referenceable(ref.ref, IR_T(t=ref_name))
+
 		reader, resolved = self.openapi.load_relative(ref.ref)
-		relative_transformer = IRTransformer.from_reader(reader)
+		# TODO: better way of determining if we need to shift contexts
+		if reader == self.openapi:
+			relative_transformer = self
+		else:
+			relative_transformer = IRTransformer.from_reader(reader)
 
 		parser = TypeAdapter(Union[OAEnum, OADef])
 		resolved_loaded = parser.validate_python(resolved)
-		return relative_transformer.transform_def(name, resolved_loaded)
 
+		result = relative_transformer.transform_def(ref_name, resolved_loaded)
 
+		self.refcache[ref.ref] = result
+		return result
 
 	@staticmethod
 	def ir_azarray(obj: Union[IRDef, IR_Enum]) -> Optional[AZAlias]:
@@ -682,34 +738,40 @@ class JSONSchemaSubparser:
 		if isinstance(obj, OARef):
 			return self.resolve_reference(name, obj, required_properties)
 
-		if not obj.properties and not obj.allOf:
+		elif isinstance(obj, OADef):
+			if not obj.properties and not obj.allOf:
+				return IR_T(
+					t=IRTransformer.resolve_type(obj.t),
+					required=name in required_properties,
+				)
+
+			if self._is_full_inherit(obj):
+				return self.resolve_reference(name, obj.allOf[0], required_properties)
+
+			properties = {}
+			if obj.properties is not None:
+				# we're transforming an object
+				properties.update({n: self.transform(n, e, obj.required or []) for n, e in obj.properties.items()})
+
+			if obj.allOf is not None:
+				raise NotImplementedError()
+
 			return IR_T(
-				t=IRTransformer.resolve_type(obj.type),
+				t=IRDef(
+					name=name,
+					properties=properties,
+					description=obj.description,
+				),
 				required=name in required_properties,
 			)
+		elif isinstance(obj, OAParam):
+			raise NotImplementedError()
+		if isinstance(obj, OADef.Property):
+			resolved_type = IRTransformer.resolve_type(obj.t)
+			return IR_T(t=resolved_type, readonly=obj.readOnly, required=obj.required)
 
-		if self._is_full_inherit(obj):
-			return self.resolve_reference(name, obj.allOf[0], required_properties)
-
-		properties = {}
-		if obj.properties is not None:
-			# we're transforming an object
-			properties.update({n: self.transform(n, e, obj.required or []) for n, e in obj.properties.items()})
-
-		if obj.allOf is not None:
-			if len(obj.allOf) == 1 and "$ref" in obj.allOf:
-				# only one object is referenced, so we can just use it as a type
-				# TODO: follow and import
-				properties.append()
-
-		return IR_T(
-			t=IRDef(
-				name=name,
-				properties=properties,
-				description=obj.description,
-			),
-			required=name in required_properties,
-		)
+		else:
+			raise TypeError(f"unsupported OpenAPI type {type(obj)}")
 
 
 class CodeGenable(ABC):
