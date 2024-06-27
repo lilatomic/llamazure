@@ -22,7 +22,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import Dict, List, Literal, Optional, Sequence, Tuple, Type, Union, cast, ClassVar
+from typing import ClassVar, Dict, List, Literal, Optional, Sequence, Tuple, Type, Union, cast
 
 import pydantic
 import requests
@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field, TypeAdapter
 
 from llamazure.azrest.models import AzList
 
-logger = logging.getLogger(__name__)
+l = logging.getLogger(__name__)
 
 
 def mk_typename(typename: str) -> str:
@@ -46,7 +46,6 @@ class PathLookupError(Exception):
 
 
 class LoadError(Exception):
-
 	def __init__(self, path, obj):
 		self.path = path
 		self.obj = obj
@@ -93,6 +92,7 @@ class OADef(BaseModel):
 	allOf: Optional[List[OAObj]] = None
 	# anyOf: Optional[Dict[str, OADef.JSONSchemaProperty]] = None
 	required: Optional[List[str]] = None
+
 
 class OAEnum(BaseModel):
 	t: Union[str] = Field(alias="type")
@@ -188,7 +188,7 @@ class IRDef(BaseModel):
 class IR_T(BaseModel):
 	"""An IR Type descriptor"""
 
-	t: Union[Type, IRDef, IR_List,IR_Enum, str]  # TODO: upconvert str
+	t: Union[Type, IRDef, IR_List, IR_Enum, str]  # TODO: upconvert str
 	readonly: bool = False
 	required: bool = True
 
@@ -202,6 +202,7 @@ class IR_List(BaseModel):
 
 class IR_Enum(BaseModel):
 	"""An IR descriptor for an Enum"""
+
 	name: str
 	values: List[str]
 	description: Optional[str] = None
@@ -317,12 +318,9 @@ class IRTransformer:
 		for name, obj in self.oa_defs.items():
 			ir_definitions[name] = self.transform_def(name, obj)
 
-		# ir_properties_classes = self.identify_definition_properties_classes(ir_definitions)
-		ir_properties_classes = {}
-
 		ir_azlists = self.identify_azlists(ir_definitions)
 
-		azs = self.identify_definitions(ir_azlists, ir_definitions, ir_properties_classes)
+		azs = self.identify_definitions(ir_azlists, ir_definitions)
 
 		output_req: List[CodeGenable] = azs + list(ir_azlists.values())
 
@@ -355,8 +353,8 @@ class IRTransformer:
 				ir_azlists[name] = azlist
 		return ir_azlists
 
-	def identify_definitions(self, ir_azlists, ir_definitions, ir_props):
-		ir_consumed = ir_props.keys() | ir_azlists.keys()
+	def identify_definitions(self, ir_azlists, ir_definitions):
+		ir_consumed = ir_azlists.keys()
 		ir_defs = {}
 		for name, ir in ir_definitions.items():
 			if name not in ir_consumed:
@@ -372,6 +370,7 @@ class IRTransformer:
 
 	def transform_def(self, name: str, obj: Union[OADef, OAEnum]) -> Union[IRDef, IR_Enum]:
 		"""Transform an OpenAPI definition to IR"""
+		l.info(f"transform def {name}")
 		if isinstance(obj, OADef):
 			ir_properties = {p_name: self.transform_oa_field(p_name, p) for p_name, p in obj.properties.items()}
 			return IRDef(
@@ -658,6 +657,7 @@ class IRTransformer:
 
 OAObj = Union[OADef, OARef, OAEnum]
 
+
 class JSONSchemaSubparser:
 
 	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OADef, OARef, OAEnum])
@@ -907,7 +907,11 @@ def main(openapi_root, openapi_file, output_file):
 		f.write(transformer.transform_paths(reader.paths, reader.apiv))
 
 
+logging.basicConfig(level=logging.DEBUG)
+
+
 if __name__ == "__main__":
 	import sys
 
+	logging.basicConfig(level=logging.DEBUG)
 	main(*sys.argv[1:])

@@ -16,6 +16,7 @@ from llamazure_tools.migrate.az_dashboards import AzDashboards, Dashboard, Patch
 @dataclass
 class JSONTraverser:
 	"""Traverse a JSON structure and replace exact string matches"""
+
 	replacements: Dict[str, str]
 
 	def traverse(self, obj: Any) -> Any:
@@ -32,6 +33,7 @@ class JSONTraverser:
 @dataclass
 class Migrator:
 	"""Migrate an Azure Dashboard"""
+
 	az: AzRest
 	dashboard: Resource
 	transformer: JSONTraverser
