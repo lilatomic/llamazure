@@ -739,6 +739,7 @@ class JSONSchemaSubparser:
 	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IRDef | IR_T | IR_Enum:
 		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
 		l.info(f"Transforming {name}")
+		name = mk_typename(name) # references will often be properties and will not have a typename as their name. Eg `"myProp": { "$ref": "..." }`
 		required_properties = required_properties or []
 
 		if isinstance(obj, OARef):
