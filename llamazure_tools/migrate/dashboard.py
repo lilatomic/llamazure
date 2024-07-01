@@ -3,7 +3,6 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
 
 import click
 
@@ -11,23 +10,7 @@ from llamazure.azrest.azrest import AzRest
 from llamazure.rid import rid
 from llamazure.rid.rid import Resource
 from llamazure_tools.migrate.az_dashboards import AzDashboards, Dashboard, PatchableDashboard
-
-
-@dataclass
-class JSONTraverser:
-	"""Traverse a JSON structure and replace exact string matches"""
-
-	replacements: Dict[str, str]
-
-	def traverse(self, obj: Any) -> Any:
-		if isinstance(obj, dict):
-			return {key: self.traverse(value) for key, value in obj.items()}
-		elif isinstance(obj, list):
-			return [self.traverse(item) for item in obj]
-		elif isinstance(obj, str):
-			return self.replacements.get(obj, obj)
-		else:
-			return obj
+from llamazure_tools.migrate.util import JSONTraverser
 
 
 @dataclass
@@ -75,16 +58,16 @@ class Migrator:
 
 
 @click.command()
-@click.option("--dashboard-id", help="The ID of the dashboard to migrate.")
+@click.option("--resource-id", help="The ID of the dashboard to migrate.")
 @click.option("--replacements", help="A JSON string of the replacements to apply.")
 @click.option("--backup-directory", type=click.Path(), help="The directory where backups will be stored.")
-def migrate(dashboard_id: str, replacements: str, backup_directory: str):
+def migrate(resource_id: str, replacements: str, backup_directory: str):
 	from azure.identity import DefaultAzureCredential
 
 	az = AzRest.from_credential(DefaultAzureCredential())
 
 	replacements = json.loads(replacements)
-	resource = rid.parse(dashboard_id)
+	resource = rid.parse(resource_id)
 	transformer = JSONTraverser(replacements)
 	migrator = Migrator(az, resource, transformer, Path(backup_directory))
 
