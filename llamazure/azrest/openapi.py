@@ -782,10 +782,11 @@ class JSONSchemaSubparser:
 			)
 		elif isinstance(obj, OAParam):
 			raise NotImplementedError()
-		if isinstance(obj, OADef.Property):
+		elif isinstance(obj, OADef.Property):
 			resolved_type = IRTransformer.resolve_type(obj.t)
 			return IR_T(t=resolved_type, readonly=obj.readOnly, required=obj.required)
-
+		elif isinstance(obj, OADef.Array):
+			return self.old_parser.ir_array(name, obj)  # TODO: Port to this
 		else:
 			raise TypeError(f"unsupported OpenAPI type {type(obj)}")
 
