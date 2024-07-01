@@ -34,7 +34,8 @@ l = logging.getLogger(__name__)
 
 
 def mk_typename(typename: str) -> str:
-	return typename.capitalize()
+	return typename[0].capitalize() + typename[1:]
+
 
 
 class PathLookupError(Exception):
