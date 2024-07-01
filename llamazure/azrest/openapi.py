@@ -480,7 +480,7 @@ class IRTransformer:
 			return self.refcache[ref.ref]
 
 		self.refcache.mark_initialising(ref.ref)
-		ref_name = self.openapi.extract_remote_object_name(ref.ref)
+		ref_name = mk_typename(self.openapi.extract_remote_object_name(ref.ref))
 		self.refcache.mark_referenceable(ref.ref, IR_T(t=ref_name))
 
 		reader, resolved = self.openapi.load_relative(ref.ref)
