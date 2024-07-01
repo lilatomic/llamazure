@@ -453,8 +453,11 @@ class IRTransformer:
 		}.get(t, t)
 		return py_type
 
-	def ir_array(self, name, obj: OADef.Array) -> IR_T:
+	def ir_array(self, name, obj: OADef.Array, required_properties: Optional[List[str]] = None) -> IR_T:
 		"""Transform an OpenAPI array to IR"""
+		required_properties = required_properties or []
+		required = name in required_properties
+
 		if isinstance(obj.items, OADef.Property):
 			# Probably a type
 			as_list = IR_List(items=IR_T(t=IRTransformer.resolve_type(obj.items.t), required=True))
@@ -471,7 +474,7 @@ class IRTransformer:
 			# I think this is blocked by Pydantic type definitions
 			raise NotImplementedError("List of List not supported")
 
-		return IR_T(t=as_list, required=True)
+		return IR_T(t=as_list, required=required)
 
 	def resolve_oaref(self, name, ref: OARef) -> Union[IR_T, IRDef]:
 		l.info(f"resolve oaref {name=} ref={ref.ref}")
@@ -739,7 +742,7 @@ class JSONSchemaSubparser:
 	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IRDef | IR_T | IR_Enum:
 		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
 		l.info(f"Transforming {name}")
-		name = mk_typename(name) # references will often be properties and will not have a typename as their name. Eg `"myProp": { "$ref": "..." }`
+		typename = mk_typename(name) # references will often be properties and will not have a typename as their name. Eg `"myProp": { "$ref": "..." }`
 		required_properties = required_properties or []
 
 		if isinstance(obj, OARef):
@@ -775,7 +778,7 @@ class JSONSchemaSubparser:
 
 			return IR_T(
 				t=IRDef(
-					name=name,
+					name=typename,
 					properties=properties,
 					description=obj.description,
 				),
@@ -787,7 +790,7 @@ class JSONSchemaSubparser:
 			resolved_type = IRTransformer.resolve_type(obj.t)
 			return IR_T(t=resolved_type, readonly=obj.readOnly, required=obj.required)
 		elif isinstance(obj, OADef.Array):
-			return self.old_parser.ir_array(name, obj)  # TODO: Port to this
+			return self.old_parser.ir_array(name, obj, required_properties)  # TODO: Port to this
 		else:
 			raise TypeError(f"unsupported OpenAPI type {type(obj)}")
 
