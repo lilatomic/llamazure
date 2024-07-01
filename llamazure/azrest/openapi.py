@@ -37,7 +37,6 @@ def mk_typename(typename: str) -> str:
 	return typename[0].capitalize() + typename[1:]
 
 
-
 class PathLookupError(Exception):
 	"""Could not look up an OpenAPI reference"""
 
@@ -85,6 +84,7 @@ class OADef(BaseModel):
 		description: Optional[str] = None
 		readOnly: bool = False
 		required: bool = False
+		items: Optional[Dict[str, str]] = None
 
 	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef, OADef]] = {}
 	t: Optional[str] = Field(alias="type", default=None)
@@ -111,6 +111,7 @@ class OAParam(BaseModel):
 	type: Optional[str] = None
 	description: str
 	oa_schema: Optional[OARef] = Field(alias="schema", default=None)
+	items: Optional[Dict] = None
 
 
 class OAResponse(BaseModel):
@@ -146,6 +147,10 @@ class OAOp(BaseModel):
 		"""Parameters that belong in the URL"""
 		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "path"]
 
+	@property
+	def query_params(self) -> List[OAParam]:
+		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "query" and p.name != "api-version"]
+
 
 class OAPath(BaseModel):
 	"""An OpenAPI Path item"""
@@ -175,6 +180,7 @@ class IROp(BaseModel):
 	body_name: Optional[str] = None
 	body: Optional[IR_T] = None
 	params: Optional[Dict[str, IR_T]]
+	query_params: Optional[Dict[str, IR_T]]
 	ret_t: Optional[IR_T] = None
 
 
@@ -597,9 +603,19 @@ class IRTransformer:
 		"""
 		if oaparam.oa_schema:
 			return self.transform_oa_field(oaparam.name, oaparam.oa_schema)
+		elif oaparam.type == "array":
+
+			def resolve_array(t_decl: Dict) -> IR_T:
+				if t_decl["type"] == "array":
+					t = IR_List(items=(resolve_array(t_decl["items"])), required=True)
+				else:
+					t=IRTransformer.resolve_type(t_decl["type"])
+				return IR_T(t=t, required=t_decl.get("required", True))
+
+			return resolve_array(oaparam.model_dump())
 		else:
 			assert oaparam.type, "OAParam without schema does not have a type"
-			return IR_T(t=IRTransformer.resolve_type(oaparam.type))
+			return IR_T(t=IRTransformer.resolve_type(oaparam.type), required=oaparam.required)
 
 	@staticmethod
 	def unify_ir_t(ir_ts: List[IR_T]) -> Optional[IR_T]:
