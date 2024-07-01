@@ -759,8 +759,18 @@ class JSONSchemaSubparser:
 				# we're transforming an object
 				properties.update({n: self.transform(n, e, obj.required or []) for n, e in obj.properties.items()})
 
-			if obj.allOf is not None:
-				raise NotImplementedError()
+			if obj.allOf:
+				for referenced in obj.allOf:
+					referenced_obj = self.transform(name, referenced, [])
+					if isinstance(referenced_obj, IR_T):
+						resolved_t = referenced_obj.t
+						assert isinstance(resolved_t, IRDef), "Reference did not reference a definition"
+					elif isinstance(referenced_obj, IRDef):
+						resolved_t = referenced_obj
+					else:
+						raise ValueError(f"Reference was not expected type={type(referenced_obj)}")
+
+					properties.update(resolved_t.properties)
 
 			return IR_T(
 				t=IRDef(
