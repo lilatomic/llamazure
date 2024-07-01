@@ -58,6 +58,9 @@ class Req(Generic[Ret_T]):
 		"""Add query params to this request"""
 		return dataclasses.replace(self, params={**self.params, **params})
 
+	def add_param(self, name: str, value: str) -> Req:
+		return dataclasses.replace(self, params={**self.params, **{name: value}})
+
 	def with_ret_t(self, ret_t: Type[Ret_T]) -> Req:
 		"""Override the return type"""
 		return dataclasses.replace(self, ret_t=ret_t)

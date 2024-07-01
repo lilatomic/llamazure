@@ -650,6 +650,7 @@ class IRTransformer:
 		body_type = IRTransformer.unify_ir_t(body_types)
 		body_name = None if len(op.body_params) != 1 else op.body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
 		params = {p.name: self.paramOA2IR(p) for p in op.url_params}
+		query_params = {p.name: self.paramOA2IR(p) for p in op.query_params}
 		rets_ts = [self.transform_oa_field(r_name, r.oa_schema) for r_name, r in (op.responses.items()) if r_name != "default"]
 		ret_t = IRTransformer.unify_ir_t(rets_ts)
 		ir_op = IROp(
@@ -662,6 +663,7 @@ class IRTransformer:
 			body=body_type,
 			body_name=body_name,
 			params=params or None,
+			query_params=query_params or None,
 			ret_t=ret_t,
 		)
 		return ir_op
@@ -686,11 +688,19 @@ class IRTransformer:
 			az_params = {k: IRTransformer.resolve_ir_t_str(v) for k, v in op.params.items()}
 		else:
 			az_params = {}
+
+		if op.query_params:
+			query_params = [AZOp.Param(name=p_name, type=IRTransformer.resolve_ir_t_str(p), required=p.required) for p_name, p in op.query_params.items()]
+		else:
+			query_params = []
+		query_params.sort(key=lambda x: x.required, reverse=True)
+
 		if op.body or op.body_name:
 			assert op.body and op.body_name, f"Need to provide both body and body_name {name=} {op.name=} {op.body=} {op.body_name=}"  # TODO: solidify this requirement
 			body = AZOp.Body(name=op.body_name, type=IRTransformer.resolve_ir_t_str(op.body))
 		else:
 			body = None
+
 		az_op = AZOp(
 			ops_name=name,
 			name=op.name,
@@ -700,6 +710,7 @@ class IRTransformer:
 			apiv=op.apiv,
 			body=body,
 			params=az_params,
+			query_params=query_params,
 			ret_t=IRTransformer.resolve_ir_t_str(op.ret_t),
 		)
 		return az_op
@@ -742,7 +753,7 @@ class JSONSchemaSubparser:
 	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IRDef | IR_T | IR_Enum:
 		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
 		l.info(f"Transforming {name}")
-		typename = mk_typename(name) # references will often be properties and will not have a typename as their name. Eg `"myProp": { "$ref": "..." }`
+		typename = mk_typename(name)  # references will often be properties and will not have a typename as their name. Eg `"myProp": { "$ref": "..." }`
 		required_properties = required_properties or []
 
 		if isinstance(obj, OARef):
@@ -903,6 +914,11 @@ class AZOp(BaseModel, CodeGenable):
 		type: str
 		name: str
 
+	class Param(BaseModel):
+		name: str
+		type: str
+		required: bool = False
+
 	ops_name: str
 	name: str
 	description: Optional[str] = None
@@ -911,6 +927,7 @@ class AZOp(BaseModel, CodeGenable):
 	apiv: Optional[str]
 	body: Optional[Body] = None
 	params: Dict[str, str] = {}
+	query_params: List[Param] = []
 	ret_t: Optional[str]
 
 	def codegen(self) -> str:
@@ -919,6 +936,7 @@ class AZOp(BaseModel, CodeGenable):
 			"name": self.quote(self.ops_name + "." + self.name),
 			"path": self.fstring(self.path),
 		}
+		query_params = ""
 		if self.apiv:
 			req_args["apiv"] = self.quote(self.apiv)
 		if self.params:
@@ -926,6 +944,21 @@ class AZOp(BaseModel, CodeGenable):
 		if self.body:
 			params.append(f"{self.body.name}: {self.body.type}")
 			req_args["body"] = self.body.name
+
+		if self.query_params:
+			for p in self.query_params:
+				if p.required:
+					params.append(f"{p.name}: {p.type}")
+				else:
+					params.append(f"{p.name}: {p.type} = None")
+
+				query_params += dedent(
+					f"""\
+				if {p.name} is not None:
+					r = r.add_param("{p.name}", str({p.name}))
+				"""
+				)
+
 		if self.ret_t:
 			req_args["ret_t"] = self.ret_t
 
@@ -934,9 +967,11 @@ class AZOp(BaseModel, CodeGenable):
 		@staticmethod
 		def {name}({params}) -> Req[{ret_t}]:
 			"""{description}"""
-			return Req.{method}(
+			r = Req.{method}(
 		{req_args}
 			)
+		{query_params}
+			return r
 		'''
 		).format(
 			name=self.name,
@@ -945,6 +980,7 @@ class AZOp(BaseModel, CodeGenable):
 			ret_t=self.ret_t,
 			method=self.method,
 			req_args=indent(",\n".join("=".join([k, v]) for k, v in req_args.items()), "\t\t"),
+			query_params=indent(query_params, "\t"),
 		)
 
 
