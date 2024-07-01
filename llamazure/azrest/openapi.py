@@ -714,12 +714,12 @@ class IRTransformer:
 		return resolved_parameters
 
 
-OAObj = Union[OADef, OARef, OAEnum]
+OAObj = Union[OARef, OADef, OAEnum]
 
 
 class JSONSchemaSubparser:
 
-	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OADef, OARef, OAEnum])
+	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OARef, OADef, OAEnum])
 
 	def __init__(self, defs: Dict[str, OADef], openapi: Reader, old_parser: IRTransformer):
 		self.oa_defs: Dict[str, OADef] = defs
@@ -727,7 +727,7 @@ class JSONSchemaSubparser:
 		self.old_parser = old_parser
 
 	def _is_full_inherit(self, obj: OAObj):
-		return obj.properties is None and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef)
+		return not obj.properties and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef)
 
 	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IRDef | IR_T:
 		reader, resolved = self.openapi.load_relative(ref.ref)
@@ -736,7 +736,7 @@ class JSONSchemaSubparser:
 		resolved_loaded = self.oaparser.validate_python(resolved)
 		return relative_transformer.transform(name, resolved_loaded, required_properties)
 
-	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IRDef | IR_T:
+	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IRDef | IR_T | IR_Enum:
 		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
 		l.info(f"Transforming {name}")
 		required_properties = required_properties or []
