@@ -946,6 +946,9 @@ class AZOp(BaseModel, CodeGenable):
 	query_params: List[Param] = []
 	ret_t: Optional[str]
 
+	def _safe_param_name(self, s: str) -> str:
+		return s.replace("$", "")
+
 	def codegen(self) -> str:
 		params = []  # TODO: add from path
 		req_args = {
@@ -963,15 +966,16 @@ class AZOp(BaseModel, CodeGenable):
 
 		if self.query_params:
 			for p in self.query_params:
+				p_name_safe = self._safe_param_name(p.name)
 				if p.required:
-					params.append(f"{p.name}: {p.type}")
+					params.append(f"{p_name_safe}: {p.type}")
 				else:
-					params.append(f"{p.name}: {p.type} = None")
+					params.append(f"{p_name_safe}: {p.type} = None")
 
 				query_params += dedent(
 					f"""\
-				if {p.name} is not None:
-					r = r.add_param("{p.name}", str({p.name}))
+				if {p_name_safe} is not None:
+					r = r.add_param("{p.name}", str({p_name_safe}))
 				"""
 				)
 
