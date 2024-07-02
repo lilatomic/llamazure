@@ -1028,27 +1028,39 @@ def codegen() -> str:
 	)
 
 
-def main(openapi_root, openapi_file, output_file):
+def main(openapi_root, openapi_file, output_dir):
 	reader = Reader.load(openapi_root, Path(openapi_file))
-	transformer = IRTransformer.from_reader(reader)
 
-	with open(output_file, mode="w", encoding="utf-8") as f:
-		f.write(
-			dedent(
-				"""\
-				# pylint: disable
-				# flake8: noqa
-				from __future__ import annotations
-				from typing import List, Optional, Union
+	last_size = 0
+	while len(reader.reader_cache) > last_size:
+		this_size = len(reader.reader_cache)
+		for p, r in list(reader.reader_cache.items())[last_size:]:
+			transformer = IRTransformer.from_reader(reader)
+			transformer.transform_definitions()
+			transformer.transform_paths(r.paths, r.apiv)
 
-				from pydantic import BaseModel, Field
+			output_file = Path(output_dir / p)
+			output_file.parent.mkdir(exist_ok=True, parents=True)
+			l.info(f"writing out openapi={p} file={output_file}")
+			with open(output_file, mode="w", encoding="utf-8") as f:
+				f.write(
+					dedent(
+						"""\
+						# pylint: disable
+						# flake8: noqa
+						from __future__ import annotations
+						from typing import List, Optional, Union
+		
+						from pydantic import BaseModel, Field
+		
+						from llamazure.azrest.models import AzList, ReadOnly, Req
+						"""
+					)
+				)
+				f.write(transformer.transform_definitions())
+				f.write(transformer.transform_paths(reader.paths, reader.apiv))
 
-				from llamazure.azrest.models import AzList, ReadOnly, Req
-				"""
-			)
-		)
-		f.write(transformer.transform_definitions())
-		f.write(transformer.transform_paths(reader.paths, reader.apiv))
+		last_size = this_size
 
 
 logging.basicConfig(level=logging.DEBUG)
