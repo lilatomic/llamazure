@@ -40,9 +40,9 @@ def mk_typename(typename: str) -> str:
 class PathLookupError(Exception):
 	"""Could not look up an OpenAPI reference"""
 
-	def __init__(self, object_path: str):
+	def __init__(self, object_path: str, segment: str):
 		self.object_path = object_path
-		super().__init__(f"Error while looking up path: {object_path}")
+		super().__init__(f"Error while looking up path={object_path} segment={segment}")
 
 
 class LoadError(Exception):
@@ -272,9 +272,11 @@ class Reader:
 				if segment:  # escape empty segments
 					o = o[segment]
 			return o
-		except (KeyError, TypeError):
+		except KeyError as e:
 			# Raise a custom exception with a helpful message including the object_path
-			raise PathLookupError(object_path)
+			raise PathLookupError(object_path, e.args[0])
+		except TypeError:
+			raise PathLookupError(object_path, "???")
 
 	@staticmethod
 	def extract_remote_object_name(object_path: str) -> str:
@@ -343,7 +345,7 @@ class IRTransformer:
 		self.oa_defs: Dict[str, OADef] = defs
 		self.openapi = openapi
 
-		self.jsonparser = JSONSchemaSubparser(defs, openapi, self)
+		self.jsonparser = JSONSchemaSubparser(openapi, self)
 		self.refcache = RefCache()
 
 	@classmethod
@@ -751,8 +753,7 @@ class JSONSchemaSubparser:
 
 	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OARef, OADef, OAEnum])
 
-	def __init__(self, defs: Dict[str, OADef], openapi: Reader, old_parser: IRTransformer):
-		self.oa_defs: Dict[str, OADef] = defs
+	def __init__(self, openapi: Reader, old_parser: IRTransformer):
 		self.openapi = openapi
 		self.old_parser = old_parser
 
