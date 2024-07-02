@@ -374,25 +374,6 @@ class IRTransformer:
 
 		return self.codegen_definitions(azs, ir_azlists, output_req)
 
-	@staticmethod
-	def identify_definition_properties_classes(ir_definitions: Dict[str, IRDef]):
-		"""Identify the classes that are nested Properties classes"""
-		ir_properties_classes = {}
-		for name, ir in ir_definitions.items():
-			if "properties" in ir.properties:
-				prop_t = ir.properties["properties"].t
-
-				if isinstance(prop_t, IRDef):
-					found = prop_t
-					prop_ref = prop_t.name
-				else:
-					assert isinstance(prop_t, str)  # TODO: Better checking or coercion
-					found = ir_definitions[prop_t]
-					prop_ref = prop_t
-
-				ir_properties_classes[prop_ref] = found
-		return ir_properties_classes
-
 	def identify_azlists(self, ir_definitions):
 		ir_azlists: Dict[str, AZAlias] = {}
 		for name, ir in ir_definitions.items():
@@ -402,13 +383,18 @@ class IRTransformer:
 		return ir_azlists
 
 	def identify_definitions(self, ir_azlists, ir_definitions):
-		ir_consumed = ir_azlists.keys()
-		ir_defs = {}
-		for name, ir in ir_definitions.items():
-			if name not in ir_consumed:
-				ir_defs[name] = ir
-		azs = [self.defIR2AZ(ir) for ir in ir_defs.values()]
-		return azs
+		ir_consumed = set(ir_azlists.keys())
+		r = [self.defIR2AZ(ir) for ir in ir_definitions.values()]
+		azs = [e.result for e in r]
+		ir_consumed.update([c.name for e in r for c in e.consumed])
+		out = []
+		for az_class in azs:
+			if az_class.name in ir_consumed:
+				continue
+			if az_class.name.endswith("Properties"):
+				continue  # TODO: better way of consuming this. Currently the problem is that the actual consumed class uses its final name, which is just "Properties"
+			out.append(az_class)
+		return out
 
 	@staticmethod
 	def codegen_definitions(azs: List[AZDef], ir_azlists: Dict[str, AZAlias], output_req: List[CodeGenable]):
@@ -570,10 +556,16 @@ class IRTransformer:
 
 		return az_fields
 
-	def defIR2AZ(self, irdef: IRDef) -> AZDef:
+	@dataclass
+	class IR2AZResult:
+		result: AZDef
+		consumed: List[IRDef]
+
+	def defIR2AZ(self, irdef: IRDef) -> IR2AZResult:
 		"""Convert IR Defs to AZ Defs"""
 
 		property_c = []
+		consumed = []
 		for name, prop in irdef.properties.items():
 			if name == "properties":
 				prop_container = irdef.properties["properties"]
@@ -588,13 +580,21 @@ class IRTransformer:
 					prop_c_ir = self.transform_def(prop_ref, prop_c_oa)
 				prop_c_az = self.defIR2AZ(prop_c_ir)
 
-				property_c.append(prop_c_az.model_copy(update={"name": "Properties"}))
+				property_c.append(prop_c_az.result.model_copy(update={"name": "Properties"}))
+				consumed.append(prop_c_ir)
+				consumed.extend(prop_c_az.consumed)
 
 			elif isinstance(prop.t, IRDef):
 				prop_c_az = self.defIR2AZ(prop.t)
-				property_c.append(prop_c_az.model_copy(update={"name": mk_typename(name)}))
+				property_c.append(prop_c_az.result.model_copy(update={"name": mk_typename(name)}))
+				consumed.append(prop.t)
+				consumed.extend(prop_c_az.consumed)
 
-		return AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), subclasses=property_c)
+		return self.IR2AZResult(
+			AZDef(name=irdef.name, description=irdef.description, fields=IRTransformer.fieldsIR2AZ(irdef.properties), subclasses=property_c),
+			consumed,
+		)
+
 
 	def paramOA2IR(self, oaparam: OAParam) -> IR_T:
 		"""

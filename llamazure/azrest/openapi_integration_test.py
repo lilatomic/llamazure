@@ -13,14 +13,14 @@ class TestLoading:
 
 		reader = Reader(root=root, path=path, openapi={})
 
-		r = reader.load_relative("../../../../../common-types/resource-management/v2/types.json#/parameters/SubscriptionIdParameter")
+		_, r = reader.load_relative("../../../../../common-types/resource-management/v2/types.json#/parameters/SubscriptionIdParameter")
 		assert r is not None
 		assert r["name"] == "subscriptionId"
 
 
 class TestTransformDefs:
 
-	prop = OADef.Property(type="int", description="A property")
+	prop = OADef.Property(type="integer", description="A property")
 
 	prop_nested_properties = OARef(**{"$ref": "#/definitions/MyClassProperties", "description": "Properties for My Class"})
 
@@ -28,7 +28,7 @@ class TestTransformDefs:
 		"""Test a plain Definition"""
 		oa_defs = {"MyClass": OADef(type="object", description="BlahBlah MyClass", properties={"my_property": self.prop})}
 
-		tx = IRTransformer(oa_defs, None)
+		tx = IRTransformer(oa_defs, Reader("", Path(), {}))
 
 		r = tx.transform_definitions()
 
@@ -59,7 +59,7 @@ class TestTransformDefs:
 			"MyClass": OADef(type="object", properties={"properties": self.prop_nested_properties}),
 			"MyClassProperties": OADef(type="object", properties={"my_property": self.prop}),
 		}
-		tx = IRTransformer(oa_defs, None)
+		tx = IRTransformer(oa_defs, Reader("", Path(), {"definitions": oa_defs}))
 
 		r = tx.transform_definitions()
 
@@ -81,7 +81,7 @@ class TestTransformDefs:
 						)
 
 
-				properties: Properties
+				properties: Properties = None
 
 				def __eq__(self, o) -> bool:
 					return (
@@ -114,9 +114,12 @@ class TestTransformPaths:
 				}
 			}
 		}
-		oa_defs = {}
+		oa_defs = {
+			"Def0": OADef(),
+			"Ret0": OADef()
+		}
 
-		tx = IRTransformer(oa_defs, None)
+		tx = IRTransformer(oa_defs, Reader("", Path(), {"paths": paths, "definitions": oa_defs}))
 
 		r = tx.transform_paths(paths, "apiv0")
 
@@ -129,13 +132,15 @@ class TestTransformPaths:
 				@staticmethod
 				def Op0(arg0: str, arg1: Def0) -> Req[Ret0]:
 					"""Description of op0."""
-					return Req.put(
+					r = Req.put(
 						name="Ops0.Op0",
 						path=f"/path0/{arg0}",
 						apiv="apiv0",
 						body=arg1,
 						ret_t=Ret0
 					)
+
+					return r
 		'''
 			).strip()
 		)
