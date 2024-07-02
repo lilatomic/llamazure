@@ -437,7 +437,7 @@ class IRTransformer:
 			"number": float,
 			"integer": int,
 			"boolean": bool,
-			"object": object,
+			"object": dict,
 		}.get(t, t)
 		return py_type
 
