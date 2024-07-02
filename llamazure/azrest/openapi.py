@@ -464,31 +464,6 @@ class IRTransformer:
 
 		return IR_T(t=as_list, required=required)
 
-	def resolve_oaref(self, name, ref: OARef) -> Union[IR_T, IRDef]:
-		l.info(f"resolve oaref {name=} ref={ref.ref}")
-
-		if self.refcache[ref.ref]:
-			return self.refcache[ref.ref]
-
-		self.refcache.mark_initialising(ref.ref)
-		ref_name = mk_typename(self.openapi.extract_remote_object_name(ref.ref))
-		self.refcache.mark_referenceable(ref.ref, IR_T(t=ref_name))
-
-		reader, resolved = self.openapi.load_relative(ref.ref)
-		# TODO: better way of determining if we need to shift contexts
-		if reader == self.openapi:
-			relative_transformer = self
-		else:
-			relative_transformer = IRTransformer.from_reader(reader)
-
-		parser = TypeAdapter(Union[OAEnum, OADef])
-		resolved_loaded = parser.validate_python(resolved)
-
-		result = relative_transformer.transform_def(ref_name, resolved_loaded)
-
-		self.refcache[ref.ref] = result
-		return result
-
 	@staticmethod
 	def ir_azarray(obj: Union[IRDef, IR_Enum]) -> Optional[AZAlias]:
 		"""Transform a definition representing an array into an alias to the wrapped type"""
