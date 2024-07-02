@@ -3,7 +3,7 @@ from pathlib import Path
 from textwrap import dedent
 
 from llamazure.azrest import openapi
-from llamazure.azrest.openapi import IRTransformer, OADef, OARef, Reader
+from llamazure.azrest.openapi import IRTransformer, OADef, OARef, Reader, RefCache
 
 
 class TestLoading:
@@ -28,7 +28,7 @@ class TestTransformDefs:
 		"""Test a plain Definition"""
 		oa_defs = {"MyClass": OADef(type="object", description="BlahBlah MyClass", properties={"my_property": self.prop})}
 
-		tx = IRTransformer(oa_defs, Reader("", Path(), {}))
+		tx = IRTransformer(oa_defs, Reader("", Path(), {}), RefCache())
 
 		r = tx.transform_definitions()
 
@@ -59,7 +59,7 @@ class TestTransformDefs:
 			"MyClass": OADef(type="object", properties={"properties": self.prop_nested_properties}),
 			"MyClassProperties": OADef(type="object", properties={"my_property": self.prop}),
 		}
-		tx = IRTransformer(oa_defs, Reader("", Path(), {"definitions": oa_defs}))
+		tx = IRTransformer(oa_defs, Reader("", Path(), {"definitions": oa_defs}), RefCache())
 
 		r = tx.transform_definitions()
 
@@ -119,7 +119,7 @@ class TestTransformPaths:
 			"Ret0": OADef()
 		}
 
-		tx = IRTransformer(oa_defs, Reader("", Path(), {"paths": paths, "definitions": oa_defs}))
+		tx = IRTransformer(oa_defs, Reader("", Path(), {"paths": paths, "definitions": oa_defs}), RefCache())
 
 		r = tx.transform_paths(paths, "apiv0")
 

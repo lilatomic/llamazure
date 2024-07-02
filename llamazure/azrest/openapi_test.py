@@ -5,7 +5,7 @@ from typing import Dict, Union
 import pytest
 from pydantic import TypeAdapter
 
-from llamazure.azrest.openapi import IR_T, IR_List, IRDef, IRTransformer, OADef, OARef, PathLookupError, Reader, OAEnum
+from llamazure.azrest.openapi import IR_T, IR_List, IRDef, IRTransformer, OADef, OAEnum, OARef, PathLookupError, Reader, RefCache
 
 
 class TestResolveReference:
@@ -77,38 +77,6 @@ class TestClassifyRelative:
 			Reader.classify_relative("file_path#")
 
 
-class TestIRTransformerTransformOAField:
-	@staticmethod
-	def test_transform_oa_field_property():
-		oa_field = OADef.Property(type="string", description="Example property", readOnly=True, required=True)
-		result = IRTransformer.transform_oa_field("", oa_field)
-		assert result == IR_T(t=str, readonly=True, required=True)
-
-	@staticmethod
-	def test_transform_oa_field_array():
-		array_items = OADef.Property(type="integer", description="Example array item")
-		oa_field = OADef.Array(items=array_items, description="Example array field")
-		result = IRTransformer.transform_oa_field("", oa_field)
-		assert result == IR_T(t=IR_List(items=IR_T(t=int, description="Example array item")))
-
-	@staticmethod
-	def test_transform_oa_field_ref():
-		oa_ref = OARef(**{"$ref": "#/definitions/ExampleDefinition", "description": "Example reference"})
-		result = IRTransformer.transform_oa_field("", oa_ref)
-		assert result == IR_T(t="ExampleDefinition")
-
-	@staticmethod
-	def test_transform_oa_field_none():
-		result = IRTransformer.transform_oa_field("", None)
-		assert result == IR_T(t="None")
-
-	@staticmethod
-	def test_transform_oa_field_invalid_type():
-		with pytest.raises(TypeError):
-			IRTransformer.transform_oa_field("", "invalid_type")
-
-
-
 class TestExamples:
 	parser = TypeAdapter(Dict[str, Union[OAEnum, OADef]])
 
@@ -120,22 +88,11 @@ class TestExamples:
 			"Workbook": {
 				"description": "A workbook definition.",
 				"type": "object",
-				"allOf": [
-					{
-						"$ref": "#/definitions/WorkbookResource"
-					}
-				],
+				"allOf": [{"$ref": "#/definitions/WorkbookResource"}],
 				"properties": {
-					"properties": {
-						"x-ms-client-flatten": True,
-						"description": "Metadata describing a workbook for an Azure resource.",
-						"$ref": "#/definitions/WorkbookProperties"
-					},
-					"systemData": {
-						"$ref": "../../../../../common-types/resource-management/v1/types.json#/definitions/systemData",
-						"readOnly": True
-					}
-				}
+					"properties": {"x-ms-client-flatten": True, "description": "Metadata describing a workbook for an Azure resource.", "$ref": "#/definitions/WorkbookProperties"},
+					"systemData": {"$ref": "../../../../../common-types/resource-management/v1/types.json#/definitions/systemData", "readOnly": True},
+				},
 			}
 		}
 		t = self._load(v)
@@ -223,7 +180,7 @@ class TestIRTransformerResolveIRTStrReadOnlyAndRequired:
 class TestTransformPrimitives:
 	def test_string(self):
 		p = OADef.Property(type="string", description="description0")
-		assert IRTransformer({}, None).resolve_type(p.t) == str
+		assert IRTransformer({}, None, RefCache()).resolve_type(p.t) == str
 
 
 class TestIRTransformerUnifyIRT:
@@ -270,7 +227,7 @@ class TestTransformDef:
 				"p1": OADef.Property(type="t.p1"),
 			},
 		)
-		result = IRTransformer({}, None).transform_def("n0", p)
+		result = IRTransformer({}, None, RefCache()).transform_def("n0", p)
 		expected = IRDef(
 			name="n0",
 			description="d0",

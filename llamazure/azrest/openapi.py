@@ -300,20 +300,18 @@ class Reader:
 		return Reader(root, file_path, loaded)
 
 
-def resolve_path(path: str) -> str:
-	"""Resolve a path in an OpenAPI spec to the OpenAPI definition it references"""
-	if path.startswith("#/definitions/"):
-		return path[len("#/definitions/") :]
-	return path
-
-
 class RefCache:
 	ref_initialising = object()
+
+	@dataclass(frozen=True)
+	class Ref:
+		path: Path
+		ref: str
 
 	def __init__(self):
 		self.cache = {}
 
-	def __getitem__(self, ref: str):
+	def __getitem__(self, ref: Ref):
 		if ref in self.cache:
 			value = self.cache[ref]
 			if value is not RefCache.ref_initialising:
@@ -321,11 +319,11 @@ class RefCache:
 			else:
 				return None
 
-	def mark_initialising(self, ref: str):
+	def mark_initialising(self, ref: Ref):
 		"""Mark that we've started initialising this reference, so we know if we're in a recursive loop."""
 		self.cache[ref] = RefCache.ref_initialising
 
-	def mark_referenceable(self, ref: str, value: IR_T):
+	def mark_referenceable(self, ref: Ref, value: IR_T):
 		"""
 		Mark that we have enough information to provide a reference to this class,
 		even if we haven't fully resolved it.
@@ -334,26 +332,26 @@ class RefCache:
 		"""
 		self.cache[ref] = value
 
-	def __setitem__(self, ref: str, value):
+	def __setitem__(self, ref: Ref, value):
 		self.cache[ref] = value
 
 
 class IRTransformer:
 	"""Transformer to and from the IR"""
 
-	def __init__(self, defs: Dict[str, OADef], openapi: Reader):
+	def __init__(self, defs: Dict[str, OADef], openapi: Reader, refcache: RefCache):
 		self.oa_defs: Dict[str, OADef] = defs
 		self.openapi = openapi
+		self.refcache = refcache
 
-		self.jsonparser = JSONSchemaSubparser(openapi, self)
-		self.refcache = RefCache()
+		self.jsonparser = JSONSchemaSubparser(openapi, self, refcache)
 
 	@classmethod
 	def from_reader(cls, reader: Reader) -> IRTransformer:
 		parser = TypeAdapter(Dict[str, Union[OAEnum, OADef]])
 		try:
 			oa_defs = parser.validate_python(reader.definitions)
-			return IRTransformer(oa_defs, reader)
+			return IRTransformer(oa_defs, reader, RefCache())
 		except pydantic.ValidationError as e:
 			print(e.errors())
 			raise LoadError(reader.path, reader.definitions) from e
@@ -406,7 +404,7 @@ class IRTransformer:
 		"""Transform an OpenAPI definition to IR"""
 		l.info(f"transform def {name}")
 		if isinstance(obj, OADef):
-			ir_properties = {p_name: self.transform_oa_field(p_name, p) for p_name, p in obj.properties.items()}
+			ir_properties = {p_name: self.jsonparser.transform(p_name, p, []) for p_name, p in obj.properties.items()}  # TODO: pass required props
 			return IRDef(
 				name=name,
 				properties=ir_properties,
@@ -419,21 +417,17 @@ class IRTransformer:
 				description=obj.description,
 			)
 
-	def transform_oa_field(self, name: str, p: Union[OADef.Array, OADef.Property, OARef, OADef, None]) -> IR_T:
-		"""Transform an OpenAPI field"""
-		if isinstance(p, OADef.Property):
-			resolved_type = IRTransformer.resolve_type(p.t)
-			return IR_T(t=resolved_type, readonly=p.readOnly, required=p.required)
-		elif isinstance(p, OADef.Array):
-			return self.ir_array(name, p)
-		elif isinstance(p, OARef):
-			return IR_T(t=self.resolve_oaref(name, p))
-		elif isinstance(p, OADef):
-			return self.jsonparser.transform(mk_typename(name), p, p.required)
-		elif p is None:
+	def transform_oa_response(self, p: OAResponse) -> IR_T:
+		schema = p.oa_schema
+		if not schema:
 			return IR_T(t="None")
+		elif isinstance(schema, OARef):
+			name = self.openapi.extract_remote_object_name(schema.ref)
+			r = self.jsonparser.transform(name, schema, [])
+			r.required = True
+			return r
 		else:
-			raise TypeError("unsupported OpenAPI field")
+			raise NotImplementedError(f"Full schemas are not supported")
 
 	@staticmethod
 	def resolve_type(t: str) -> Union[str, type]:
@@ -457,7 +451,7 @@ class IRTransformer:
 			as_list = IR_List(items=IR_T(t=IRTransformer.resolve_type(obj.items.t), required=True))
 		elif isinstance(obj.items, OARef):
 
-			t = self.resolve_oaref(name, obj.items)
+			t = self.jsonparser.transform(name, obj.items, required_properties=None)  # TODO: provide required properties
 			if isinstance(t, IRDef):
 				t = IR_T(t=t, required=True)
 			else:
@@ -585,6 +579,10 @@ class IRTransformer:
 				consumed.extend(prop_c_az.consumed)
 
 			elif isinstance(prop.t, IRDef):
+				# if it's a top-level class we want to reference it
+				if prop.t.name in self.oa_defs:
+					continue
+
 				prop_c_az = self.defIR2AZ(prop.t)
 				property_c.append(prop_c_az.result.model_copy(update={"name": mk_typename(name)}))
 				consumed.append(prop.t)
@@ -604,7 +602,7 @@ class IRTransformer:
 		Otherwise, it will always have a valid type
 		"""
 		if oaparam.oa_schema:
-			return self.transform_oa_field(oaparam.name, oaparam.oa_schema)
+			return self.jsonparser.transform(oaparam.name, oaparam.oa_schema, [])  # TODO: add required props
 		elif oaparam.type == "array":
 
 			def resolve_array(t_decl: Dict) -> IR_T:
@@ -669,7 +667,7 @@ class IRTransformer:
 		body_name = None if len(op.body_params) != 1 else op.body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
 		params = {p.name: self.paramOA2IR(p) for p in op.url_params}
 		query_params = {p.name: self.paramOA2IR(p) for p in op.query_params}
-		rets_ts = [self.transform_oa_field(r_name, r.oa_schema) for r_name, r in (op.responses.items()) if r_name != "default"]
+		rets_ts = [self.transform_oa_response(r) for r_name, r in (op.responses.items()) if r_name != "default"]
 		ret_t = IRTransformer.unify_ir_t(rets_ts)
 		ir_op = IROp(
 			object_name=object_name,
@@ -753,25 +751,36 @@ class JSONSchemaSubparser:
 
 	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OARef, OADef, OAEnum])
 
-	def __init__(self, openapi: Reader, old_parser: IRTransformer):
+	def __init__(self, openapi: Reader, old_parser: IRTransformer, refcache: RefCache):
 		self.openapi = openapi
 		self.old_parser = old_parser
+		self.refcache = refcache
 
 	def _is_full_inherit(self, obj: OAObj):
 		return not obj.properties and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef)
 
 	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IRDef | IR_T:
+		relname = self.openapi.extract_remote_object_name(ref.ref)
+		cache_ref = RefCache.Ref(self.openapi.path, relname)
+		if self.refcache[cache_ref]:
+			return self.refcache[cache_ref]
+		self.refcache.mark_referenceable(cache_ref, IR_T(t=relname))
+
 		reader, resolved = self.openapi.load_relative(ref.ref)
-		relative_old_transformer = IRTransformer({}, reader)
+		relative_old_transformer = IRTransformer({}, reader, self.refcache)
 		relative_transformer = relative_old_transformer.jsonparser
 		resolved_loaded = self.oaparser.validate_python(resolved)
-		return relative_transformer.transform(name, resolved_loaded, required_properties)
+
+		transformed = relative_transformer.transform(relname, resolved_loaded, required_properties)
+		self.refcache[cache_ref] = transformed
+		return transformed
 
 	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IRDef | IR_T | IR_Enum:
 		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
 		l.info(f"Transforming {name}")
-		typename = mk_typename(name)  # references will often be properties and will not have a typename as their name. Eg `"myProp": { "$ref": "..." }`
 		required_properties = required_properties or []
+
+		typename = mk_typename(name)  # references will often be properties and will not have a typename as their name. Eg `"myProp": { "$ref": "..." }`
 
 		if isinstance(obj, OARef):
 			return self.resolve_reference(name, obj, required_properties)
@@ -796,7 +805,7 @@ class JSONSchemaSubparser:
 					referenced_obj = self.transform(name, referenced, [])
 					if isinstance(referenced_obj, IR_T):
 						resolved_t = referenced_obj.t
-						assert isinstance(resolved_t, IRDef), "Reference did not reference a definition"
+						assert isinstance(resolved_t, IRDef), f"Reference did not reference a definition {name=} resolved_t={resolved_t}"
 					elif isinstance(referenced_obj, IRDef):
 						resolved_t = referenced_obj
 					else:
