@@ -441,28 +441,6 @@ class IRTransformer:
 		}.get(t, t)
 		return py_type
 
-	def ir_array(self, name, obj: OADef.Array, required_properties: Optional[List[str]] = None) -> IR_T:
-		"""Transform an OpenAPI array to IR"""
-		required_properties = required_properties or []
-		required = name in required_properties
-
-		if isinstance(obj.items, OADef.Property):
-			# Probably a type
-			as_list = IR_List(items=IR_T(t=IRTransformer.resolve_type(obj.items.t), required=True))
-		elif isinstance(obj.items, OARef):
-
-			t = self.jsonparser.transform(name, obj.items, required_properties=None)  # TODO: provide required properties
-			if isinstance(t, IRDef):
-				t = IR_T(t=t, required=True)
-			else:
-				t = IR_T(t=t.t, required=True)
-			as_list = IR_List(items=t)
-
-		else:
-			# I think this is blocked by Pydantic type definitions
-			raise NotImplementedError("List of List not supported")
-
-		return IR_T(t=as_list, required=required)
 
 	@staticmethod
 	def ir_azarray(obj: Union[IRDef, IR_Enum]) -> Optional[AZAlias]:
@@ -750,6 +728,14 @@ class JSONSchemaSubparser:
 		self.refcache[cache_ref] = transformed
 		return transformed
 
+	def ir_array(self, name, obj: OADef.Array, required_properties: List[str]) -> IR_T:
+		"""Transform an OpenAPI array to IR"""
+		required = name in required_properties
+
+		item_t = self.transform(name, obj.items, [name])
+		item_t.required = True
+		return IR_T(t=IR_List(items=item_t), required=required)
+
 	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IRDef | IR_T | IR_Enum:
 		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
 		l.info(f"Transforming {name}")
@@ -800,9 +786,10 @@ class JSONSchemaSubparser:
 			raise NotImplementedError()
 		elif isinstance(obj, OADef.Property):
 			resolved_type = IRTransformer.resolve_type(obj.t)
-			return IR_T(t=resolved_type, readonly=obj.readOnly, required=obj.required)
+			required = obj.required or name in required_properties  # obj.required is for QueryParams &c
+			return IR_T(t=resolved_type, readonly=obj.readOnly, required=required)
 		elif isinstance(obj, OADef.Array):
-			return self.old_parser.ir_array(name, obj, required_properties)  # TODO: Port to this
+			return self.ir_array(name, obj, required_properties)
 		else:
 			raise TypeError(f"unsupported OpenAPI type {type(obj)}")
 
