@@ -219,10 +219,14 @@ class IR_Enum(BaseModel):
 class Reader:
 	"""Read Microsoft OpenAPI specifications"""
 
-	def __init__(self, root: str, path: Path, openapi: dict):
+	def __init__(self, root: str, path: Path, openapi: dict, reader_cache: Dict[Path, Reader]):
 		self.root = root
 		self.path = path
 		self.doc = openapi
+		self.reader_cache = reader_cache
+
+		self.reader_cache[path] = self
+
 
 	@classmethod
 	def load(cls, root: str, path: Path) -> Reader:
@@ -245,18 +249,34 @@ class Reader:
 		return self.doc["info"]["version"]
 
 	@staticmethod
-	def classify_relative(relative: str) -> tuple[str, str, str]:
+	def classify_relative(relative: str) -> tuple[Optional[Path], str, str]:
 		"""Decompose an OpenAPI reference into its filepath, item type, and path inside that document"""
 		file_path, object_path = relative.split("#")
 		oa_type = object_path.split("/")[1]
-		return file_path, oa_type, object_path
+		return Path(file_path) if file_path else None, oa_type, object_path
+
+	@staticmethod
+	def resolve_path(path: Path) -> Path:
+		parts = []
+		for part in path.parts:
+			if part == '..':
+				if parts:
+					parts.pop()
+			elif part != '.':
+				parts.append(part)
+		return Path(*parts)
 
 	def load_relative(self, relative: str) -> Tuple[Reader, dict]:
 		"""Load an object from a relative path"""
 		file_path, _, object_path = self.classify_relative(relative)
 
 		if file_path:
-			reader = self._load_file(self.root, self.path.parent / file_path)
+			tgt = self.resolve_path(self.path.parent / file_path)
+			if tgt in self.reader_cache:
+				reader = self.reader_cache[tgt]
+			else:
+				reader = self._load_file(self.root, tgt)
+				self.reader_cache[tgt] = reader
 		else:
 			reader = self
 
@@ -297,7 +317,7 @@ class Reader:
 			raise ValueError(f"unknown uri scheme scheme={scheme}")
 		loaded = json.loads(content)
 
-		return Reader(root, file_path, loaded)
+		return Reader(root, file_path, loaded, {})
 
 
 class RefCache:
