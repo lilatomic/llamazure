@@ -362,9 +362,8 @@ class IRTransformer:
 	def __init__(self, defs: Dict[str, OADef], openapi: Reader, refcache: RefCache):
 		self.oa_defs: Dict[str, OADef] = defs
 		self.openapi = openapi
-		self.refcache = refcache
 
-		self.jsonparser = JSONSchemaSubparser(openapi, self, refcache)
+		self.jsonparser = JSONSchemaSubparser(openapi, refcache)
 
 	@classmethod
 	def from_reader(cls, reader: Reader) -> IRTransformer:
@@ -724,9 +723,8 @@ class JSONSchemaSubparser:
 
 	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OARef, OADef, OAEnum])
 
-	def __init__(self, openapi: Reader, old_parser: IRTransformer, refcache: RefCache):
+	def __init__(self, openapi: Reader, refcache: RefCache):
 		self.openapi = openapi
-		self.old_parser = old_parser
 		self.refcache = refcache
 
 	def _is_full_inherit(self, obj: OAObj):
@@ -740,8 +738,7 @@ class JSONSchemaSubparser:
 		self.refcache.mark_referenceable(cache_ref, IR_T(t=relname))
 
 		reader, resolved = self.openapi.load_relative(ref.ref)
-		relative_old_transformer = IRTransformer({}, reader, self.refcache)
-		relative_transformer = relative_old_transformer.jsonparser
+		relative_transformer = JSONSchemaSubparser(reader, self.refcache)
 		resolved_loaded = self.oaparser.validate_python(resolved)
 
 		transformed = relative_transformer.transform(relname, resolved_loaded, required_properties)
@@ -1013,6 +1010,22 @@ class AZOps(BaseModel, CodeGenable):
 		{ops}
 		"""
 		).format(name=self.name, ops=op_strs, apiv=self.quote(self.apiv))
+
+
+def codegen() -> str:
+	header = dedent(
+		"""\
+		# pylint: disable
+		# flake8: noqa
+		from __future__ import annotations
+		from typing import List, Optional, Union
+
+		from pydantic import BaseModel, Field
+
+		from llamazure.azrest.models import AzList, ReadOnly, Req
+
+		"""
+	)
 
 
 def main(openapi_root, openapi_file, output_file):
