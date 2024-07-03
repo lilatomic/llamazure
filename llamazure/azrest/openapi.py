@@ -17,12 +17,13 @@ from __future__ import annotations
 import itertools
 import json
 import logging
+import warnings
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import ClassVar, Dict, List, Literal, Optional, Sequence, Tuple, Type, Union, cast
+from typing import ClassVar, Dict, List, Literal, Optional, Sequence, Set, Tuple, Type, Union, cast
 
 import pydantic
 import requests
@@ -190,6 +191,7 @@ class IRDef(BaseModel):
 	name: str
 	properties: Dict[str, IR_T]
 	description: Optional[str] = None
+	src: Optional[Path] = None
 
 
 class IR_T(BaseModel):
@@ -227,7 +229,6 @@ class Reader:
 
 		self.reader_cache[path] = self
 
-
 	@classmethod
 	def load(cls, root: str, path: Path) -> Reader:
 		"""Load from a path or file-like object"""
@@ -259,10 +260,10 @@ class Reader:
 	def resolve_path(path: Path) -> Path:
 		parts = []
 		for part in path.parts:
-			if part == '..':
+			if part == "..":
 				if parts:
 					parts.pop()
-			elif part != '.':
+			elif part != ".":
 				parts.append(part)
 		return Path(*parts)
 
@@ -565,7 +566,6 @@ class IRTransformer:
 			consumed,
 		)
 
-
 	def paramOA2IR(self, oaparam: OAParam) -> IR_T:
 		"""
 		Convert an OpenAPI Parameter to IR Parameter
@@ -581,7 +581,7 @@ class IRTransformer:
 				if t_decl["type"] == "array":
 					t = IR_List(items=(resolve_array(t_decl["items"])), required=True)
 				else:
-					t=IRTransformer.resolve_type(t_decl["type"])
+					t = IRTransformer.resolve_type(t_decl["type"])
 				return IR_T(t=t, required=t_decl.get("required", True))
 
 			return resolve_array(oaparam.model_dump())
@@ -715,6 +715,44 @@ class IRTransformer:
 				resolved_parameters.append(OAParam(**(relative_param)))
 		return resolved_parameters
 
+	def transform_imports(self, base_module_path: Path) -> str:
+		imports = []
+
+		definitions, _ = self._find_ir_definitions()
+		for ir in definitions.values():
+			imports.extend(self._remove_local_imports(self.openapi.path, self._find_imports(ir)))
+
+		merged = AZImport.merge(imports)
+		def resolve_path(e:AZImport):
+			e.path = base_module_path / path2module(e.path)
+			return e
+
+		resolved = [resolve_path(e) for e in merged]
+		return "\n".join([cg.codegen() for cg in resolved])
+
+	def _find_imports(self, ir: Union[IRDef, IR_T, IR_Enum, IR_List, IR_Dict, str, type]) -> List[AZImport]:
+		if isinstance(ir, (str, type)):
+			return []
+		elif isinstance(ir, IRDef):
+			out = list(itertools.chain.from_iterable([self._find_imports(t) for t in ir.properties.values()]))
+			if ir.src:
+				out.append(AZImport(path=ir.src, names={ir.name}))
+			return out
+		elif isinstance(ir, IR_T):
+			return self._find_imports(ir.t)
+		elif isinstance(ir, IR_Enum):
+			return []
+		elif isinstance(ir, IR_List):
+			return self._find_imports(ir.items)
+		elif isinstance(ir, IR_Dict):
+			return list(itertools.chain.from_iterable([self._find_imports(ir.keys), self._find_imports(ir.values)]))
+		else:
+			raise TypeError(f"Cannot find imports for unexpected type {type(ir)}")
+
+	@staticmethod
+	def _remove_local_imports(local: Path, imports: List[AZImport]) -> List[AZImport]:
+		return [e for e in imports if e.path != local]
+
 
 OAObj = Union[OARef, OADef, OAEnum]
 
@@ -796,6 +834,7 @@ class JSONSchemaSubparser:
 					name=typename,
 					properties=properties,
 					description=obj.description,
+					src=self.openapi.path,
 				),
 				required=name in required_properties,
 			)
@@ -1012,7 +1051,31 @@ class AZOps(BaseModel, CodeGenable):
 		).format(name=self.name, ops=op_strs, apiv=self.quote(self.apiv))
 
 
-def codegen() -> str:
+class AZImport(BaseModel, CodeGenable):
+	path: Path
+	names: Set[str] = set()
+
+	def codegen(self) -> str:
+		names_str = ", ".join(self.names)
+
+		path_str = str(self.path).replace("/", ".")
+		return f"from {path_str} import {names_str}"
+
+	@classmethod
+	def merge(cls, imports: List[AZImport]) -> List[AZImport]:
+		merged = {}
+		for imp in imports:
+			p = imp.path
+			if p in merged:
+				t = merged[p]
+				merged[p] = AZImport(path=p, names=t.names | imp.names)
+			else:
+				merged[p] = imp
+
+		return list(merged.values())
+
+
+def codegen(transformer: IRTransformer, base_module: Path) -> str:
 	header = dedent(
 		"""\
 		# pylint: disable
@@ -1026,6 +1089,7 @@ def codegen() -> str:
 
 		"""
 	)
+	return "\n".join([header, transformer.transform_imports(base_module), transformer.transform_definitions(), transformer.transform_paths()])
 
 
 def path2module(p: Path) -> Path:
@@ -1035,13 +1099,13 @@ def path2module(p: Path) -> Path:
 	:param p: the path within the azure openapi repo
 	:return: a valid module name with extraneous pieces removed
 	"""
-	parts = list(p.parts)
+	parts = list(p.with_suffix("").parts)
 
 	def category_shortcode(s: str):
 		return {
-		"resource-management": "r",  # for common types
-		"resource-manager": "r",  # for resources
-		"data-plane": "d",
+			"resource-management": "r",  # for common types
+			"resource-manager": "r",  # for resources
+			"data-plane": "d",
 		}.get(s, s)
 
 	def provider(s: str):
@@ -1051,12 +1115,17 @@ def path2module(p: Path) -> Path:
 		else:
 			return [namespace, provider]
 
+	def schema(s: str):
+		if s.endswith("_API"):
+			return s[: s.rfind("_API")]
+		return s
+
 	if parts[1] == "common-types":
 		return Path(
 			"c",  # common types should be common
 			category_shortcode(parts[2]),
 			parts[3],  # version
-			*parts[4:],
+			schema(parts[4]),
 		)
 	else:
 		return Path(
@@ -1065,7 +1134,7 @@ def path2module(p: Path) -> Path:
 			category_shortcode(parts[2]),
 			*provider(parts[3]),
 			# remove api version # TODO: option to not skip this/merge these
-			*parts[6:]
+			schema(parts[6]),
 		)
 
 
@@ -1084,22 +1153,7 @@ def main(openapi_root, openapi_file, output_dir):
 			output_file.parent.mkdir(exist_ok=True, parents=True)
 			l.info(f"writing out openapi={p} file={output_file}")
 			with open(output_file, mode="w", encoding="utf-8") as f:
-				f.write(
-					dedent(
-						"""\
-						# pylint: disable
-						# flake8: noqa
-						from __future__ import annotations
-						from typing import List, Optional, Union
-		
-						from pydantic import BaseModel, Field
-		
-						from llamazure.azrest.models import AzList, ReadOnly, Req
-						"""
-					)
-				)
-				f.write(transformer.transform_definitions())
-				f.write(transformer.transform_paths(reader.paths, reader.apiv))
+				f.write(codegen(transformer, output_dir))
 
 		last_size = this_size
 
