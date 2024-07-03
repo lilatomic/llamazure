@@ -1140,18 +1140,17 @@ def path2module(p: Path) -> Path:
 
 def main(openapi_root, openapi_file, output_dir):
 	reader = Reader.load(openapi_root, Path(openapi_file))
+	cache = reader.reader_cache
 
 	last_size = 0
-	while len(reader.reader_cache) > last_size:
-		this_size = len(reader.reader_cache)
-		for p, r in list(reader.reader_cache.items())[last_size:]:
-			transformer = IRTransformer.from_reader(reader)
-			transformer.transform_definitions()
-			transformer.transform_paths(r.paths, r.apiv)
+	while len(cache) > last_size:
+		this_size = len(cache)
+		for p, r in list(cache.items())[last_size:]:
+			transformer = IRTransformer.from_reader(r)
 
 			output_file = Path(output_dir / path2module(p)).with_suffix(".py")
 			output_file.parent.mkdir(exist_ok=True, parents=True)
-			l.info(f"writing out openapi={p} file={output_file}")
+			l.info(f"writing out openapi={p} t={transformer.openapi.path} file={output_file}")
 			with open(output_file, mode="w", encoding="utf-8") as f:
 				f.write(codegen(transformer, output_dir))
 
