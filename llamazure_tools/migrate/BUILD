@@ -1,5 +1,5 @@
 python_sources(
-	dependencies=[":az_dashboards"],
+	dependencies=[":az_dashboards", ":az_workbooks"],
 )
 
 adhoc_tool(
@@ -8,9 +8,9 @@ adhoc_tool(
 	args=[
 		"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
 		"specification/portal/resource-manager/Microsoft.Portal/preview/2020-09-01-preview/portal.json",
-		"llamazure_tools/migrate/az_dashboards.py",
+		"llamazure_tools/migrate/az_dashboards",
 	],
-	output_files=["llamazure_tools/migrate/az_dashboards.py"],
+	output_directories=["llamazure_tools/migrate/az_dashboards"],
 	root_output_directory=".",
 )
 
@@ -20,8 +20,8 @@ adhoc_tool(
 	args=[
 		"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
 		"specification/applicationinsights/resource-manager/Microsoft.Insights/stable/2023-06-01/workbooks_API.json",
-		"llamazure_tools/migrate/az_dashboards.py",
+		"llamazure_tools/migrate/az_workbooks",
 	],
-	output_files=["llamazure_tools/migrate/az_workooks.py"],
+	output_directories=["llamazure_tools/migrate/az_workbooks"],
 	root_output_directory=".",
 )

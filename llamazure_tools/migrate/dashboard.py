@@ -9,7 +9,7 @@ import click
 from llamazure.azrest.azrest import AzRest
 from llamazure.rid import rid
 from llamazure.rid.rid import Resource
-from llamazure_tools.migrate.az_dashboards import AzDashboards, Dashboard, PatchableDashboard
+from llamazure_tools.migrate.az_dashboards.portal.r.m.portal.portal import AzDashboards, Dashboard, PatchableDashboard
 from llamazure_tools.migrate.util import JSONTraverser
 
 

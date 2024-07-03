@@ -9,7 +9,7 @@ import click
 from llamazure.azrest.azrest import AzRest
 from llamazure.rid import rid
 from llamazure.rid.rid import Resource
-from llamazure_tools.migrate.az_workbooks import AzWorkbooks, Workbook
+from llamazure_tools.migrate.az_workbooks.applicationinsights.r.m.insights.workbooks import AzWorkbooks, Workbook
 from llamazure_tools.migrate.util import JSONTraverser
 
 
