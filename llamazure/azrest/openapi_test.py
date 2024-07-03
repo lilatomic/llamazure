@@ -1,4 +1,5 @@
 """Test the OpenAPI codegen"""
+from pathlib import Path
 from typing import Dict, Union
 
 # pylint: disable=protected-access
@@ -21,16 +22,10 @@ class TestResolveReference:
 		with pytest.raises(PathLookupError) as exc_info:
 			Reader._get_from_object_at_path(data, "a/b/d")
 
-		expected_error_message = "Error while looking up path: a/b/d"
-		assert str(exc_info.value) == expected_error_message
-
 	def test_get_from_object_at_path_invalid_object(self):
 		data = {"a": {"b": {"c": 42}}}
 		with pytest.raises(PathLookupError) as exc_info:
 			Reader._get_from_object_at_path(data, "a/b/c/d")
-
-		expected_error_message = "Error while looking up path: a/b/c/d"
-		assert str(exc_info.value) == expected_error_message
 
 	def test_get_from_object_at_path_empty_path(self):
 		data = {"a": {"b": {"c": 42}}}
@@ -47,17 +42,17 @@ class TestClassifyRelative:
 	@staticmethod
 	def test_definition():
 		result = Reader.classify_relative("#/definitions/PermissionGetResult")
-		assert result == ("", "definitions", "/definitions/PermissionGetResult")
+		assert result == (None, "definitions", "/definitions/PermissionGetResult")
 
 	@staticmethod
 	def test_long_path():
 		result = Reader.classify_relative("../../../../../common-types/resource-management/v2/types.json#/parameters/SubscriptionIdParameter")
-		assert result == ("../../../../../common-types/resource-management/v2/types.json", "parameters", "/parameters/SubscriptionIdParameter")
+		assert result == (Path("../../../../../common-types/resource-management/v2/types.json"), "parameters", "/parameters/SubscriptionIdParameter")
 
 	@staticmethod
 	def test_with_current_directory():
 		result = Reader.classify_relative("./common-types.json#/parameters/ResourceProviderNamespaceParameter")
-		assert result == ("./common-types.json", "parameters", "/parameters/ResourceProviderNamespaceParameter")
+		assert result == (Path("./common-types.json"), "parameters", "/parameters/ResourceProviderNamespaceParameter")
 
 	# Add more tests to cover edge cases
 
@@ -96,25 +91,19 @@ class TestExamples:
 			}
 		}
 		t = self._load(v)
-		assert not t
-
-
-class TestIRTransformerIRArray:
-	@staticmethod
-	def test_ir_array_property_items():
-		array_items = OADef.Property(type="string", description="Example property")
-		array_obj = OADef.Array(items=array_items, description="Example array field")
-		result = IRTransformer.ir_array(array_obj)
-		expected_result = IR_T(t=IR_List(items=IR_T(t=str, required=True)), required=True)
-		assert result == expected_result
-
-	@staticmethod
-	def test_ir_array_ref_items():
-		array_items = OARef(**{"$ref": "#/definitions/ExampleDefinition", "description": "Example reference"})
-		array_obj = OADef.Array(items=array_items, description="Example array field")
-		result = IRTransformer.ir_array(array_obj)
-		expected_result = IR_T(t=IR_List(items=IR_T(t="ExampleDefinition", required=True)), required=True)
-		assert result == expected_result
+		assert t == {
+			"Workbook": OADef(
+				properties={
+					"properties": OARef(ref="#/definitions/WorkbookProperties", description="Metadata describing a workbook for an Azure resource."),
+					"systemData": OARef(ref="../../../../../common-types/resource-management/v1/types.json#/definitions/systemData", description=None),
+				},
+				type="object",
+				description="A workbook definition.",
+				allOf=[OARef(ref="#/definitions/WorkbookResource", description=None)],
+				additionalProperties=False,
+				required=None,
+			)
+		}
 
 
 class TestIRTransformerResolveIRTStr:

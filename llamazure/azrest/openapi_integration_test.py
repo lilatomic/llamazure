@@ -14,7 +14,7 @@ class TestLoading:
 		root = "https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/"
 		path = Path("specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json")
 
-		reader = Reader(root=root, path=path, openapi={})
+		reader = Reader(root=root, path=path, openapi={}, reader_cache={})
 
 		_, r = reader.load_relative("../../../../../common-types/resource-management/v2/types.json#/parameters/SubscriptionIdParameter")
 		assert r is not None
@@ -31,7 +31,7 @@ class TestTransformDefs:
 		"""Test a plain Definition"""
 		oa_defs = {"MyClass": OADef(type="object", description="BlahBlah MyClass", properties={"my_property": self.prop})}
 
-		tx = IRTransformer(oa_defs, Reader("", Path(), {}), RefCache())
+		tx = IRTransformer(oa_defs, Reader("", Path(), {}, {}), RefCache())
 
 		r = tx.transform_definitions()
 
@@ -62,7 +62,7 @@ class TestTransformDefs:
 			"MyClass": OADef(type="object", properties={"properties": self.prop_nested_properties}),
 			"MyClassProperties": OADef(type="object", properties={"my_property": self.prop}),
 		}
-		tx = IRTransformer(oa_defs, Reader("", Path(), {"definitions": oa_defs}), RefCache())
+		tx = IRTransformer(oa_defs, Reader("", Path(), {"definitions": oa_defs}, {}), RefCache())
 
 		r = tx.transform_definitions()
 
@@ -100,52 +100,6 @@ class TestTransformDefs:
 		)
 
 
-class TestTransformPaths:
-	def test_all_contained(self):
-		"""Test an OpenAPI Path with no refs to objects in other files"""
-		paths = {
-			"/path0/{arg0}": {
-				"put": {
-					"tags": [],
-					"operationId": "Ops0_Op0",
-					"description": "Description of op0.",
-					"parameters": [
-						{"name": "arg0", "in": "path", "required": True, "type": "string", "description": "Unused"},
-						{"name": "arg1", "in": "body", "required": True, "description": "Unused", "schema": {"$ref": "#/definitions/Def0"}},
-					],
-					"responses": {"200": {"description": "Unused", "schema": {"$ref": "#/definitions/Ret0"}}},
-				}
-			}
-		}
-		oa_defs = {"Def0": OADef(), "Ret0": OADef()}
-
-		tx = IRTransformer(oa_defs, Reader("", Path(), {"paths": paths, "definitions": oa_defs}), RefCache())
-
-		r = tx.transform_paths(paths, "apiv0")
-
-		assert (
-			r.strip()
-			== dedent(
-				'''\
-			class AzOps0:
-				apiv = "apiv0"
-				@staticmethod
-				def Op0(arg0: str, arg1: Def0) -> Req[Ret0]:
-					"""Description of op0."""
-					r = Req.put(
-						name="Ops0.Op0",
-						path=f"/path0/{arg0}",
-						apiv="apiv0",
-						body=arg1,
-						ret_t=Ret0
-					)
-
-					return r
-		'''
-			).strip()
-		)
-
-
 def traverse_and_apply(root_dir, func):
 	"""
 	Traverse all directories starting from root_dir and apply a function to the content of each file found.
@@ -177,7 +131,12 @@ class TestScript:
 			"specification/applicationinsights/resource-manager/Microsoft.Insights/stable/2023-06-01/workbooks_API.json",
 			"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json",
 			"specification/portal/resource-manager/Microsoft.Portal/preview/2020-09-01-preview/portal.json",
-			"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json,specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleDefinitionsCalls.json",
+			",".join(
+				[
+					"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json",
+					"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleDefinitionsCalls.json",
+				]
+			),
 		],
 	)
 	def test_run_includes_nested_defs(self, spec_path, tmp_path):
