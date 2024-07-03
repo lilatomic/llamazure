@@ -93,6 +93,7 @@ class OADef(BaseModel):
 
 	allOf: Optional[List[OAObj]] = None
 	# anyOf: Optional[Dict[str, OADef.JSONSchemaProperty]] = None
+	additionalProperties: Optional[Union[OADef.Array, OADef.Property, OARef, OADef, bool]] = False
 	required: Optional[List[str]] = None
 
 
@@ -197,7 +198,7 @@ class IRDef(BaseModel):
 class IR_T(BaseModel):
 	"""An IR Type descriptor"""
 
-	t: Union[Type, IRDef, IR_List, IR_Enum, str]  # TODO: upconvert str
+	t: Union[Type, IRDef, IR_List, IR_Dict, IR_Enum, str]  # TODO: upconvert str
 	readonly: bool = False
 	required: bool = True
 
@@ -206,6 +207,13 @@ class IR_List(BaseModel):
 	"""An IR descriptor for a List type"""
 
 	items: IR_T
+	required: bool = True
+
+
+class IR_Dict(BaseModel):
+
+	keys: IR_T = str
+	values: IR_T
 	required: bool = True
 
 
@@ -437,12 +445,15 @@ class IRTransformer:
 	def transform_def(self, name: str, obj: Union[OADef, OAEnum]) -> Union[IRDef, IR_Enum]:
 		"""Transform an OpenAPI definition to IR"""
 		l.info(f"transform def {name}")
+		warnings.warn(f"{self.__class__.__name__}.transform_def is deprecated", DeprecationWarning)
+
 		if isinstance(obj, OADef):
 			ir_properties = {p_name: self.jsonparser.transform(p_name, p, []) for p_name, p in obj.properties.items()}  # TODO: pass required props
 			return IRDef(
 				name=name,
 				properties=ir_properties,
 				description=obj.description,
+				src=self.openapi.path,
 			)
 		elif isinstance(obj, OAEnum):
 			return IR_Enum(
@@ -501,6 +512,8 @@ class IRTransformer:
 			type_as_str = declared_type.name
 		elif isinstance(declared_type, IR_List):
 			type_as_str = "List[%s]" % IRTransformer.resolve_ir_t_str(declared_type.items)
+		elif isinstance(declared_type, IR_Dict):
+			type_as_str = "Dict[%s, %s]" % (IRTransformer.resolve_ir_t_str(declared_type.keys), IRTransformer.resolve_ir_t_str(declared_type.values))
 		elif isinstance(declared_type, str):
 			type_as_str = mk_typename(declared_type)
 		else:
@@ -527,6 +540,8 @@ class IRTransformer:
 
 			if isinstance(f_type.t, IR_List):
 				v = "[]"
+			elif isinstance(f_type.t, IR_Dict):
+				v = "{}"
 			elif f_type.readonly or not f_type.required:
 				v = "None"
 			else:
@@ -781,6 +796,9 @@ class JSONSchemaSubparser:
 	def _is_full_inherit(self, obj: OADef):
 		return not obj.properties and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef)
 
+	def _is_dict(self, obj: OADef):
+		return (not obj.properties and not obj.allOf and obj.t == "object" and not obj.additionalProperties) or obj.additionalProperties is True  # I think that might be a bit aggressive
+
 	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IRDef | IR_T:
 		relname = self.openapi.extract_remote_object_name(ref.ref)
 		cache_ref = RefCache.Ref(self.openapi.path, relname)
@@ -804,6 +822,16 @@ class JSONSchemaSubparser:
 		item_t.required = True
 		return IR_T(t=IR_List(items=item_t), required=required)
 
+	def ir_dict(self, name, obj: OADef, required_properties: List[str]) -> IR_T:
+		required = name in required_properties
+
+		if obj.additionalProperties is True:
+			# this is explicitly a dict without constraints on values
+			values_t = IR_T(t="Any", required=True)  # Optional[Any] is a little silly
+		else:
+			values_t = self.transform(name, obj.additionalProperties, [name])
+		return IR_T(t=IR_Dict(keys=IR_T(t=str, required=True), values=values_t), required=required)
+
 	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IRDef | IR_T | IR_Enum:
 		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
 		l.info(f"Transforming {name}")
@@ -815,7 +843,7 @@ class JSONSchemaSubparser:
 			return self.resolve_reference(name, obj, required_properties)
 
 		elif isinstance(obj, OADef):
-			if not obj.properties and not obj.allOf:
+			if not obj.properties and not obj.allOf and not obj.additionalProperties:
 				return IR_T(
 					t=IRTransformer.resolve_type(obj.t),
 					required=name in required_properties,
@@ -823,6 +851,9 @@ class JSONSchemaSubparser:
 
 			if self._is_full_inherit(obj):
 				return self.resolve_reference(name, obj.allOf[0], required_properties)
+
+			if self._is_dict(obj):
+				return self.ir_dict(name, obj, required_properties)
 
 			properties = {}
 			if obj.properties is not None:
@@ -834,7 +865,9 @@ class JSONSchemaSubparser:
 					referenced_obj = self.transform(name, referenced, [])
 					if isinstance(referenced_obj, IR_T):
 						resolved_t = referenced_obj.t
-						assert isinstance(resolved_t, IRDef), f"Reference did not reference a definition {name=} resolved_t={resolved_t}"
+						if not isinstance(resolved_t, IRDef):
+							l.warning(f"Reference inside IR_T was not an IRDef, we can't use this to merge properties. {name=} resolved_t={resolved_t}")
+							continue
 					elif isinstance(referenced_obj, IRDef):
 						resolved_t = referenced_obj
 					else:
@@ -1127,6 +1160,7 @@ def codegen(transformer: IRTransformer, base_module: Path) -> str:
 		# pylint: disable
 		# flake8: noqa
 		from __future__ import annotations
+		from enum import Enum
 		from typing import List, Optional, Union
 
 		from pydantic import BaseModel, Field
