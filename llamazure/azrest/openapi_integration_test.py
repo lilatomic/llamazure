@@ -1,6 +1,9 @@
 import ast
+import os
 from pathlib import Path
 from textwrap import dedent
+
+import pytest
 
 from llamazure.azrest import openapi
 from llamazure.azrest.openapi import IRTransformer, OADef, OARef, Reader, RefCache
@@ -114,10 +117,7 @@ class TestTransformPaths:
 				}
 			}
 		}
-		oa_defs = {
-			"Def0": OADef(),
-			"Ret0": OADef()
-		}
+		oa_defs = {"Def0": OADef(), "Ret0": OADef()}
 
 		tx = IRTransformer(oa_defs, Reader("", Path(), {"paths": paths, "definitions": oa_defs}), RefCache())
 
@@ -146,51 +146,49 @@ class TestTransformPaths:
 		)
 
 
+def traverse_and_apply(root_dir, func):
+	"""
+	Traverse all directories starting from root_dir and apply a function to the content of each file found.
+
+	Parameters:
+	root_dir (str): The root directory from where the traversal starts.
+	func (function): A lambda function to apply to the content of each file.
+	"""
+	for dirpath, dirnames, filenames in os.walk(root_dir):
+		for filename in filenames:
+			file_path = os.path.join(dirpath, filename)
+			with open(file_path, "r") as file:
+				content = file.read()
+				func(content)
+
+
 class TestScript:
-	def test_run(self, tmp_file):
-		"""Test running the script"""
-		openapi.main(
-			"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
-			"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json",
-			tmp_file,
-		)
-
-		with open(tmp_file, mode="r", encoding="utf-8") as output_file:
-			output = output_file.read()
-			assert len(output) > 0
-
+	def assert_parses(self, output):
+		assert len(output) > 0
 		parsed = ast.parse(output)
 		assert isinstance(parsed, ast.Module)
 		assert len(parsed.body) > 0
 
-	def test_run_includes_nested_defs(self, tmp_file):
-		"""Test running the script with a spec that contains nested defs"""
-		openapi.main(
-			"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
+	root_package = "my.package"
+
+	@pytest.mark.parametrize(
+		"spec_path",
+		[
 			"specification/applicationinsights/resource-manager/Microsoft.Insights/stable/2023-06-01/workbooks_API.json",
-			tmp_file,
-		)
-
-		with open(tmp_file, mode="r", encoding="utf-8") as output_file:
-			output = output_file.read()
-			assert len(output) > 0
-
-		parsed = ast.parse(output)
-		assert isinstance(parsed, ast.Module)
-		assert len(parsed.body) > 0
-
-	def test_run_1(self, tmp_file):
+			"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json",
+			"specification/portal/resource-manager/Microsoft.Portal/preview/2020-09-01-preview/portal.json",
+			"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json,specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleDefinitionsCalls.json",
+		],
+	)
+	def test_run_includes_nested_defs(self, spec_path, tmp_path):
 		"""Test running the script with a spec that contains nested defs"""
+		tmp_file = tmp_path / "tmp_file"
+
 		openapi.main(
 			"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
-			"specification/portal/resource-manager/Microsoft.Portal/preview/2020-09-01-preview/portal.json",
+			spec_path,
 			tmp_file,
+			self.root_package,
 		)
 
-		with open(tmp_file, mode="r", encoding="utf-8") as output_file:
-			output = output_file.read()
-			assert len(output) > 0
-
-		parsed = ast.parse(output)
-		assert isinstance(parsed, ast.Module)
-		assert len(parsed.body) > 0
+		traverse_and_apply(tmp_file, self.assert_parses)
