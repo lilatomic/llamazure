@@ -17,10 +17,11 @@ from __future__ import annotations
 import itertools
 import json
 import logging
-import warnings
+import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
+from json import JSONDecodeError
 from pathlib import Path
 from textwrap import dedent, indent
 from typing import ClassVar, Dict, List, Literal, Optional, Sequence, Set, Tuple, Type, Union, cast
@@ -238,9 +239,9 @@ class Reader:
 		self.reader_cache[path] = self
 
 	@classmethod
-	def load(cls, root: str, path: Path) -> Reader:
+	def load(cls, root: str, path: Path, reader_cache: Dict[Path, Reader] = None) -> Reader:
 		"""Load from a path or file-like object"""
-		return cls._load_file(root, path)
+		return cls._load_file(root, path, reader_cache or {})
 
 	@property
 	def paths(self):
@@ -284,7 +285,7 @@ class Reader:
 			if tgt in self.reader_cache:
 				reader = self.reader_cache[tgt]
 			else:
-				reader = self._load_file(self.root, tgt)
+				reader = self._load_file(self.root, tgt, self.reader_cache)
 				self.reader_cache[tgt] = reader
 		else:
 			reader = self
@@ -313,7 +314,7 @@ class Reader:
 		return object_path.split("/")[-1]
 
 	@staticmethod
-	def _load_file(root: str, file_path: Path) -> Reader:
+	def _load_file(root: str, file_path: Path, reader_cache: Dict[Path, Reader]) -> Reader:
 		"""Load the contents of a file"""
 		if root.startswith("https://") or root.startswith("http://"):
 			content = requests.get(root + file_path.as_posix()).content.decode("utf-8")
@@ -324,9 +325,12 @@ class Reader:
 		else:
 			scheme = root.split("://")[0]
 			raise ValueError(f"unknown uri scheme scheme={scheme}")
-		loaded = json.loads(content)
+		try:
+			loaded = json.loads(content)
+		except JSONDecodeError as e:
+			raise RuntimeError(f"Error loading path={file_path}") from e
 
-		return Reader(root, file_path, loaded, {})
+		return Reader(root, file_path, loaded, reader_cache)
 
 
 class RefCache:
@@ -436,10 +440,7 @@ class IRTransformer:
 	@staticmethod
 	def codegen_definitions(azs: List[AZDef], ir_azlists: Dict[str, AZAlias], ir_enums: List[IR_Enum], output_req: List[CodeGenable]):
 		codegened_definitions = [cg.codegen() for cg in output_req]
-		reloaded_definitions = (
-			[f"{az_definition.name}.model_rebuild()" for az_definition in azs]
-			+ [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
-		)
+		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
 		return "\n\n".join(codegened_definitions + reloaded_definitions) + "\n\n"
 
 	def transform_def(self, name: str, obj: Union[OADef, OAEnum]) -> Union[IRDef, IR_Enum]:
@@ -751,7 +752,8 @@ class IRTransformer:
 			imports.extend(self._remove_local_imports(self.openapi.path, self._find_imports(ir)))
 
 		merged = AZImport.merge(imports)
-		def resolve_path(e:AZImport):
+
+		def resolve_path(e: AZImport):
 			e.path = base_module_path / path2module(e.path)
 			return e
 
@@ -797,7 +799,9 @@ class JSONSchemaSubparser:
 		return not obj.properties and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef)
 
 	def _is_dict(self, obj: OADef):
-		return (not obj.properties and not obj.allOf and obj.t == "object" and not obj.additionalProperties) or obj.additionalProperties is True  # I think that might be a bit aggressive
+		return (
+			not obj.properties and not obj.allOf and obj.t == "object" and not obj.additionalProperties
+		) or obj.additionalProperties is True  # I think that might be a bit aggressive
 
 	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IRDef | IR_T:
 		relname = self.openapi.extract_remote_object_name(ref.ref)
@@ -1006,7 +1010,7 @@ class AZEnum(BaseModel, CodeGenable):
 	def _normalise_name(s: str) -> str:
 		if s == "None":
 			s = "none"
-		s = s.replace(',', '_')
+		s = s.replace(",", "_")
 		return s
 
 	def codegen(self) -> str:
@@ -1218,9 +1222,14 @@ def path2module(p: Path) -> Path:
 		)
 
 
-def main(openapi_root, openapi_file, output_dir):
-	reader = Reader.load(openapi_root, Path(openapi_file))
-	cache = reader.reader_cache
+def main(openapi_root, openapi_file, output_dir, output_package=None):
+	if output_package is None:
+		output_package = output_dir
+
+	cache = {}
+	for f in re.split(r"[;,]", openapi_file):
+		reader = Reader.load(openapi_root, Path(f), cache)
+		cache = reader.reader_cache
 
 	last_size = 0
 	while len(cache) > last_size:
@@ -1232,7 +1241,7 @@ def main(openapi_root, openapi_file, output_dir):
 			output_file.parent.mkdir(exist_ok=True, parents=True)
 			l.info(f"writing out openapi={p} t={transformer.openapi.path} file={output_file}")
 			with open(output_file, mode="w", encoding="utf-8") as f:
-				f.write(codegen(transformer, output_dir))
+				f.write(codegen(transformer, output_package))
 
 		last_size = this_size
 
