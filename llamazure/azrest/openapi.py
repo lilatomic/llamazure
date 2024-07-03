@@ -1028,6 +1028,47 @@ def codegen() -> str:
 	)
 
 
+def path2module(p: Path) -> Path:
+	"""
+	Convert the filepath of the Azure OpenAPI spec to a module name
+
+	:param p: the path within the azure openapi repo
+	:return: a valid module name with extraneous pieces removed
+	"""
+	parts = list(p.parts)
+
+	def category_shortcode(s: str):
+		return {
+		"resource-management": "r",  # for common types
+		"resource-manager": "r",  # for resources
+		"data-plane": "d",
+		}.get(s, s)
+
+	def provider(s: str):
+		namespace, provider = s.lower().split(".")
+		if namespace == "microsoft":
+			return ["m", provider]
+		else:
+			return [namespace, provider]
+
+	if parts[1] == "common-types":
+		return Path(
+			"c",  # common types should be common
+			category_shortcode(parts[2]),
+			parts[3],  # version
+			*parts[4:],
+		)
+	else:
+		return Path(
+			# remove "specification", common to all
+			parts[1],
+			category_shortcode(parts[2]),
+			*provider(parts[3]),
+			# remove api version # TODO: option to not skip this/merge these
+			*parts[6:]
+		)
+
+
 def main(openapi_root, openapi_file, output_dir):
 	reader = Reader.load(openapi_root, Path(openapi_file))
 
@@ -1039,7 +1080,7 @@ def main(openapi_root, openapi_file, output_dir):
 			transformer.transform_definitions()
 			transformer.transform_paths(r.paths, r.apiv)
 
-			output_file = Path(output_dir / p)
+			output_file = Path(output_dir / path2module(p)).with_suffix(".py")
 			output_file.parent.mkdir(exist_ok=True, parents=True)
 			l.info(f"writing out openapi={p} file={output_file}")
 			with open(output_file, mode="w", encoding="utf-8") as f:
