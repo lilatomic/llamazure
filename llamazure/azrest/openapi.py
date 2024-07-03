@@ -376,23 +376,34 @@ class IRTransformer:
 			print(e.errors())
 			raise LoadError(reader.path, reader.definitions) from e
 
-	def transform_definitions(self) -> str:
-		"""Transform the OpenAPI objects into their codegened str"""
+	def _find_ir_definitions(self) -> Tuple[Dict[str, IRDef], Dict[str, IR_Enum]]:
 		ir_definitions = {}
+		ir_enums = {}
 		for name, obj in self.oa_defs.items():
 			parsed = self.jsonparser.transform(name, obj, [])
-			assert isinstance(parsed.t, IRDef)
-			ir_definitions[name] = parsed.t
+			if isinstance(parsed.t, IRDef):
+				ir_definitions[name] = parsed.t
+			elif isinstance(parsed.t, IR_Dict):
+				continue  # we don't need to define dicts
+			elif isinstance(parsed.t, IR_Enum):
+				ir_enums[name] = parsed.t
+			else:
+				raise ValueError(f"Type resolved to non-definition {parsed.t}")
+		return ir_definitions, ir_enums
 
-		ir_azlists = self.identify_azlists(ir_definitions)
+	def transform_definitions(self) -> str:
+		"""Transform the OpenAPI objects into their codegened str"""
+		ir_definitions, ir_enums = self._find_ir_definitions()
+		az_lists = self.identify_azlists(ir_definitions)
+		az_enums = [AZEnum(name=e.name, values=e.values, description=e.description) for e in ir_enums.values()]
 
-		azs = self.identify_definitions(ir_azlists, ir_definitions)
+		azs = self.identify_definitions(az_lists, ir_definitions)
 
-		output_req: List[CodeGenable] = azs + list(ir_azlists.values())
+		output_req: List[CodeGenable] = azs + list(az_lists.values()) + list(az_enums)
 
-		return self.codegen_definitions(azs, ir_azlists, output_req)
+		return self.codegen_definitions(azs, az_lists, az_enums, output_req)
 
-	def identify_azlists(self, ir_definitions):
+	def identify_azlists(self, ir_definitions) -> Dict[str, AZAlias]:
 		ir_azlists: Dict[str, AZAlias] = {}
 		for name, ir in ir_definitions.items():
 			azlist = self.ir_azarray(ir)
@@ -415,9 +426,12 @@ class IRTransformer:
 		return out
 
 	@staticmethod
-	def codegen_definitions(azs: List[AZDef], ir_azlists: Dict[str, AZAlias], output_req: List[CodeGenable]):
+	def codegen_definitions(azs: List[AZDef], ir_azlists: Dict[str, AZAlias], ir_enums: List[IR_Enum], output_req: List[CodeGenable]):
 		codegened_definitions = [cg.codegen() for cg in output_req]
-		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
+		reloaded_definitions = (
+			[f"{az_definition.name}.model_rebuild()" for az_definition in azs]
+			+ [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
+		)
 		return "\n\n".join(codegened_definitions + reloaded_definitions) + "\n\n"
 
 	def transform_def(self, name: str, obj: Union[OADef, OAEnum]) -> Union[IRDef, IR_Enum]:
@@ -460,7 +474,6 @@ class IRTransformer:
 			"object": dict,
 		}.get(t, t)
 		return py_type
-
 
 	@staticmethod
 	def ir_azarray(obj: Union[IRDef, IR_Enum]) -> Optional[AZAlias]:
@@ -604,17 +617,17 @@ class IRTransformer:
 		else:
 			return IR_T(t=f"Union[{', '.join(non_none)}]", required=is_required)
 
-	def transform_paths(self, paths: dict, apiv: str) -> str:
+	def transform_paths(self) -> str:
 		"""Transform OpenAPI Paths into the Python code for the Azure objects"""
 		parser = TypeAdapter(Dict[str, OAPath])
-		parsed = parser.validate_python(paths)
+		parsed = parser.validate_python(self.openapi.paths)
 
 		resolved = self.resolve_parameters_in_oapath(parsed)
 
 		ops: List[IROp] = []
 		for path, path_item in resolved.items():
 			for method, op in path_item.items():
-				ops.append(self.oa2ir_op(apiv, path, method, op))
+				ops.append(self.oa2ir_op(self.openapi.apiv, path, method, op))
 
 		az_objs: Dict[str, List[IROp]] = defaultdict(list)
 		for ir_op in ops:
@@ -626,7 +639,7 @@ class IRTransformer:
 				AZOps(
 					name=name,
 					ops=[self.ir2az_op(name, x) for x in ir_ops],
-					apiv=apiv,
+					apiv=self.openapi.apiv,
 				)
 			)
 
@@ -765,7 +778,7 @@ class JSONSchemaSubparser:
 		self.openapi = openapi
 		self.refcache = refcache
 
-	def _is_full_inherit(self, obj: OAObj):
+	def _is_full_inherit(self, obj: OADef):
 		return not obj.properties and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef)
 
 	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IRDef | IR_T:
@@ -846,6 +859,16 @@ class JSONSchemaSubparser:
 			return IR_T(t=resolved_type, readonly=obj.readOnly, required=required)
 		elif isinstance(obj, OADef.Array):
 			return self.ir_array(name, obj, required_properties)
+		elif isinstance(obj, OAEnum):
+			return IR_T(
+				t=IR_Enum(
+					name=name,
+					values=obj.enum,
+					description=obj.description,
+				),
+				required=name in required_properties,
+			)
+
 		else:
 			raise TypeError(f"unsupported OpenAPI type {type(obj)}")
 
@@ -939,6 +962,29 @@ class AZDef(BaseModel, CodeGenable):
 		"""
 			).format(conditions_str=conditions_str),
 		)
+
+
+class AZEnum(BaseModel, CodeGenable):
+	name: str
+	values: List[str]
+	description: Optional[str] = None
+
+	@staticmethod
+	def _normalise_name(s: str) -> str:
+		if s == "None":
+			s = "none"
+		s = s.replace(',', '_')
+		return s
+
+	def codegen(self) -> str:
+		variants = indent("\n".join('%s = "%s"' % (self._normalise_name(e), e) for e in self.values), "\t")
+		return dedent(
+			'''\
+			class {name}(Enum):
+				"""{description}"""
+			{variants}
+			'''
+		).format(name=self.name, description=self.description, variants=variants)
 
 
 class AZAlias(BaseModel, CodeGenable):
