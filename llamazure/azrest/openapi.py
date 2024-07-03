@@ -443,26 +443,6 @@ class IRTransformer:
 		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
 		return "\n\n".join(codegened_definitions + reloaded_definitions) + "\n\n"
 
-	def transform_def(self, name: str, obj: Union[OADef, OAEnum]) -> Union[IRDef, IR_Enum]:
-		"""Transform an OpenAPI definition to IR"""
-		l.info(f"transform def {name}")
-		warnings.warn(f"{self.__class__.__name__}.transform_def is deprecated", DeprecationWarning)
-
-		if isinstance(obj, OADef):
-			ir_properties = {p_name: self.jsonparser.transform(p_name, p, []) for p_name, p in obj.properties.items()}  # TODO: pass required props
-			return IRDef(
-				name=name,
-				properties=ir_properties,
-				description=obj.description,
-				src=self.openapi.path,
-			)
-		elif isinstance(obj, OAEnum):
-			return IR_Enum(
-				name=name,
-				values=obj.enum,
-				description=obj.description,
-			)
-
 	def transform_oa_response(self, p: OAResponse) -> IR_T:
 		schema = p.oa_schema
 		if not schema:
@@ -573,7 +553,7 @@ class IRTransformer:
 					assert isinstance(prop_t, str)  # TODO: Better checking or coercion
 					prop_ref = prop_t
 					prop_c_oa = self.oa_defs[prop_ref]
-					prop_c_ir = self.transform_def(prop_ref, prop_c_oa)
+					prop_c_ir = self.jsonparser.transform(prop_ref, prop_c_oa, [])
 				prop_c_az = self.defIR2AZ(prop_c_ir)
 
 				property_c.append(prop_c_az.result.model_copy(update={"name": "Properties"}))

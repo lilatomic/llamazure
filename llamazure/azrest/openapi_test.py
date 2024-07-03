@@ -213,27 +213,3 @@ class TestIRTransformerUnifyIRT:
 		ir_ts = [IR_T(t="None"), IR_T(t="None")]
 		result = IRTransformer.unify_ir_t(ir_ts)
 		assert result is None
-
-
-class TestTransformDef:
-	"""Test transforming OADef"""
-
-	def test_bag_of_props(self):
-		p = OADef(
-			type="t0",
-			description="d0",
-			properties={
-				"p0": OADef.Property(type="t.p0"),
-				"p1": OADef.Property(type="t.p1"),
-			},
-		)
-		result = IRTransformer({}, None, RefCache()).transform_def("n0", p)
-		expected = IRDef(
-			name="n0",
-			description="d0",
-			properties={
-				"p0": IR_T(t="t.p0", required=False),
-				"p1": IR_T(t="t.p1", required=False),
-			},
-		)
-		assert result == expected
