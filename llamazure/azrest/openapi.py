@@ -546,6 +546,10 @@ class IRTransformer:
 				if prop.t.name in self.oa_defs:
 					continue
 
+				# do not embed imported classes
+				if prop.t.src != irdef.src:
+					continue
+
 				prop_c_az = self.defIR2AZ(prop.t)
 				property_c.append(prop_c_az.result.model_copy(update={"name": mk_typename(name)}))
 				consumed.append(prop.t)
