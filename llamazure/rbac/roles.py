@@ -8,8 +8,8 @@ from uuid import uuid4
 
 from llamazure.azrest.azrest import AzOps, AzRest, rid_eq
 from llamazure.azrest.models import AzList, Req
-from llamazure.rbac.role_asn import AzRoleAssignments, RoleAssignment, RoleAssignmentCreateParameters
-from llamazure.rbac.role_def import AzRoleDefinitions, RoleDefinition
+from llamazure.rbac.authorization.r.m.authorization.RoleAssignments import AzRoleAssignments, RoleAssignment, RoleAssignmentCreateParameters
+from llamazure.rbac.authorization.r.m.authorization.RoleDefinitions import AzRoleDefinitions, RoleDefinition
 from llamazure.rid import rid
 
 l = logging.getLogger(__name__)

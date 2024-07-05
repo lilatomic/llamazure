@@ -1174,6 +1174,16 @@ def path2module(p: Path) -> Path:
 	"""
 	parts = list(p.with_suffix("").parts)
 
+	def _remove_end(s: str, tgt: str) -> str:
+		if s.endswith(tgt):
+			return s[: -len(tgt)]
+		return s
+
+	def _remove_start(s: str, tgt: str) -> str:
+		if s.startswith(tgt):
+			return s[len(tgt) :]
+		return s
+
 	def category_shortcode(s: str):
 		return {
 			"resource-management": "r",  # for common types
@@ -1189,9 +1199,12 @@ def path2module(p: Path) -> Path:
 			return [namespace, provider]
 
 	def schema(s: str):
-		if s.endswith("_API"):
-			return s[: s.rfind("_API")]
-		return s
+		s = _remove_end(s, "_API")
+		s = _remove_end(s, "-apis")
+		s = _remove_end(s, "Calls")
+		s = _remove_end(s, "-preview")
+		s = _remove_start(s, "authorization-")
+		return s.replace("-", "_")
 
 	if parts[1] == "common-types":
 		return Path(
