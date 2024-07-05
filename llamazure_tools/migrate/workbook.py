@@ -8,10 +8,11 @@ import click
 from azure.identity import DefaultAzureCredential
 
 from llamazure.azrest.azrest import AzRest
+from llamazure.azrest.models import cast_as
 from llamazure.rid import rid
 from llamazure.rid.rid import Resource
-from llamazure_tools.migrate.applicationinsights.r.m.insights.workbooks import AzWorkbooks, Workbook  # pylint: disable=E0611,E0401
-from llamazure_tools.migrate.util import JSONTraverser
+from llamazure_tools.migrate.applicationinsights.r.m.insights.workbooks import AzWorkbooks, Workbook, WorkbookUpdateParameters  # pylint: disable=E0611,E0401
+from llamazure_tools.migrate.util import JSONTraverser, rid_params
 
 
 @dataclass
@@ -33,7 +34,7 @@ class Migrator:
 
 	def get_workbook(self) -> Workbook:
 		"""Retrieve the current workbook data from Azure."""
-		return self.az.call(AzWorkbooks.Get(self.workbook.sub.uuid, self.workbook.rg.name, self.workbook.name, canFetchContent=True))
+		return self.az.call(AzWorkbooks.Get(*rid_params(self.workbook), canFetchContent=True))
 
 	def transform(self, workbook: Workbook) -> Workbook:
 		"""Transform the workbook data using the provided transformer."""
@@ -43,7 +44,7 @@ class Migrator:
 	def put_workbook(self, transformed: Workbook):
 		"""Update the dashboard in Azure with the transformed data."""
 		self.az.call(
-			AzWorkbooks.Update(self.workbook.sub.uuid, self.workbook.rg.name, self.workbook.name, transformed),
+			AzWorkbooks.Update(*rid_params(self.workbook), cast_as(transformed, WorkbookUpdateParameters)),
 		)
 
 	def make_backup(self, workbook: Workbook):
@@ -62,7 +63,9 @@ def migrate(resource_id: str, replacements: str, backup_directory: str):
 	az = AzRest.from_credential(DefaultAzureCredential())
 
 	replacements = json.loads(replacements)
+	assert isinstance(replacements, dict)
 	resource = rid.parse(resource_id)
+	assert isinstance(resource, rid.Resource)
 	transformer = JSONTraverser(replacements)
 	migrator = Migrator(az, resource, transformer, Path(backup_directory))
 

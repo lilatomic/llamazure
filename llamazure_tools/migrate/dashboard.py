@@ -1,5 +1,4 @@
 """Migrate an Azure Dashboard to a different Log Analytics Workspace"""
-import dataclasses
 import json
 from dataclasses import dataclass
 from datetime import datetime
@@ -9,10 +8,11 @@ import click
 from azure.identity import DefaultAzureCredential
 
 from llamazure.azrest.azrest import AzRest
+from llamazure.azrest.models import cast_as
 from llamazure.rid import rid
 from llamazure.rid.rid import Resource
 from llamazure_tools.migrate.portal.r.m.portal.portal import AzDashboards, Dashboard, PatchableDashboard  # pylint: disable=E0611,E0401
-from llamazure_tools.migrate.util import JSONTraverser
+from llamazure_tools.migrate.util import JSONTraverser, rid_params
 
 
 @dataclass
@@ -35,7 +35,7 @@ class Migrator:
 
 	def get_dashboard(self) -> dict:
 		"""Retrieve the current dashboard data from Azure."""
-		return self.az.call(dataclasses.replace(AzDashboards.Get(self.dashboard.sub.uuid, self.dashboard.rg.name, self.dashboard.name), ret_t=dict))
+		return self.az.call(AzDashboards.Get(*rid_params(self.dashboard)).with_ret_t(dict))
 
 	def transform(self, dashboard: dict) -> dict:
 		"""Transform the dashboard data using the provided transformer."""
@@ -44,12 +44,9 @@ class Migrator:
 	def put_dashboard(self, transformed: dict):
 		"""Update the dashboard in Azure with the transformed data."""
 		d = Dashboard(**transformed)
-		p = PatchableDashboard(
-			properties=d.properties.model_dump(),
-			tags=d.tags,
-		)
+		p = cast_as(d, PatchableDashboard)
 		self.az.call(
-			AzDashboards.Update(self.dashboard.sub.uuid, self.dashboard.rg.name, self.dashboard.name, p),
+			AzDashboards.Update(*rid_params(self.dashboard), p),
 		)
 
 	def make_backup(self, dashboard: dict):
@@ -68,7 +65,9 @@ def migrate(resource_id: str, replacements: str, backup_directory: str):
 	az = AzRest.from_credential(DefaultAzureCredential())
 
 	replacements = json.loads(replacements)
+	assert isinstance(replacements, dict)
 	resource = rid.parse(resource_id)
+	assert isinstance(resource, rid.Resource)
 	transformer = JSONTraverser(replacements)
 	migrator = Migrator(az, resource, transformer, Path(backup_directory))
 

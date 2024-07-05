@@ -1,6 +1,9 @@
 """Utils"""
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
+
+from llamazure.azrest.models import ensure
+from llamazure.rid import rid
 
 
 @dataclass
@@ -19,3 +22,7 @@ class JSONTraverser:
 			return self.replacements.get(obj, obj)
 		else:
 			return obj
+
+
+def rid_params(res: rid.Resource) -> Tuple[str, str, str]:
+	return ensure(res.sub).uuid, ensure(res.rg).name, res.name

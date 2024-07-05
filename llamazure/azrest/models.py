@@ -9,6 +9,7 @@ from typing import Any, Dict, Generic, Iterator, List, Optional, Type, TypeVar, 
 from pydantic import BaseModel, BeforeValidator, Field
 
 Ret_T = TypeVar("Ret_T")
+Ret_T0 = TypeVar("Ret_T0")
 ReadOnly = Optional[Ret_T]
 
 
@@ -61,9 +62,9 @@ class Req(Generic[Ret_T]):
 	def add_param(self, name: str, value: str) -> Req:
 		return dataclasses.replace(self, params={**self.params, **{name: value}})
 
-	def with_ret_t(self, ret_t: Type[Ret_T]) -> Req:
+	def with_ret_t(self, ret_t: Type[Ret_T0]) -> Req[Ret_T0]:
 		"""Override the return type"""
-		return dataclasses.replace(self, ret_t=ret_t)
+		return dataclasses.replace(self, ret_t=ret_t)  # type: ignore
 
 
 @dataclass
@@ -156,6 +157,20 @@ T = TypeVar("T")
 
 
 def ensure(a: Optional[T]) -> T:
+	"""Ensure the result is not None"""
 	if a is None:
 		raise TypeError("value was None")
 	return a
+
+
+P0 = TypeVar("P0", bound=BaseModel)
+P1 = TypeVar("P1", bound=BaseModel)
+
+
+def cast_as(obj: P0, cls: Type[P1]) -> P1:
+	"""
+	Cast one model into another.
+
+	Useful for turning a Foo into a FooUpdateParameters.
+	"""
+	return cls.model_validate(obj.model_dump())
