@@ -10,7 +10,7 @@ from azure.identity import DefaultAzureCredential
 from llamazure.azrest.azrest import AzRest
 from llamazure.rid import rid
 from llamazure.rid.rid import Resource
-from llamazure_tools.migrate.az_workbooks.applicationinsights.r.m.insights.workbooks import AzWorkbooks, Workbook  # pylint: disable=E0611,E0401
+from llamazure_tools.migrate.applicationinsights.r.m.insights.workbooks import AzWorkbooks, Workbook  # pylint: disable=E0611,E0401
 from llamazure_tools.migrate.util import JSONTraverser
 
 

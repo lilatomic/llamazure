@@ -1,6 +1,6 @@
 """Test the OpenAPI codegen"""
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 # pylint: disable=protected-access
 import pytest
@@ -262,7 +262,7 @@ class TestIRTransformerImports:
 
 
 class TestJSONSchemaParams:
-	def do_test(self, parameter, expected, additional_params: Dict[str, Union[OAParam, OARef]] = None):
+	def do_test(self, parameter, expected, additional_params: Optional[Dict[str, Union[OAParam, OARef]]] = None):
 		openapi = {}
 		if additional_params:
 			openapi["parameters"] = additional_params
@@ -271,7 +271,7 @@ class TestJSONSchemaParams:
 		j = JSONSchemaSubparser(reader, RefCache())
 
 		actual = j.ir_param(parameter)
-		assert expected == actual
+		assert actual == expected
 
 	def test_list_param(self):
 		p = OAParam(
@@ -288,7 +288,7 @@ class TestJSONSchemaParams:
 		)
 		self.do_test(
 			p,
-			IRParam(t=IR_T(t=IR_List(items=IR_T(t=str, readonly=False, required=True), required=True), readonly=False, required=False), name="tags", position=ParamPosition.query),
+			IRParam(t=IR_T(t=IR_List(items=IR_T(t=str)), required=False), name="tags", position=ParamPosition.query),
 		)
 
 	def test_ref(self):
@@ -456,7 +456,7 @@ class TestJSONSchemaDefs:
 					properties={
 						"code": IR_T(t=int, readonly=True, required=False),
 						"message": IR_T(t=str, readonly=True, required=False),
-						"details": IR_T(t=IR_List(items=IR_T(t="ErrorDefinition", readonly=False, required=True), required=True), readonly=False, required=False),
+						"details": IR_T(t=IR_List(items=IR_T(t="ErrorDefinition"))),
 					},
 					description="Error definition.",
 					src=Path("."),

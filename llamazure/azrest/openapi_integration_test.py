@@ -84,7 +84,7 @@ class TestTransformDefs:
 						)
 
 
-				properties: Properties = None
+				properties: Properties
 
 				def __eq__(self, o) -> bool:
 					return (

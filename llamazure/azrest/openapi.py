@@ -31,7 +31,7 @@ import pydantic
 import requests
 from pydantic import BaseModel, Field, TypeAdapter
 
-from llamazure.azrest.models import AzList
+from llamazure.azrest.models import AzList, default_dict, default_list
 
 l = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class OAParam(BaseModel):
 	type: Optional[str] = None
 	description: str
 	oa_schema: Optional[OARef] = Field(alias="schema", default=None)
-	items: Optional[Union[OADef.Array, OADef.Property, OARef, Dict]] = None
+	items: Optional[Union[OADef.Array, OADef.Property, OARef]] = None
 
 
 class OAResponse(BaseModel):
@@ -213,8 +213,9 @@ class IR_List(BaseModel):
 
 
 class IR_Dict(BaseModel):
+	"""An IR descriptor for a Dictionary type"""
 
-	keys: IR_T = str
+	keys: IR_T
 	values: IR_T
 	required: bool = True
 
@@ -240,7 +241,7 @@ class Reader:
 		self.reader_cache[path] = self
 
 	@classmethod
-	def load(cls, root: str, path: Path, reader_cache: Dict[Path, Reader] = None) -> Reader:
+	def load(cls, root: str, path: Path, reader_cache: Optional[Dict[Path, Reader]] = None) -> Reader:
 		"""Load from a path or file-like object"""
 		return cls._load_file(root, path, reader_cache or {})
 
@@ -268,7 +269,7 @@ class Reader:
 
 	@staticmethod
 	def resolve_path(path: Path) -> Path:
-		parts = []
+		parts: List[str] = []
 		for part in path.parts:
 			if part == "..":
 				if parts:
@@ -373,8 +374,8 @@ class RefCache:
 class IRTransformer:
 	"""Transformer to and from the IR"""
 
-	def __init__(self, defs: Dict[str, OADef], openapi: Reader, refcache: RefCache):
-		self.oa_defs: Dict[str, OADef] = defs
+	def __init__(self, defs: Dict[str, Union[OADef, OAEnum]], openapi: Reader, refcache: RefCache):
+		self.oa_defs: Dict[str, Union[OADef, OAEnum]] = defs
 		self.openapi = openapi
 
 		self.jsonparser = JSONSchemaSubparser(openapi, refcache)
@@ -414,7 +415,7 @@ class IRTransformer:
 
 		output_req: List[CodeGenable] = azs + list(az_lists.values()) + list(az_enums)
 
-		return self.codegen_definitions(azs, az_lists, az_enums, output_req)
+		return self.codegen_definitions(azs, az_lists, output_req)
 
 	def identify_azlists(self, ir_definitions) -> Dict[str, AZAlias]:
 		ir_azlists: Dict[str, AZAlias] = {}
@@ -439,7 +440,7 @@ class IRTransformer:
 		return out
 
 	@staticmethod
-	def codegen_definitions(azs: List[AZDef], ir_azlists: Dict[str, AZAlias], ir_enums: List[IR_Enum], output_req: List[CodeGenable]):
+	def codegen_definitions(azs: List[AZDef], ir_azlists: Dict[str, AZAlias], output_req: List[CodeGenable]):
 		codegened_definitions = [cg.codegen() for cg in output_req]
 		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
 		return "\n\n".join(codegened_definitions + reloaded_definitions) + "\n\n"
@@ -502,12 +503,20 @@ class IRTransformer:
 				v = "[]"
 			elif isinstance(f_type.t, IR_Dict):
 				v = "{}"
+			elif f_name == "properties":
+				v = None
 			elif f_type.readonly or not f_type.required:
 				v = "None"
 			else:
 				v = None
 
-			az_fields.append(AZField(name=f_name, t=t, default=v, readonly=f_type.readonly))
+			annotations = []
+			if isinstance(f_type.t, IR_List):
+				annotations.append("default_list")
+			elif isinstance(f_type.t, IR_List):
+				annotations.append("default_dict")
+
+			az_fields.append(AZField(name=f_name, t=t, default=v, annotations=annotations, readonly=f_type.readonly))
 
 		return az_fields
 
@@ -524,15 +533,8 @@ class IRTransformer:
 		for name, prop in irdef.properties.items():
 			if name == "properties":
 				prop_container = irdef.properties["properties"]
-				prop_t = prop_container.t
-
-				if isinstance(prop_t, IRDef):
-					prop_c_ir = prop_t
-				else:
-					assert isinstance(prop_t, str)  # TODO: Better checking or coercion
-					prop_ref = prop_t
-					prop_c_oa = self.oa_defs[prop_ref]
-					prop_c_ir = self.jsonparser.transform(prop_ref, prop_c_oa, [])
+				prop_c_ir = prop_container.t
+				assert isinstance(prop_c_ir, IRDef), f"properties class was not of type IRDef type={type(prop_c_ir)}"
 				prop_c_az = self.defIR2AZ(prop_c_ir)
 
 				property_c.append(prop_c_az.result.model_copy(update={"name": "Properties"}))
@@ -672,7 +674,7 @@ class IRTransformer:
 		return [e for e in imports if e.path != local]
 
 
-OAObj = Union[OARef, OADef, OAEnum]
+OAObj = Union[OARef, OADef.Array, OADef.Property, OADef, OAEnum]
 
 
 class JSONSchemaSubparser:
@@ -684,7 +686,7 @@ class JSONSchemaSubparser:
 		self.refcache = refcache
 
 	@staticmethod
-	def resolve_type(t: str) -> Union[str, type]:
+	def resolve_type(t: Optional[str]) -> Union[str, type]:
 		"""Resolve OpenAPI types to Python types, if applicable"""
 		py_type = {
 			"string": str,
@@ -692,16 +694,19 @@ class JSONSchemaSubparser:
 			"integer": int,
 			"boolean": bool,
 			"object": dict,
+			None: "None",
 		}.get(t, t)
-		return py_type
+		return py_type  # type: ignore  # I'm not going to convince mypy of this
 
-	def _is_full_inherit(self, obj: OADef):
-		return not obj.properties and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef)
+	def _is_full_inherit(self, obj: OADef) -> Optional[OARef]:
+		if not obj.properties and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef):
+			return obj.allOf[0]
+		return None
 
-	def _is_dict(self, obj: OADef):
+	def _is_dict(self, obj: OADef) -> bool:
 		return (not obj.properties and not obj.allOf and obj.t == "object" and not obj.additionalProperties) or obj.additionalProperties is True
 
-	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IRDef | IR_T:
+	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IR_T:
 		relname = self.openapi.extract_remote_object_name(ref.ref)
 		cache_ref = RefCache.Ref(self.openapi.path, relname)
 		if self.refcache[cache_ref]:
@@ -718,11 +723,9 @@ class JSONSchemaSubparser:
 
 	def ir_array(self, name, obj: OADef.Array, required_properties: List[str]) -> IR_T:
 		"""Transform an OpenAPI array to IR"""
-		required = name in required_properties
-
 		item_t = self.transform(name, obj.items, [name])
 		item_t.required = True
-		return IR_T(t=IR_List(items=item_t), required=required)
+		return IR_T(t=IR_List(items=item_t), required=True)  # defaults to empty list, so we can mark it as required
 
 	def ir_dict(self, name, obj: OADef, required_properties: List[str]) -> IR_T:
 		required = name in required_properties
@@ -731,14 +734,20 @@ class JSONSchemaSubparser:
 			# this is explicitly a dict without constraints on values
 			has_type = obj.properties.get("type", None)
 			if has_type:
-				values_t = IR_T(t=self.resolve_type(has_type.t), required=True)
+				if isinstance(has_type, OARef):
+					resolved = self.resolve_reference(name, has_type, required_properties)
+					values_t = resolved
+				else:
+					values_t = IR_T(t=self.resolve_type(has_type.t), required=True)
 			else:
 				values_t = IR_T(t="Any", required=True)  # Optional[Any] is a little silly
-		else:
+		elif isinstance(obj.additionalProperties, (OARef, OADef.Array, OADef.Property, OADef, OAEnum)):
 			values_t = self.transform(name, obj.additionalProperties, [name])
+		else:
+			raise TypeError(f"dict has unknown additionalProperties type={type(obj.additionalProperties)}")
 		return IR_T(t=IR_Dict(keys=IR_T(t=str, required=True), values=values_t), required=required)
 
-	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IRDef | IR_T | IR_Enum:
+	def transform(self, name: str, obj: OAObj, required_properties: Optional[List[str]]) -> IR_T:
 		"""When we're in JSONSchema mode, we can only contain more jsonschema items"""
 		l.info(f"Transforming {name}")
 		required_properties = required_properties or []
@@ -761,8 +770,9 @@ class JSONSchemaSubparser:
 				self.refcache.mark_referenceable(cache_ref, t)
 				return t
 
-			if self._is_full_inherit(obj):
-				t = self.resolve_reference(name, obj.allOf[0], required_properties)
+			maybe_parent_class = self._is_full_inherit(obj)
+			if maybe_parent_class:
+				t = self.resolve_reference(name, maybe_parent_class, required_properties)
 				self.refcache.mark_referenceable(cache_ref, t)
 				return t
 
@@ -826,14 +836,14 @@ class JSONSchemaSubparser:
 			# this is a parameter reference, so we don't use the `resolve_reference` function
 			reader, resolved = self.openapi.load_relative(obj.ref)
 			relative_transformer = JSONSchemaSubparser(reader, self.refcache)
-			resolved_loaded = TypeAdapter(Union[OARef, OAParam]).validate_python(resolved)
+			resolved_loaded = cast(Union[OARef, OAParam], TypeAdapter(Union[OARef, OAParam]).validate_python(resolved))
 			transformed = relative_transformer.ir_param(resolved_loaded)
 
 			return transformed
 
 		if obj.oa_schema:
 			t = self.transform(obj.name, obj.oa_schema, [])  # TODO: add required props
-		elif obj.type == "array":
+		elif obj.type == "array" and obj.items:
 			item_t = self.transform(obj.name, obj.items, [obj.name])
 			t = IR_T(t=IR_List(items=item_t), required=obj.required)
 		else:
@@ -846,7 +856,7 @@ class JSONSchemaSubparser:
 		if isinstance(obj, OARef):
 			reader, resolved = self.openapi.load_relative(obj.ref)
 			relative_transformer = JSONSchemaSubparser(reader, self.refcache)
-			resolved_loaded = TypeAdapter(Union[OARef, OAResponse]).validate_python(resolved)
+			resolved_loaded = cast(Union[OARef, OAResponse], TypeAdapter(Union[OARef, OAResponse]).validate_python(resolved))
 
 			transformed = relative_transformer.ir_response(resolved_loaded)
 
@@ -932,13 +942,21 @@ class AZField(BaseModel, CodeGenable):
 	name: str
 	t: str
 	default: Optional[str] = None
+	annotations: List[str] = []
 	readonly: bool
 
 	def codegen(self) -> str:
 		if self.name == "id":
 			return f'rid: {self.t} = Field(alias="id", default=None)'
 		default = f" = {self.default}" if self.default else ""
-		return f"{self.name}: {self.t}" + default
+
+		if not self.annotations:
+			typedecl = self.t
+		else:
+			s = ",".join([self.t, *self.annotations])
+			typedecl = f"Annotated[{s}]"
+
+		return f"{self.name}: {typedecl}" + default
 
 
 class AZDef(BaseModel, CodeGenable):
@@ -1135,7 +1153,7 @@ class AZImport(BaseModel, CodeGenable):
 
 	@classmethod
 	def merge(cls, imports: List[AZImport]) -> List[AZImport]:
-		merged = {}
+		merged: Dict[Path, AZImport] = {}
 		for imp in imports:
 			p = imp.path
 			if p in merged:
@@ -1154,11 +1172,11 @@ def codegen(transformer: IRTransformer, base_module: Path) -> str:
 		# flake8: noqa
 		from __future__ import annotations
 		from enum import Enum
-		from typing import List, Optional, Union
+		from typing import Annotated, List, Optional, Union
 
 		from pydantic import BaseModel, Field
 
-		from llamazure.azrest.models import AzList, ReadOnly, Req
+		from llamazure.azrest.models import AzList, ReadOnly, Req, default_list, default_dict
 
 		"""
 	)

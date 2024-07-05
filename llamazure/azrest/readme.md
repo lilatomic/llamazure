@@ -29,9 +29,9 @@ adhoc_tool(
 	args=[
 		"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
 		"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json",
-		"my/module/role_asn.py",
+		"my/module/az",
 	],
-	output_files=["my/module/role_asn.py"],
+	output_directories=["my/module/az"],
 	root_output_directory=".",
 )
 

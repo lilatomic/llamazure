@@ -11,7 +11,7 @@ from azure.identity import DefaultAzureCredential
 from llamazure.azrest.azrest import AzRest
 from llamazure.rid import rid
 from llamazure.rid.rid import Resource
-from llamazure_tools.migrate.az_dashboards.portal.r.m.portal.portal import AzDashboards, Dashboard, PatchableDashboard  # pylint: disable=E0611,E0401
+from llamazure_tools.migrate.portal.r.m.portal.portal import AzDashboards, Dashboard, PatchableDashboard  # pylint: disable=E0611,E0401
 from llamazure_tools.migrate.util import JSONTraverser
 
 

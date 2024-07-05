@@ -23,7 +23,12 @@ adhoc_tool(
 	runnable="//llamazure/azrest/openapi.py",
 	args=[
 		"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
-		",".join(["specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json","specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleDefinitionsCalls.json"]),
+		",".join(
+			[
+				"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json",
+				"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleDefinitionsCalls.json",
+			]
+		),
 		"llamazure/rbac",
 	],
 	output_directories=["llamazure/rbac/"],

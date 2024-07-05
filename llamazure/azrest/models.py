@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, Generic, Iterator, List, Optional, Type, TypeVar, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 Ret_T = TypeVar("Ret_T")
 ReadOnly = Optional[Ret_T]
@@ -113,6 +113,10 @@ class AzList(BaseModel, Generic[Ret_T]):
 		return self.value.__iter__()
 
 
+default_list = BeforeValidator(lambda v: v if v is not None else [])
+default_dict = BeforeValidator(lambda v: v if v is not None else {})
+
+
 class AzureError(Exception):
 	"""An error from the Azure API"""
 
@@ -146,3 +150,12 @@ class AzureErrorAdditionInfo(BaseModel):
 
 	info_type: str = Field(alias="type")
 	info: Dict = {}
+
+
+T = TypeVar("T")
+
+
+def ensure(a: Optional[T]) -> T:
+	if a is None:
+		raise TypeError("value was None")
+	return a
