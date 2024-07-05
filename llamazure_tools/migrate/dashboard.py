@@ -1,3 +1,4 @@
+"""Migrate an Azure Dashboard to a different Log Analytics Workspace"""
 import dataclasses
 import json
 from dataclasses import dataclass
@@ -5,11 +6,12 @@ from datetime import datetime
 from pathlib import Path
 
 import click
+from azure.identity import DefaultAzureCredential
 
 from llamazure.azrest.azrest import AzRest
 from llamazure.rid import rid
 from llamazure.rid.rid import Resource
-from llamazure_tools.migrate.az_dashboards.portal.r.m.portal.portal import AzDashboards, Dashboard, PatchableDashboard
+from llamazure_tools.migrate.az_dashboards.portal.r.m.portal.portal import AzDashboards, Dashboard, PatchableDashboard  # pylint: disable=E0611,E0401
 from llamazure_tools.migrate.util import JSONTraverser
 
 
@@ -53,7 +55,7 @@ class Migrator:
 	def make_backup(self, dashboard: dict):
 		"""Create a backup of the current dashboard data."""
 		filename = self.backup_directory / Path(self.dashboard.name + datetime.utcnow().isoformat()).with_suffix(".json")
-		with open(filename, "w") as f:
+		with open(filename, "w", encoding="utf-8") as f:
 			json.dump(dashboard, f)
 
 
@@ -62,8 +64,7 @@ class Migrator:
 @click.option("--replacements", help="A JSON string of the replacements to apply.")
 @click.option("--backup-directory", type=click.Path(), help="The directory where backups will be stored.")
 def migrate(resource_id: str, replacements: str, backup_directory: str):
-	from azure.identity import DefaultAzureCredential
-
+	"""Migrate an Azure Dashboard to a different Log Analytics Workspace"""
 	az = AzRest.from_credential(DefaultAzureCredential())
 
 	replacements = json.loads(replacements)

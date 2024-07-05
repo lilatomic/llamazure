@@ -1,3 +1,4 @@
+"""Utils"""
 from dataclasses import dataclass
 from typing import Any, Dict
 
@@ -9,6 +10,7 @@ class JSONTraverser:
 	replacements: Dict[str, str]
 
 	def traverse(self, obj: Any) -> Any:
+		"""Traverse a JSON structure and replace exact string matches"""
 		if isinstance(obj, dict):
 			return {key: self.traverse(value) for key, value in obj.items()}
 		elif isinstance(obj, list):
