@@ -128,7 +128,7 @@ class OAResponse(BaseModel):
 	"""A response for an OpenAPI Operation"""
 
 	description: str
-	oa_schema: Optional[OARef] = Field(alias="schema", default=None)
+	oa_schema: Optional[Union[OARef, OADef]] = Field(alias="schema", default=None)
 
 
 class OAMSPageable(BaseModel):
@@ -144,7 +144,7 @@ class OAOp(BaseModel):
 	operationId: str
 	description: str
 	parameters: List[Union[OAParam, OARef]]
-	responses: Dict[str, OAResponse]
+	responses: Dict[str, Union[OARef, OAResponse]]
 	pageable: Optional[OAMSPageable] = Field(alias="x-ms-pageable", default=None)
 
 
@@ -444,18 +444,6 @@ class IRTransformer:
 		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
 		return "\n\n".join(codegened_definitions + reloaded_definitions) + "\n\n"
 
-	def transform_oa_response(self, p: OAResponse) -> IR_T:
-		schema = p.oa_schema
-		if not schema:
-			return IR_T(t="None")
-		elif isinstance(schema, OARef):
-			name = self.openapi.extract_remote_object_name(schema.ref)
-			r = self.jsonparser.transform(name, schema, [])
-			r.required = True
-			return r
-		else:
-			raise NotImplementedError(f"Full schemas are not supported")
-
 	@staticmethod
 	def resolve_type(t: str) -> Union[str, type]:
 		"""Resolve OpenAPI types to Python types, if applicable"""
@@ -635,7 +623,7 @@ class IRTransformer:
 		url_params = {e.name: e.t for e in params[ParamPosition.path]}
 		query_params = {e.name: e.t for e in params[ParamPosition.query] if e.name != "api-version"}
 
-		rets_ts = [self.transform_oa_response(r) for r_name, r in (op.responses.items()) if r_name != "default"]
+		rets_ts = [self.jsonparser.ir_response(r) for r_name, r in (op.responses.items()) if r_name != "default"]
 		ret_t = IRTransformer.unify_ir_t(rets_ts)
 
 		ir_op = IROp(
@@ -885,6 +873,25 @@ class JSONSchemaSubparser:
 			name=obj.name,
 			position=obj.in_component
 		)
+
+	def ir_response(self, obj: Union[OAResponse, OARef]) -> IR_T:
+		if isinstance(obj, OARef):
+			reader, resolved = self.openapi.load_relative(obj.ref)
+			relative_transformer = JSONSchemaSubparser(reader, self.refcache)
+			resolved_loaded = TypeAdapter(Union[OARef, OAResponse]).validate_python(resolved)
+			transformed = relative_transformer.ir_response(resolved_loaded)
+
+			return transformed
+
+		schema = obj.oa_schema
+		if not schema:
+			return IR_T(t="None")
+		elif isinstance(schema, OARef):
+			return self.resolve_reference("", schema, []).model_copy(update={"required":True})
+		elif isinstance(schema, OADef):
+			raise NotImplementedError("implement ")
+		else:
+			raise TypeError(f"unsupported type for response schema type={type(obj)}")
 
 
 class CodeGenable(ABC):
