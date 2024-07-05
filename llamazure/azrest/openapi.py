@@ -469,6 +469,8 @@ class IRTransformer:
 			type_as_str = declared_type.__name__
 		elif isinstance(declared_type, IRDef):
 			type_as_str = declared_type.name
+		elif isinstance(declared_type, IR_Enum):
+			type_as_str = declared_type.name
 		elif isinstance(declared_type, IR_List):
 			type_as_str = "List[%s]" % IRTransformer.resolve_ir_t_str(declared_type.items)
 		elif isinstance(declared_type, IR_Dict):
@@ -684,7 +686,7 @@ OAObj = Union[OARef, OADef, OAEnum]
 
 class JSONSchemaSubparser:
 
-	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OARef, OADef, OAEnum])
+	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OARef, OAEnum, OADef])
 
 	def __init__(self, openapi: Reader, refcache: RefCache):
 		self.openapi = openapi
@@ -756,6 +758,7 @@ class JSONSchemaSubparser:
 
 		elif isinstance(obj, OADef):
 			if not obj.properties and not obj.allOf and not obj.additionalProperties:
+				# does this even happen?
 				return IR_T(
 					t=self.resolve_type(obj.t),
 					required=name in required_properties,
