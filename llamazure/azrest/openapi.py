@@ -842,7 +842,7 @@ class JSONSchemaSubparser:
 			return transformed
 
 		if obj.oa_schema:
-			t = self.transform(obj.name, obj.oa_schema, [])  # TODO: add required props
+			t = self.transform(obj.name, obj.oa_schema, []).model_copy(update={"required": obj.required})
 		elif obj.type == "array" and obj.items:
 			item_t = self.transform(obj.name, obj.items, [obj.name])
 			t = IR_T(t=IR_List(items=item_t), required=obj.required)
@@ -878,6 +878,9 @@ class JSONSchemaSubparser:
 			d[p.position].append(p)
 		return d
 
+	def _is_200(self, s: str) -> bool:
+		return s.isdigit() and 200 <= int(s) <= 300
+
 	def ip_op(self, apiv: str, path: str, method: str, op: OAOp) -> IROp:
 		object_name, name = op.operationId.split("_")
 
@@ -890,7 +893,7 @@ class JSONSchemaSubparser:
 		url_params = {e.name: e.t for e in params[ParamPosition.path]}
 		query_params = {e.name: e.t for e in params[ParamPosition.query] if e.name != "api-version"}
 
-		rets_ts = [self.ir_response(r) for r_name, r in (op.responses.items()) if r_name != "default"]
+		rets_ts = [self.ir_response(r) for r_name, r in (op.responses.items()) if r_name != "default" and self._is_200(r_name)]
 		ret_t = IRTransformer.unify_ir_t(rets_ts)
 
 		ir_op = IROp(
