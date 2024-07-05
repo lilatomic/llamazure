@@ -444,17 +444,6 @@ class IRTransformer:
 		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
 		return "\n\n".join(codegened_definitions + reloaded_definitions) + "\n\n"
 
-	@staticmethod
-	def resolve_type(t: str) -> Union[str, type]:
-		"""Resolve OpenAPI types to Python types, if applicable"""
-		py_type = {
-			"string": str,
-			"number": float,
-			"integer": int,
-			"boolean": bool,
-			"object": dict,
-		}.get(t, t)
-		return py_type
 
 	@staticmethod
 	def ir_azarray(obj: Union[IRDef, IR_Enum]) -> Optional[AZAlias]:
@@ -587,7 +576,7 @@ class IRTransformer:
 		ops: List[IROp] = []
 		for path, path_item in parsed.items():
 			for method, op in path_item.items():
-				ops.append(self.oa2ir_op(self.openapi.apiv, path, method, op))
+				ops.append(self.jsonparser.ip_op(self.openapi.apiv, path, method, op))
 
 		az_objs: Dict[str, List[IROp]] = defaultdict(list)
 		for ir_op in ops:
@@ -604,42 +593,6 @@ class IRTransformer:
 			)
 
 		return "\n\n".join([cg.codegen() for cg in az_ops])
-
-	def _categorise_params(self, params: List[IRParam]) -> Dict[ParamPosition, List[IRParam]]:
-		d = defaultdict(list)
-		for p in params:
-			d[p.position].append(p)
-		return d
-
-	def oa2ir_op(self, apiv: str, path: str, method: str, op: OAOp) -> IROp:
-		object_name, name = op.operationId.split("_")
-
-		params = self._categorise_params([self.jsonparser.ir_param(p) for p in op.parameters])
-
-		body_params = params[ParamPosition.body]
-		body_type = IRTransformer.unify_ir_t([e.t for e in body_params])
-		body_name = None if len(body_params) != 1 else body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
-
-		url_params = {e.name: e.t for e in params[ParamPosition.path]}
-		query_params = {e.name: e.t for e in params[ParamPosition.query] if e.name != "api-version"}
-
-		rets_ts = [self.jsonparser.ir_response(r) for r_name, r in (op.responses.items()) if r_name != "default"]
-		ret_t = IRTransformer.unify_ir_t(rets_ts)
-
-		ir_op = IROp(
-			object_name=object_name,
-			name=name,
-			description=op.description,
-			path=path,
-			method=method,
-			apiv=apiv,
-			body=body_type,
-			body_name=body_name,
-			params=url_params or None,
-			query_params=query_params or None,
-			ret_t=ret_t,
-		)
-		return ir_op
 
 	@staticmethod
 	def ir2az_op(name: str, op: IROp):
@@ -737,6 +690,19 @@ class JSONSchemaSubparser:
 		self.openapi = openapi
 		self.refcache = refcache
 
+
+	@staticmethod
+	def resolve_type(t: str) -> Union[str, type]:
+		"""Resolve OpenAPI types to Python types, if applicable"""
+		py_type = {
+			"string": str,
+			"number": float,
+			"integer": int,
+			"boolean": bool,
+			"object": dict,
+		}.get(t, t)
+		return py_type
+
 	def _is_full_inherit(self, obj: OADef):
 		return not obj.properties and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef)
 
@@ -791,7 +757,7 @@ class JSONSchemaSubparser:
 		elif isinstance(obj, OADef):
 			if not obj.properties and not obj.allOf and not obj.additionalProperties:
 				return IR_T(
-					t=IRTransformer.resolve_type(obj.t),
+					t=self.resolve_type(obj.t),
 					required=name in required_properties,
 				)
 
@@ -831,7 +797,7 @@ class JSONSchemaSubparser:
 				required=name in required_properties,
 			)
 		elif isinstance(obj, OADef.Property):
-			resolved_type = IRTransformer.resolve_type(obj.t)
+			resolved_type = self.resolve_type(obj.t)
 			required = obj.required or name in required_properties  # obj.required is for QueryParams &c
 			return IR_T(t=resolved_type, readonly=obj.readOnly, required=required)
 		elif isinstance(obj, OADef.Array):
@@ -866,7 +832,7 @@ class JSONSchemaSubparser:
 			t = IR_T(t=IR_List(items=item_t), required=obj.required)
 		else:
 			assert obj.type, "OAParam without schema does not have a type"
-			t = IR_T(t=IRTransformer.resolve_type(obj.type), required=obj.required)
+			t = IR_T(t=self.resolve_type(obj.type), required=obj.required)
 
 		return IRParam(
 			t=t,
@@ -893,6 +859,41 @@ class JSONSchemaSubparser:
 		else:
 			raise TypeError(f"unsupported type for response schema type={type(obj)}")
 
+	def _categorise_params(self, params: List[IRParam]) -> Dict[ParamPosition, List[IRParam]]:
+		d = defaultdict(list)
+		for p in params:
+			d[p.position].append(p)
+		return d
+
+	def ip_op(self, apiv: str, path: str, method: str, op: OAOp) -> IROp:
+		object_name, name = op.operationId.split("_")
+
+		params = self._categorise_params([self.ir_param(p) for p in op.parameters])
+
+		body_params = params[ParamPosition.body]
+		body_type = IRTransformer.unify_ir_t([e.t for e in body_params])
+		body_name = None if len(body_params) != 1 else body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
+
+		url_params = {e.name: e.t for e in params[ParamPosition.path]}
+		query_params = {e.name: e.t for e in params[ParamPosition.query] if e.name != "api-version"}
+
+		rets_ts = [self.ir_response(r) for r_name, r in (op.responses.items()) if r_name != "default"]
+		ret_t = IRTransformer.unify_ir_t(rets_ts)
+
+		ir_op = IROp(
+			object_name=object_name,
+			name=name,
+			description=op.description,
+			path=path,
+			method=method,
+			apiv=apiv,
+			body=body_type,
+			body_name=body_name,
+			params=url_params or None,
+			query_params=query_params or None,
+			ret_t=ret_t,
+		)
+		return ir_op
 
 class CodeGenable(ABC):
 	"""All objects which can be generated into Python code"""
