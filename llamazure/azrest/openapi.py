@@ -21,6 +21,7 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
+from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
 from textwrap import dedent, indent
@@ -105,16 +106,22 @@ class OAEnum(BaseModel):
 	# TOOD: x-ms-enum?
 
 
+class ParamPosition(Enum):
+	body = "body"
+	path = "path"
+	query = "query"
+
+
 class OAParam(BaseModel):
 	"""A Param for an OpenAPI Operation"""
 
 	name: str
-	in_component: str = Field(alias="in")
+	in_component: ParamPosition = Field(alias="in")
 	required: bool = True
 	type: Optional[str] = None
 	description: str
 	oa_schema: Optional[OARef] = Field(alias="schema", default=None)
-	items: Optional[Dict] = None
+	items: Optional[Union[OADef.Array, OADef.Property, OARef, Dict]] = None
 
 
 class OAResponse(BaseModel):
@@ -140,20 +147,6 @@ class OAOp(BaseModel):
 	responses: Dict[str, OAResponse]
 	pageable: Optional[OAMSPageable] = Field(alias="x-ms-pageable", default=None)
 
-	@property
-	def body_params(self) -> List[OAParam]:
-		"""Parameters that belong in the body"""
-		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "body"]
-
-	@property
-	def url_params(self) -> List[OAParam]:
-		"""Parameters that belong in the URL"""
-		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "path"]
-
-	@property
-	def query_params(self) -> List[OAParam]:
-		return [p for p in self.parameters if isinstance(p, OAParam) and p.in_component == "query" and p.name != "api-version"]
-
 
 class OAPath(BaseModel):
 	"""An OpenAPI Path item"""
@@ -168,6 +161,14 @@ class OAPath(BaseModel):
 
 	def items(self) -> Sequence[Tuple[str, OAOp]]:
 		return [(k, v) for k, v in dict(self).items() if v is not None]
+
+
+class IRParam(BaseModel):
+	"""Bundle for an operation's parameters"""
+
+	t: IR_T
+	name: str
+	position: ParamPosition
 
 
 class IROp(BaseModel):
@@ -575,29 +576,6 @@ class IRTransformer:
 			consumed,
 		)
 
-	def paramOA2IR(self, oaparam: OAParam) -> IR_T:
-		"""
-		Convert an OpenAPI Parameter to IR Parameter
-
-		If the param belongs in the body, it will have a schema and nothing else
-		Otherwise, it will always have a valid type
-		"""
-		if oaparam.oa_schema:
-			return self.jsonparser.transform(oaparam.name, oaparam.oa_schema, [])  # TODO: add required props
-		elif oaparam.type == "array":
-
-			def resolve_array(t_decl: Dict) -> IR_T:
-				if t_decl["type"] == "array":
-					t = IR_List(items=(resolve_array(t_decl["items"])), required=True)
-				else:
-					t = IRTransformer.resolve_type(t_decl["type"])
-				return IR_T(t=t, required=t_decl.get("required", True))
-
-			return resolve_array(oaparam.model_dump())
-		else:
-			assert oaparam.type, "OAParam without schema does not have a type"
-			return IR_T(t=IRTransformer.resolve_type(oaparam.type), required=oaparam.required)
-
 	@staticmethod
 	def unify_ir_t(ir_ts: List[IR_T]) -> Optional[IR_T]:
 		"""Unify IR types, usually for returns"""
@@ -618,10 +596,8 @@ class IRTransformer:
 		parser = TypeAdapter(Dict[str, OAPath])
 		parsed = parser.validate_python(self.openapi.paths)
 
-		resolved = self.resolve_parameters_in_oapath(parsed)
-
 		ops: List[IROp] = []
-		for path, path_item in resolved.items():
+		for path, path_item in parsed.items():
 			for method, op in path_item.items():
 				ops.append(self.oa2ir_op(self.openapi.apiv, path, method, op))
 
@@ -641,15 +617,27 @@ class IRTransformer:
 
 		return "\n\n".join([cg.codegen() for cg in az_ops])
 
-	def oa2ir_op(self, apiv: str, path: str, method: str, op: OAOp):
+	def _categorise_params(self, params: List[IRParam]) -> Dict[ParamPosition, List[IRParam]]:
+		d = defaultdict(list)
+		for p in params:
+			d[p.position].append(p)
+		return d
+
+	def oa2ir_op(self, apiv: str, path: str, method: str, op: OAOp) -> IROp:
 		object_name, name = op.operationId.split("_")
-		body_types = [self.paramOA2IR(p) for p in op.body_params]
-		body_type = IRTransformer.unify_ir_t(body_types)
-		body_name = None if len(op.body_params) != 1 else op.body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
-		params = {p.name: self.paramOA2IR(p) for p in op.url_params}
-		query_params = {p.name: self.paramOA2IR(p) for p in op.query_params}
+
+		params = self._categorise_params([self.jsonparser.ir_param(p) for p in op.parameters])
+
+		body_params = params[ParamPosition.body]
+		body_type = IRTransformer.unify_ir_t([e.t for e in body_params])
+		body_name = None if len(body_params) != 1 else body_params[0].name  # there can only be one body parameter by the spec # TODO: assert
+
+		url_params = {e.name: e.t for e in params[ParamPosition.path]}
+		query_params = {e.name: e.t for e in params[ParamPosition.query] if e.name != "api-version"}
+
 		rets_ts = [self.transform_oa_response(r) for r_name, r in (op.responses.items()) if r_name != "default"]
 		ret_t = IRTransformer.unify_ir_t(rets_ts)
+
 		ir_op = IROp(
 			object_name=object_name,
 			name=name,
@@ -659,25 +647,11 @@ class IRTransformer:
 			apiv=apiv,
 			body=body_type,
 			body_name=body_name,
-			params=params or None,
+			params=url_params or None,
 			query_params=query_params or None,
 			ret_t=ret_t,
 		)
 		return ir_op
-
-	def resolve_parameters_in_oapath(self, parsed: Dict[str, OAPath]) -> Dict[str, OAPath]:
-		"""Resolve params of OAOps (methods) of an OAPath"""
-		resolved: Dict[str, OAPath] = {}
-		for path, path_item in parsed.items():
-			new_path_item = {}
-			for method, op in path_item.items():
-				op = cast(OAOp, op)
-				resolved_parameters = self.resolve_oaparam_refs(op)
-				new_op = op.model_copy(update={"parameters": resolved_parameters})
-
-				new_path_item[method] = new_op
-			resolved[path] = cast(OAPath, new_path_item)
-		return resolved
 
 	@staticmethod
 	def ir2az_op(name: str, op: IROp):
@@ -868,8 +842,6 @@ class JSONSchemaSubparser:
 				),
 				required=name in required_properties,
 			)
-		elif isinstance(obj, OAParam):
-			raise NotImplementedError()
 		elif isinstance(obj, OADef.Property):
 			resolved_type = IRTransformer.resolve_type(obj.t)
 			required = obj.required or name in required_properties  # obj.required is for QueryParams &c
@@ -888,6 +860,31 @@ class JSONSchemaSubparser:
 
 		else:
 			raise TypeError(f"unsupported OpenAPI type {type(obj)}")
+
+	def ir_param(self, obj: Union[OAParam, OARef]) -> IRParam:
+		if isinstance(obj, OARef):
+			# this is a parameter reference, so we don't use the `resolve_reference` function
+			reader, resolved = self.openapi.load_relative(obj.ref)
+			relative_transformer = JSONSchemaSubparser(reader, self.refcache)
+			resolved_loaded = TypeAdapter(Union[OARef, OAParam]).validate_python(resolved)
+			transformed = relative_transformer.ir_param(resolved_loaded)
+
+			return transformed
+
+		if obj.oa_schema:
+			t = self.transform(obj.name, obj.oa_schema, [])  # TODO: add required props
+		elif obj.type == "array":
+			item_t = self.transform(obj.name, obj.items, [obj.name])
+			t = IR_T(t=IR_List(items=item_t), required=obj.required)
+		else:
+			assert obj.type, "OAParam without schema does not have a type"
+			t = IR_T(t=IRTransformer.resolve_type(obj.type), required=obj.required)
+
+		return IRParam(
+			t=t,
+			name=obj.name,
+			position=obj.in_component
+		)
 
 
 class CodeGenable(ABC):
