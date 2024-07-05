@@ -3,9 +3,10 @@ from typing import Dict
 
 # pylint: disable=redefined-outer-name
 import pytest
+from pydantic import BaseModel, ValidationError
 
 from llamazure.azrest.azrest import AzRest
-from llamazure.azrest.models import AzList, AzureError, BatchReq, Req
+from llamazure.azrest.models import AzList, AzureError, BatchReq, Req, cast_as, ensure
 
 
 @pytest.fixture
@@ -89,3 +90,55 @@ class TestBatches:
 			assert isinstance(res, AzList)
 
 		assert len(batch_res["test-req-0"].value) > 0
+
+
+# Example Pydantic models
+class Foo(BaseModel):
+	id: int
+	name: str
+
+
+class FooUpdateParameters(BaseModel):
+	name: str
+
+
+class TestCastAs:
+	def test_cast_foo_to_fooupdateparameters(self):
+		foo = Foo(id=1, name="test")
+		foo_update = cast_as(foo, FooUpdateParameters)
+		assert foo_update.name == foo.name
+		assert not hasattr(foo_update, "id")
+
+	def test_cast_fooupdateparameters_to_foo(self):
+		foo_update = FooUpdateParameters(name="updated_name")
+		with pytest.raises(ValidationError):
+			cast_as(foo_update, Foo)  # This should raise an error since 'id' is missing
+
+	def test_cast_with_additional_fields(self):
+		class Bar(BaseModel):
+			name: str
+			extra_field: int
+
+		foo = Foo(id=1, name="test")
+		with pytest.raises(ValueError):
+			cast_as(foo, Bar)  # This should raise an error since 'extra_field' is missing
+
+	def test_cast_with_missing_fields(self):
+		class FooPartial(BaseModel):
+			id: int
+
+		foo = Foo(id=1, name="test")
+		foo_partial = cast_as(foo, FooPartial)
+		assert foo_partial.id == foo.id
+		assert not hasattr(foo_partial, "name")
+
+
+class TestEnsure:
+	def test_ensure_not_none(self):
+		assert ensure(5) == 5
+		assert ensure("test") == "test"
+		assert ensure([1, 2, 3]) == [1, 2, 3]
+
+	def test_ensure_none_raises(self):
+		with pytest.raises(TypeError, match="value was None"):
+			ensure(None)

@@ -76,11 +76,14 @@ class TestRoles:
 		# explicitly make a `put` that already exists
 		retry(assert_role_assigned, AzureError)
 
-		l.info("deleting RoleAssignment")
-		ras.DeleteById(asn.rid)
+		def cleanup():
+			l.info("deleting RoleAssignment")
+			ras.DeleteById(asn.rid)
 
-		l.info("cleanup role")
-		retry(lambda: rds.delete_by_name(role.properties.roleName), AzureError)
+			l.info("cleanup role")
+			rds.delete_by_name(role.properties.roleName)
+
+		retry(lambda: cleanup, AzureError)
 
 	@pytest.mark.integration
 	@pytest.mark.admin
