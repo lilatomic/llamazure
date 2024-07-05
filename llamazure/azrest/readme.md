@@ -132,6 +132,7 @@ my_req = AzRoleAssignments.ListForResourceGroup(my_subscription, secure_rg).name
 2. Better retries of Batch elements
 3. Enums (x-ms-enum)
 4. Nullable (x-nullable)
+5. Support path-level `parameters`
 
 ## Known Issues
 

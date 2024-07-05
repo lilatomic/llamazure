@@ -6,7 +6,30 @@ from typing import Dict, Union
 import pytest
 from pydantic import TypeAdapter
 
-from llamazure.azrest.openapi import IR_T, IR_List, IRDef, IRTransformer, OADef, OAEnum, OARef, PathLookupError, Reader, RefCache
+from llamazure.azrest.openapi import (
+	IR_T,
+	AZImport,
+	IR_Dict,
+	IR_Enum,
+	IR_List,
+	IRDef,
+	IRParam,
+	IRTransformer,
+	JSONSchemaSubparser,
+	OADef,
+	OAEnum,
+	OAParam,
+	OARef,
+	OAResponse,
+	ParamPosition,
+	PathLookupError,
+	Reader,
+	RefCache,
+)
+
+
+def empty_jsp() -> JSONSchemaSubparser:
+	return JSONSchemaSubparser(Reader("", Path(), {}, {}), RefCache())
 
 
 class TestResolveReference:
@@ -19,12 +42,12 @@ class TestResolveReference:
 
 	def test_get_from_object_at_path_invalid_path(self):
 		data = {"a": {"b": {"c": 42}}}
-		with pytest.raises(PathLookupError) as exc_info:
+		with pytest.raises(PathLookupError):
 			Reader._get_from_object_at_path(data, "a/b/d")
 
 	def test_get_from_object_at_path_invalid_object(self):
 		data = {"a": {"b": {"c": 42}}}
-		with pytest.raises(PathLookupError) as exc_info:
+		with pytest.raises(PathLookupError):
 			Reader._get_from_object_at_path(data, "a/b/c/d")
 
 	def test_get_from_object_at_path_empty_path(self):
@@ -169,7 +192,12 @@ class TestIRTransformerResolveIRTStrReadOnlyAndRequired:
 class TestTransformPrimitives:
 	def test_string(self):
 		p = OADef.Property(type="string", description="description0")
-		assert IRTransformer({}, None, RefCache()).resolve_type(p.t) == str
+		assert empty_jsp().resolve_type(p.t) == str
+
+	def test_nonhandled(self):
+		tgt = "whatever"
+		p = OADef.Property(type=tgt, description="description0")
+		assert empty_jsp().resolve_type(p.t) == tgt
 
 
 class TestIRTransformerUnifyIRT:
@@ -202,3 +230,312 @@ class TestIRTransformerUnifyIRT:
 		ir_ts = [IR_T(t="None"), IR_T(t="None")]
 		result = IRTransformer.unify_ir_t(ir_ts)
 		assert result is None
+
+
+class TestIRTransformerImports:
+	tgt_path = Path("other/place")
+	ir_import = IRDef(name="Import", properties={}, src=tgt_path)
+	az_import = AZImport(path=tgt_path, names={"Import"})
+
+	def empty_irtransformer(self) -> IRTransformer:
+		return IRTransformer({}, Reader("", Path(), {}, {}), RefCache())
+
+	local_path = Path("path/to/src")
+	simple_cases = [
+		("IRDef", IRDef(properties={"prop1": IR_T(t=ir_import)}, src=local_path, name="DefName"), [az_import, AZImport(path=Path("path/to/src"), names={"DefName"})]),
+		("IR_T", IR_T(t=ir_import), [az_import]),
+		("IR_Enum", IR_Enum(name="name0", values=[]), []),
+		("IR_List", IR_List(items=IR_T(t=ir_import)), [az_import]),
+		("IR_Dict", IR_Dict(keys=IR_T(t="str"), values=IR_T(t=ir_import)), [az_import]),
+		("str", "some string", []),
+		("type", int, []),
+	]
+
+	@pytest.mark.parametrize("type_name,ir,expected", simple_cases, ids=[case[0] for case in simple_cases])
+	def test_find_imports(self, type_name, ir, expected):
+		irt = self.empty_irtransformer()
+		result = irt._find_imports(ir)
+		assert result == expected
+
+		without_local = irt._remove_local_imports(self.local_path, result)
+		assert not any(e.path == self.local_path for e in without_local)
+
+
+class TestJSONSchemaParams:
+	def do_test(self, parameter, expected, additional_params: Dict[str, Union[OAParam, OARef]] = None):
+		openapi = {}
+		if additional_params:
+			openapi["parameters"] = additional_params
+
+		reader = Reader("", Path(), openapi, {})
+		j = JSONSchemaSubparser(reader, RefCache())
+
+		actual = j.ir_param(parameter)
+		assert expected == actual
+
+	def test_list_param(self):
+		p = OAParam(
+			**{
+				"name": "tags",
+				"in": "query",
+				"required": False,
+				"type": "array",
+				"items": {"type": "string"},
+				"collectionFormat": "csv",
+				"description": "Tags presents on each workbook returned.",
+				"x-ms-parameter-location": "method",
+			}
+		)
+		self.do_test(
+			p,
+			IRParam(t=IR_T(t=IR_List(items=IR_T(t=str, readonly=False, required=True), required=True), readonly=False, required=False), name="tags", position=ParamPosition.query),
+		)
+
+	def test_ref(self):
+		name = "SubscriptionIdParameter"
+		p = OARef(ref=f"#/parameters/{name}")
+		resolved_name = "subscriptionId"
+		resolved = OAParam(**{"name": resolved_name, "in": "path", "required": True, "type": "string", "description": "The ID of the target subscription.", "minLength": 1})
+		self.do_test(p, IRParam(t=IR_T(t=str), name="subscriptionId", position=ParamPosition.path), additional_params={name: resolved})
+
+
+class TestJSONSchemaDefs:
+	def do_test(self, definitions, target_def, expected):
+		reader = Reader("", Path(), {"definitions": definitions}, {})
+		ir = IRTransformer.from_reader(reader)
+
+		target = ir.oa_defs[target_def]
+
+		result = ir.jsonparser.transform(target_def, target, required_properties=[])
+		assert result == expected
+		return result
+
+	openapi_Resource = {
+		"title": "Resource",
+		"description": "Common fields that are returned in the response for all Azure Resource Manager resources",
+		"type": "object",
+		"properties": {
+			"id": {
+				"readOnly": True,
+				"type": "string",
+				"description": "Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}",
+			},
+			"name": {"readOnly": True, "type": "string", "description": "The name of the resource"},
+			"type": {
+				"readOnly": True,
+				"type": "string",
+				"description": 'The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"',
+			},
+		},
+		"x-ms-azure-resource": True,
+	}
+
+	def test_enum_sample(self):
+		name = "SystemAssignedServiceIdentityType"
+		d = {
+			name: {
+				"description": "Type of managed service identity (either system assigned, or none).",
+				"enum": ["None", "SystemAssigned"],
+				"type": "string",
+				"x-ms-enum": {"name": "SystemAssignedServiceIdentityType", "modelAsString": True},
+			}
+		}
+		self.do_test(d, "SystemAssignedServiceIdentityType", IR_T(t=IR_Enum(name=name, values=d[name]["enum"], description=d[name]["description"]), required=False))
+
+	def test_full_inherit(self):
+		name = "ProxyResource"
+		d = {
+			name: {
+				"title": "Proxy Resource",
+				"description": "The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location",
+				"type": "object",
+				"allOf": [{"$ref": "#/definitions/Resource"}],
+			},
+			"Resource": self.openapi_Resource,
+		}
+		self.do_test(
+			d,
+			name,
+			IR_T(
+				t=IRDef(
+					name="Resource",
+					properties={
+						"id": IR_T(t=str, readonly=True, required=False),
+						"name": IR_T(t=str, readonly=True, required=False),
+						"type": IR_T(t=str, readonly=True, required=False),
+					},
+					description="Common fields that are returned in the response for all Azure Resource Manager resources",
+					src=Path("."),
+				),
+				readonly=False,
+				required=False,
+			),
+		)
+
+	def test_dict(self):
+		name = "DashboardPartMetadata"
+		d = {
+			name: {
+				"type": "object",
+				"required": ["type"],
+				"description": "A dashboard part metadata.",
+				"additionalProperties": True,
+				"properties": {"type": {"type": "string", "description": "The type of dashboard part."}},
+				"discriminator": "type",
+			},
+		}
+		self.do_test(d, name, IR_T(t=IR_Dict(keys=IR_T(t=str), values=IR_T(t=str)), required=False))
+
+	def test_allof_ref_and_properties(self):
+		name = "TrackedResource"
+		d = {
+			name: {
+				"title": "Tracked Resource",
+				"description": "The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'",
+				"type": "object",
+				"properties": {
+					"tags": {"type": "object", "additionalProperties": {"type": "string"}, "x-ms-mutability": ["read", "create", "update"], "description": "Resource tags."},
+					"location": {"type": "string", "x-ms-mutability": ["read", "create"], "description": "The geo-location where the resource lives"},
+				},
+				"required": ["location"],
+				"allOf": [{"$ref": "#/definitions/Resource"}],
+			},
+			"Resource": self.openapi_Resource,
+		}
+
+		self.do_test(
+			d,
+			name,
+			IR_T(
+				t=IRDef(
+					name="TrackedResource",
+					properties={
+						"tags": IR_T(t=dict, required=False),
+						"location": IR_T(t=str),
+						"id": IR_T(t=str, readonly=True, required=False),
+						"name": IR_T(t=str, readonly=True, required=False),
+						"type": IR_T(t=str, readonly=True, required=False),
+					},
+					description="The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'",
+					src=Path("."),
+				),
+				required=False,
+			),
+		)
+
+	def test_self_referential(self):
+		name = "ErrorDefinition"
+		d = {
+			name: {
+				"type": "object",
+				"description": "Error definition.",
+				"properties": {
+					"code": {
+						"description": "Service specific error code which serves as the substatus for the HTTP error code.",
+						"type": "integer",
+						"format": "int32",
+						"readOnly": True,
+					},
+					"message": {"description": "Description of the error.", "type": "string", "readOnly": True},
+					"details": {
+						"description": "Internal error details.",
+						"type": "array",
+						"items": {"$ref": "#/definitions/ErrorDefinition"},
+						"x-ms-identifiers": ["code"],
+						"readOnly": True,
+					},
+				},
+			}
+		}
+		self.do_test(
+			d,
+			name,
+			IR_T(
+				t=IRDef(
+					name="ErrorDefinition",
+					properties={
+						"code": IR_T(t=int, readonly=True, required=False),
+						"message": IR_T(t=str, readonly=True, required=False),
+						"details": IR_T(t=IR_List(items=IR_T(t="ErrorDefinition", readonly=False, required=True), required=True), readonly=False, required=False),
+					},
+					description="Error definition.",
+					src=Path("."),
+				),
+				readonly=False,
+				required=False,
+			),
+		)
+
+
+class TestJSONSchemaResponse:
+
+	oa_response = OAResponse
+
+	def jsp(self) -> JSONSchemaSubparser:
+		openapi = {
+			"definitions": {
+				"Dashboard": {
+					"type": "object",
+					"description": "The shared dashboard resource definition.",
+					"required": ["location"],
+					"properties": {
+						"id": {"readOnly": True, "type": "string", "description": "Resource Id"},
+					},
+				},
+				"VirtualMachineExtensionImage": {
+					"type": "object",
+					"description": "description0",
+					"properties": {
+						"id": {"type": "string", "description": "Resource Id"},
+					},
+				},
+				"ServiceBusManagementError": {
+					"description": "The error response from Service Bus.",
+					"type": "object",
+					"properties": {
+						"code": {"description": "The service error code.", "type": "integer", "format": "int32", "xml": {"name": "Code"}},
+						"detail": {"description": "The service error message.", "type": "string", "xml": {"name": "Detail"}},
+					},
+				},
+			},
+			"responses": {
+				"ServiceBusManagementErrorResponse": {
+					"description": "An error occurred. The possible HTTP status, code, and message strings are listed below",
+					"headers": {
+						"x-ms-request-id": {
+							"description": "A server-generated UUID recorded in the analytics logs for troubleshooting and correlation.",
+							"pattern": "^[{(]?[0-9a-f]{8}[-]?([0-9a-f]{4}[-]?){3}[0-9a-f]{12}[)}]?$",
+							"type": "string",
+						},
+						"x-ms-version": {"description": "The version of the REST protocol used to process the request.", "type": "string"},
+					},
+					"schema": {"$ref": "#/definitions/ServiceBusManagementError"},
+				}
+			},
+		}
+		return JSONSchemaSubparser(openapi=Reader("", Path(), openapi, {}), refcache=RefCache())
+
+	def test_schema_reference(self):
+		actual = self.jsp().ir_response(OAResponse(**{"description": "OK response definition.", "schema": OARef(ref="#/definitions/Dashboard")}))
+		assert actual == IR_T(
+			t=IRDef(name="Dashboard", properties={"id": IR_T(t=str, readonly=True, required=False)}, description="The shared dashboard resource definition.", src=Path("."))
+		)
+
+	def test_reference(self):
+		actual = self.jsp().ir_response(OARef(ref="#/responses/ServiceBusManagementErrorResponse"))
+		assert actual == IR_T(
+			t=IRDef(
+				name="ServiceBusManagementError",
+				properties={"code": IR_T(t=int, required=False), "detail": IR_T(t=str, required=False)},
+				description="The error response from Service Bus.",
+				src=Path("."),
+			)
+		)
+
+	def test_inline(self):
+		actual = self.jsp().ir_response(
+			OAResponse.model_validate({"description": "OK", "schema": {"type": "array", "items": {"$ref": "#/definitions/VirtualMachineExtensionImage"}}})
+		)
+		assert actual == IR_T(
+			t=IR_List(items=IR_T(t=IRDef(name="VirtualMachineExtensionImage", properties={"id": IR_T(t=str, required=False)}, description="description0", src=Path("."))))
+		)

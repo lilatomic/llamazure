@@ -128,7 +128,7 @@ class OAResponse(BaseModel):
 	"""A response for an OpenAPI Operation"""
 
 	description: str
-	oa_schema: Optional[Union[OARef, OADef]] = Field(alias="schema", default=None)
+	oa_schema: Optional[Union[OARef, OADef.Array, OADef]] = Field(alias="schema", default=None)
 
 
 class OAMSPageable(BaseModel):
@@ -444,7 +444,6 @@ class IRTransformer:
 		reloaded_definitions = [f"{az_definition.name}.model_rebuild()" for az_definition in azs] + [f"{az_list.name}.model_rebuild()" for az_list in ir_azlists.values()]
 		return "\n\n".join(codegened_definitions + reloaded_definitions) + "\n\n"
 
-
 	@staticmethod
 	def ir_azarray(obj: Union[IRDef, IR_Enum]) -> Optional[AZAlias]:
 		"""Transform a definition representing an array into an alias to the wrapped type"""
@@ -629,24 +628,10 @@ class IRTransformer:
 		)
 		return az_op
 
-	def resolve_oaparam_refs(self, op: OAOp) -> List[OAParam]:
-		"""Resolve OpenAPI parameters which are references to the definition that they reference"""
-		params = op.parameters
-		resolved_parameters = []
-		for param in params:
-			if isinstance(param, OAParam):
-				resolved_parameters.append(param)
-			else:
-				_, relative_param = self.openapi.load_relative(param.ref)
-				resolved_parameters.append(OAParam(**(relative_param)))
-		return resolved_parameters
-
 	def transform_imports(self, base_module_path: Path) -> str:
-		imports = []
-
 		definitions, _ = self._find_ir_definitions()
-		for ir in definitions.values():
-			imports.extend(self._remove_local_imports(self.openapi.path, self._find_imports(ir)))
+
+		imports = self._extract_imports(definitions)
 
 		merged = AZImport.merge(imports)
 
@@ -656,6 +641,12 @@ class IRTransformer:
 
 		resolved = [resolve_path(e) for e in merged]
 		return "\n".join([cg.codegen() for cg in resolved])
+
+	def _extract_imports(self, definitions: Dict[str, IRDef]):
+		imports = []
+		for ir in definitions.values():
+			imports.extend(self._remove_local_imports(self.openapi.path, self._find_imports(ir)))
+		return imports
 
 	def _find_imports(self, ir: Union[IRDef, IR_T, IR_Enum, IR_List, IR_Dict, str, type]) -> List[AZImport]:
 		if isinstance(ir, (str, type)):
@@ -692,7 +683,6 @@ class JSONSchemaSubparser:
 		self.openapi = openapi
 		self.refcache = refcache
 
-
 	@staticmethod
 	def resolve_type(t: str) -> Union[str, type]:
 		"""Resolve OpenAPI types to Python types, if applicable"""
@@ -709,9 +699,7 @@ class JSONSchemaSubparser:
 		return not obj.properties and obj.allOf is not None and len(obj.allOf) == 1 and isinstance(obj.allOf[0], OARef)
 
 	def _is_dict(self, obj: OADef):
-		return (
-			not obj.properties and not obj.allOf and obj.t == "object" and not obj.additionalProperties
-		) or obj.additionalProperties is True  # I think that might be a bit aggressive
+		return (not obj.properties and not obj.allOf and obj.t == "object" and not obj.additionalProperties) or obj.additionalProperties is True
 
 	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IRDef | IR_T:
 		relname = self.openapi.extract_remote_object_name(ref.ref)
@@ -741,7 +729,11 @@ class JSONSchemaSubparser:
 
 		if obj.additionalProperties is True:
 			# this is explicitly a dict without constraints on values
-			values_t = IR_T(t="Any", required=True)  # Optional[Any] is a little silly
+			has_type = obj.properties.get("type", None)
+			if has_type:
+				values_t = IR_T(t=self.resolve_type(has_type.t), required=True)
+			else:
+				values_t = IR_T(t="Any", required=True)  # Optional[Any] is a little silly
 		else:
 			values_t = self.transform(name, obj.additionalProperties, [name])
 		return IR_T(t=IR_Dict(keys=IR_T(t=str, required=True), values=values_t), required=required)
@@ -757,18 +749,27 @@ class JSONSchemaSubparser:
 			return self.resolve_reference(name, obj, required_properties)
 
 		elif isinstance(obj, OADef):
+			cache_ref = RefCache.Ref(self.openapi.path, name)
+			self.refcache.mark_referenceable(cache_ref, IR_T(t=name))
+
 			if not obj.properties and not obj.allOf and not obj.additionalProperties:
 				# does this even happen?
-				return IR_T(
+				t = IR_T(
 					t=self.resolve_type(obj.t),
 					required=name in required_properties,
 				)
+				self.refcache.mark_referenceable(cache_ref, t)
+				return t
 
 			if self._is_full_inherit(obj):
-				return self.resolve_reference(name, obj.allOf[0], required_properties)
+				t = self.resolve_reference(name, obj.allOf[0], required_properties)
+				self.refcache.mark_referenceable(cache_ref, t)
+				return t
 
 			if self._is_dict(obj):
-				return self.ir_dict(name, obj, required_properties)
+				t = self.ir_dict(name, obj, required_properties)
+				self.refcache.mark_referenceable(cache_ref, t)
+				return t
 
 			properties = {}
 			if obj.properties is not None:
@@ -790,7 +791,7 @@ class JSONSchemaSubparser:
 
 					properties.update(resolved_t.properties)
 
-			return IR_T(
+			t = IR_T(
 				t=IRDef(
 					name=typename,
 					properties=properties,
@@ -799,6 +800,8 @@ class JSONSchemaSubparser:
 				),
 				required=name in required_properties,
 			)
+			self.refcache.mark_referenceable(cache_ref, t)
+			return t
 		elif isinstance(obj, OADef.Property):
 			resolved_type = self.resolve_type(obj.t)
 			required = obj.required or name in required_properties  # obj.required is for QueryParams &c
@@ -837,17 +840,14 @@ class JSONSchemaSubparser:
 			assert obj.type, "OAParam without schema does not have a type"
 			t = IR_T(t=self.resolve_type(obj.type), required=obj.required)
 
-		return IRParam(
-			t=t,
-			name=obj.name,
-			position=obj.in_component
-		)
+		return IRParam(t=t, name=obj.name, position=obj.in_component)
 
 	def ir_response(self, obj: Union[OAResponse, OARef]) -> IR_T:
 		if isinstance(obj, OARef):
 			reader, resolved = self.openapi.load_relative(obj.ref)
 			relative_transformer = JSONSchemaSubparser(reader, self.refcache)
 			resolved_loaded = TypeAdapter(Union[OARef, OAResponse]).validate_python(resolved)
+
 			transformed = relative_transformer.ir_response(resolved_loaded)
 
 			return transformed
@@ -856,9 +856,9 @@ class JSONSchemaSubparser:
 		if not schema:
 			return IR_T(t="None")
 		elif isinstance(schema, OARef):
-			return self.resolve_reference("", schema, []).model_copy(update={"required":True})
-		elif isinstance(schema, OADef):
-			raise NotImplementedError("implement ")
+			return self.resolve_reference("", schema, []).model_copy(update={"required": True})
+		elif isinstance(schema, (OADef, OADef.Array)):
+			return self.transform("response", schema, ["response"])
 		else:
 			raise TypeError(f"unsupported type for response schema type={type(obj)}")
 
@@ -897,6 +897,7 @@ class JSONSchemaSubparser:
 			ret_t=ret_t,
 		)
 		return ir_op
+
 
 class CodeGenable(ABC):
 	"""All objects which can be generated into Python code"""

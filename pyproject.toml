@@ -12,6 +12,7 @@ line_length=180
 known_first_party=[
     "llamazure"
 ]
+indent = '	'
 
 [tool.black]
 line_length=180
