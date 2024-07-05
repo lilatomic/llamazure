@@ -396,11 +396,11 @@ class IRTransformer:
 		for name, obj in self.oa_defs.items():
 			parsed = self.jsonparser.transform(name, obj, [])
 			if isinstance(parsed.t, IRDef):
-				ir_definitions[name] = parsed.t
+				ir_definitions[parsed.t.name] = parsed.t
 			elif isinstance(parsed.t, IR_Dict):
 				continue  # we don't need to define dicts
 			elif isinstance(parsed.t, IR_Enum):
-				ir_enums[name] = parsed.t
+				ir_enums[parsed.t.name] = parsed.t
 			else:
 				raise ValueError(f"Type resolved to non-definition {parsed.t}")
 		return ir_definitions, ir_enums
