@@ -23,3 +23,9 @@ experimental_wrap_as_python_sources(
 	name="az",
 	inputs=[":azgen"],
 )
+
+python_tests(
+	name="integration-tests",
+	sources=["integration_test.py"],
+	tags=["integration"],
+)
