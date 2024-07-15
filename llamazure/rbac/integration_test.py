@@ -6,10 +6,10 @@ from typing import Any
 import pytest
 
 from llamazure.azrest.models import AzureError
+from llamazure.rbac.authorization.r.m.authorization.RoleAssignments import RoleAssignment
+from llamazure.rbac.authorization.r.m.authorization.RoleDefinitions import Permission, RoleDefinition
 from llamazure.rbac.conftest import retry
 from llamazure.rbac.resources import Groups, Users
-from llamazure.rbac.role_asn import RoleAssignment
-from llamazure.rbac.role_def import Permission, RoleDefinition
 from llamazure.rbac.roles import RoleAssignments, RoleDefinitions, RoleOps
 
 l = logging.getLogger(__name__)
@@ -76,11 +76,14 @@ class TestRoles:
 		# explicitly make a `put` that already exists
 		retry(assert_role_assigned, AzureError)
 
-		l.info("deleting RoleAssignment")
-		ras.DeleteById(asn.rid)
+		def cleanup():
+			l.info("deleting RoleAssignment")
+			ras.DeleteById(asn.rid)
 
-		l.info("cleanup role")
-		retry(lambda: rds.delete_by_name(role.properties.roleName), AzureError)
+			l.info("cleanup role")
+			rds.delete_by_name(role.properties.roleName)
+
+		retry(lambda: cleanup, AzureError)
 
 	@pytest.mark.integration
 	@pytest.mark.admin

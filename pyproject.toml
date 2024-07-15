@@ -12,6 +12,7 @@ line_length=180
 known_first_party=[
     "llamazure"
 ]
+indent = '	'
 
 [tool.black]
 line_length=180
@@ -34,4 +35,9 @@ ignore_missing_imports = true
 markers = [
     "integration: integration tests",
     "admin: tests that need some amount of admin",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "# cov: err" # ignore unlikely error paths
 ]

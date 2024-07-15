@@ -29,9 +29,9 @@ adhoc_tool(
 	args=[
 		"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
 		"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json",
-		"my/module/role_asn.py",
+		"my/module/az",
 	],
-	output_files=["my/module/role_asn.py"],
+	output_directories=["my/module/az"],
 	root_output_directory=".",
 )
 
@@ -58,6 +58,15 @@ req = AzRoleAssignments.ListForScope(scope="/")
 
 # run the request
 role_assignments = az.call(req)
+```
+
+Some Azure datatypes are subsets of others. For example, a `FooResource` might also have `FooResourceUpdateParams`, which is mostly the same. You can use the `cast_as` function for this:
+
+```python
+from llamazure.azrest.models import cast_as
+
+d = Dashboard(...)
+cast_as(d, PatchableDashboard)
 ```
 
 ### Using the secret batching API
@@ -132,6 +141,7 @@ my_req = AzRoleAssignments.ListForResourceGroup(my_subscription, secure_rg).name
 2. Better retries of Batch elements
 3. Enums (x-ms-enum)
 4. Nullable (x-nullable)
+5. Support path-level `parameters`
 
 ## Known Issues
 

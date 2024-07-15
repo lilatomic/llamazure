@@ -58,7 +58,7 @@ class AzRest:
 			r.params["api-version"] = req.apiv
 		if req.body:
 			r.headers["Content-Type"] = "application/json"
-			r.data = req.body.model_dump_json(exclude_none=True)
+			r.data = req.body.model_dump_json(exclude_none=True, by_alias=True)
 		return r
 
 	def _build_url(self, req: Req) -> str:

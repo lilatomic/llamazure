@@ -1,5 +1,5 @@
 [GLOBAL]
-pants_version = "2.19.0rc2"
+pants_version = "2.22.0rc0"
 backend_packages = [
 	"pants.backend.python",
 	"pants.backend.experimental.python",
@@ -14,7 +14,7 @@ pants_ignore = ["!cicd/secrets.yml"]
 [source]
 
 [python]
-interpreter_constraints = ["CPython>=3.8"]
+interpreter_constraints = ["CPython>=3.9"]
 enable_resolves = true
 
 [python.resolves]
@@ -32,7 +32,7 @@ config = ".flake8"
 args = ["--use-tabs"]
 console_script = "tan"
 install_from_resolve = "black"
-interpreter_constraints = ["CPython>=3.8"]
+interpreter_constraints = ["CPython>=3.9"]
 
 [test]
 use_coverage = true
@@ -44,7 +44,7 @@ report = ["xml", "html"]
 [mypy]
 install_from_resolve = "mypy"
 requirements = ["//:mypy"]
-interpreter_constraints = ["CPython>=3.8"]
+interpreter_constraints = ["CPython>=3.9"]
 
 [anonymous-telemetry]
 enabled = true

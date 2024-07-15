@@ -6,9 +6,10 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, Generic, Iterator, List, Optional, Type, TypeVar, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 Ret_T = TypeVar("Ret_T")
+Ret_T0 = TypeVar("Ret_T0")
 ReadOnly = Optional[Ret_T]
 
 
@@ -58,9 +59,12 @@ class Req(Generic[Ret_T]):
 		"""Add query params to this request"""
 		return dataclasses.replace(self, params={**self.params, **params})
 
-	def with_ret_t(self, ret_t: Type[Ret_T]) -> Req:
+	def add_param(self, name: str, value: str) -> Req:
+		return dataclasses.replace(self, params={**self.params, **{name: value}})
+
+	def with_ret_t(self, ret_t: Type[Ret_T0]) -> Req[Ret_T0]:
 		"""Override the return type"""
-		return dataclasses.replace(self, ret_t=ret_t)
+		return dataclasses.replace(self, ret_t=ret_t)  # type: ignore
 
 
 @dataclass
@@ -110,6 +114,10 @@ class AzList(BaseModel, Generic[Ret_T]):
 		return self.value.__iter__()
 
 
+default_list = BeforeValidator(lambda v: v if v is not None else [])
+default_dict = BeforeValidator(lambda v: v if v is not None else {})
+
+
 class AzureError(Exception):
 	"""An error from the Azure API"""
 
@@ -143,3 +151,26 @@ class AzureErrorAdditionInfo(BaseModel):
 
 	info_type: str = Field(alias="type")
 	info: Dict = {}
+
+
+T = TypeVar("T")
+
+
+def ensure(a: Optional[T]) -> T:
+	"""Ensure the result is not None"""
+	if a is None:
+		raise TypeError("value was None")
+	return a
+
+
+P0 = TypeVar("P0", bound=BaseModel)
+P1 = TypeVar("P1", bound=BaseModel)
+
+
+def cast_as(obj: P0, cls: Type[P1]) -> P1:
+	"""
+	Cast one model into another.
+
+	Useful for turning a Foo into a FooUpdateParameters.
+	"""
+	return cls.model_validate(obj.model_dump())

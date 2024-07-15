@@ -1,6 +1,6 @@
 python_sources(
 	name="rbac",
-	dependencies=[":azgen"],
+	dependencies=[":az"],
 )
 
 python_tests(
@@ -19,35 +19,25 @@ python_test_utils(
 )
 
 adhoc_tool(
-	name="role_asn",
+	name="azgen",
 	runnable="//llamazure/azrest/openapi.py",
 	args=[
 		"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
-		"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json",
-		"llamazure/rbac/role_asn.py",
+		",".join(
+			[
+				"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleAssignmentsCalls.json",
+				"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleDefinitionsCalls.json",
+			]
+		),
+		"llamazure/rbac",
 	],
-	output_files=["llamazure/rbac/role_asn.py"],
-	root_output_directory=".",
-)
-
-adhoc_tool(
-	name="role_def",
-	runnable="//llamazure/azrest/openapi.py",
-	args=[
-		"https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/",
-		"specification/authorization/resource-manager/Microsoft.Authorization/stable/2022-04-01/authorization-RoleDefinitionsCalls.json",
-		"llamazure/rbac/role_def.py",
-	],
-	output_files=["llamazure/rbac/role_def.py"],
+	output_directories=["llamazure/rbac/"],
 	root_output_directory=".",
 )
 
 experimental_wrap_as_python_sources(
-	name="azgen",
-	inputs=[
-		":role_asn",
-		":role_def",
-	],
+	name="az",
+	inputs=[":azgen"],
 )
 
 python_distribution(
