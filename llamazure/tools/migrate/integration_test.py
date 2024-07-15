@@ -6,11 +6,11 @@ from typing import Dict
 import pytest
 import yaml
 from azure.identity import AzureCliCredential, ClientSecretCredential, CredentialUnavailableError
-from llamazure.tools.migrate.applicationinsights.r.m.insights.workbooks import Workbook  # pylint: disable=E0611,E0401
 
 from llamazure.azrest.azrest import AzRest
 from llamazure.rid import rid
 from llamazure.tools.migrate import dashboard, workbook
+from llamazure.tools.migrate.applicationinsights.r.m.insights.workbooks import Workbook  # pylint: disable=E0611,E0401
 from llamazure.tools.migrate.util import JSONTraverser
 
 

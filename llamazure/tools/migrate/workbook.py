@@ -74,7 +74,6 @@ class Restorer:
 		)
 
 
-
 @click.command()
 @click.option("--resource-id", help="The ID of the workbook to migrate.")
 @click.option("--replacements", help="A JSON string of the replacements to apply.")
