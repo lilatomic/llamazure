@@ -54,6 +54,27 @@ class Migrator:
 			f.write(workbook.model_dump_json(indent=2))
 
 
+@dataclass
+class Restorer:
+	az: AzRest
+	workbook: Resource
+	backup: Path
+
+	def restore(self):
+		content = self.load_backup()
+		self.put_dashboard(content)
+
+	def load_backup(self):
+		with open(self.backup, "r", encoding="utf-8") as f:
+			return json.load(f)
+
+	def put_dashboard(self, content: dict):
+		self.az.call(
+			AzWorkbooks.Update(*rid_params(self.workbook), WorkbookUpdateParameters(**content)),
+		)
+
+
+
 @click.command()
 @click.option("--resource-id", help="The ID of the workbook to migrate.")
 @click.option("--replacements", help="A JSON string of the replacements to apply.")
@@ -70,6 +91,19 @@ def migrate(resource_id: str, replacements: str, backup_directory: str):
 	migrator = Migrator(az, resource, transformer, Path(backup_directory))
 
 	migrator.migrate()
+
+
+@click.command()
+@click.option("--resource-id", help="The ID of the workbook to restore.")
+@click.option("--backup", type=click.Path(exists=True, file_okay=True, dir_okay=False), help="The backup of the workbook to restore")
+def restore(resource_id: str, backup: str):
+	"""Restore the workbook data."""
+	az = AzRest.from_credential(DefaultAzureCredential())
+	resource = rid.parse(resource_id)
+	assert isinstance(resource, rid.Resource)
+	restorer = Restorer(az, resource, Path(backup))
+
+	restorer.restore()
 
 
 if __name__ == "__main__":
