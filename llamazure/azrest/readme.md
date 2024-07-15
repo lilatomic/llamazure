@@ -60,6 +60,15 @@ req = AzRoleAssignments.ListForScope(scope="/")
 role_assignments = az.call(req)
 ```
 
+Some Azure datatypes are subsets of others. For example, a `FooResource` might also have `FooResourceUpdateParams`, which is mostly the same. You can use the `cast_as` function for this:
+
+```python
+from llamazure.azrest.models import cast_as
+
+d = Dashboard(...)
+cast_as(d, PatchableDashboard)
+```
+
 ### Using the secret batching API
 
 Azure lets you batch several requests into one request. This can save you round-trip time.

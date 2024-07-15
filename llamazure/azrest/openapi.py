@@ -48,7 +48,7 @@ class PathLookupError(Exception):
 		super().__init__(f"Error while looking up path={object_path} segment={segment}")
 
 
-class LoadError(Exception):
+class LoadError(Exception):  # cov: err
 	def __init__(self, path, obj):
 		self.path = path
 		self.obj = obj
@@ -63,11 +63,6 @@ class OARef(BaseModel):
 
 	class Config:
 		populate_by_name = True
-
-	@property
-	def name(self) -> str:
-		"""The name of this Definition"""
-		return self.ref.split("/")[-1]
 
 
 class OADef(BaseModel):
@@ -386,7 +381,7 @@ class IRTransformer:
 		try:
 			oa_defs = parser.validate_python(reader.definitions)
 			return IRTransformer(oa_defs, reader, RefCache())
-		except pydantic.ValidationError as e:
+		except pydantic.ValidationError as e:  # cov: err
 			print(e.errors())
 			raise LoadError(reader.path, reader.definitions) from e
 
@@ -401,7 +396,7 @@ class IRTransformer:
 				continue  # we don't need to define dicts
 			elif isinstance(parsed.t, IR_Enum):
 				ir_enums[parsed.t.name] = parsed.t
-			else:
+			else:  # cov: err
 				raise ValueError(f"Type resolved to non-definition {parsed.t}")
 		return ir_definitions, ir_enums
 
@@ -477,7 +472,7 @@ class IRTransformer:
 			type_as_str = "Dict[%s, %s]" % (IRTransformer.resolve_ir_t_str(declared_type.keys), IRTransformer.resolve_ir_t_str(declared_type.values))
 		elif isinstance(declared_type, str):
 			type_as_str = mk_typename(declared_type)
-		else:
+		else:  # cov: err
 			raise TypeError(f"Cannot handle {type(declared_type)}")
 
 		if ir_t.readonly:
@@ -670,7 +665,7 @@ class IRTransformer:
 			return self._find_imports(ir.items)
 		elif isinstance(ir, IR_Dict):
 			return list(itertools.chain.from_iterable([self._find_imports(ir.keys), self._find_imports(ir.values)]))
-		else:
+		else:  # cov: err
 			raise TypeError(f"Cannot find imports for unexpected type {type(ir)}")
 
 	@staticmethod
@@ -800,7 +795,7 @@ class JSONSchemaSubparser:
 							continue
 					elif isinstance(referenced_obj, IRDef):
 						resolved_t = referenced_obj
-					else:
+					else:  # cov: err
 						raise ValueError(f"Reference was not expected type={type(referenced_obj)}")
 
 					properties.update(resolved_t.properties)
@@ -832,7 +827,7 @@ class JSONSchemaSubparser:
 				required=name in required_properties,
 			)
 
-		else:
+		else:  # cov: err
 			raise TypeError(f"unsupported OpenAPI type {type(obj)}")
 
 	def ir_param(self, obj: Union[OAParam, OARef]) -> IRParam:
@@ -873,7 +868,7 @@ class JSONSchemaSubparser:
 			return self.resolve_reference("", schema, []).model_copy(update={"required": True})
 		elif isinstance(schema, (OADef, OADef.Array)):
 			return self.transform("response", schema, ["response"])
-		else:
+		else:  # cov: err
 			raise TypeError(f"unsupported type for response schema type={type(obj)}")
 
 	def _categorise_params(self, params: List[IRParam]) -> Dict[ParamPosition, List[IRParam]]:

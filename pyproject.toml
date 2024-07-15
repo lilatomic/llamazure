@@ -36,3 +36,8 @@ markers = [
     "integration: integration tests",
     "admin: tests that need some amount of admin",
 ]
+
+[tool.coverage.report]
+exclude_also = [
+    "# cov: err" # ignore unlikely error paths
+]
