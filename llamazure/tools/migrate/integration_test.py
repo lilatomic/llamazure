@@ -9,9 +9,9 @@ from azure.identity import AzureCliCredential, ClientSecretCredential, Credentia
 
 from llamazure.azrest.azrest import AzRest
 from llamazure.rid import rid
-from llamazure_tools.migrate import dashboard, workbook
-from llamazure_tools.migrate.applicationinsights.r.m.insights.workbooks import Workbook  # pylint: disable=E0611,E0401
-from llamazure_tools.migrate.util import JSONTraverser
+from llamazure.tools.migrate import dashboard, workbook
+from llamazure.tools.migrate.applicationinsights.r.m.insights.workbooks import Workbook  # pylint: disable=E0611,E0401
+from llamazure.tools.migrate.util import JSONTraverser
 
 
 def test_shim():

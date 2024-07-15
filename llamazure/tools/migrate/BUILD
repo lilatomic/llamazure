@@ -13,9 +13,9 @@ adhoc_tool(
 				"specification/applicationinsights/resource-manager/Microsoft.Insights/stable/2023-06-01/workbooks_API.json",
 			]
 		),
-		"llamazure_tools/migrate",
+		"llamazure/tools/migrate",
 	],
-	output_directories=["llamazure_tools/migrate"],
+	output_directories=["llamazure/tools/migrate"],
 	root_output_directory=".",
 )
 
