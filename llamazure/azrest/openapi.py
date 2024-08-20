@@ -98,7 +98,11 @@ class OAEnum(BaseModel):
 	t: Union[str] = Field(alias="type")
 	description: Optional[str] = None
 	enum: List[str]
-	# TOOD: x-ms-enum?
+	x_ms_enum: Optional[XMSEnum] = Field(alias="x-ms-enum")
+
+	class XMSEnum(BaseModel):
+		name: str
+		# TOOD: rest of x-ms-enum?
 
 
 class ParamPosition(Enum):
@@ -818,9 +822,14 @@ class JSONSchemaSubparser:
 		elif isinstance(obj, OADef.Array):
 			return self.ir_array(name, obj, required_properties)
 		elif isinstance(obj, OAEnum):
+			if obj.x_ms_enum:
+				enum_name = obj.x_ms_enum.name
+			else:
+				enum_name = name
+
 			return IR_T(
 				t=IR_Enum(
-					name=name,
+					name=enum_name,
 					values=obj.enum,
 					description=obj.description,
 				),
