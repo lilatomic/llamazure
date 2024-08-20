@@ -19,6 +19,7 @@ line_length=180
 
 [tool.mypy]
 pretty = true
+explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 module = [
