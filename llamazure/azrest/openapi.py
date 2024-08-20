@@ -25,7 +25,7 @@ from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import ClassVar, Dict, List, Literal, Optional, Sequence, Set, Tuple, Type, Union, cast
+from typing import ClassVar, Dict, List, Literal, Optional, Sequence, Set, Tuple, Type, Union, cast, Iterable
 
 import pydantic
 import requests
@@ -199,9 +199,14 @@ class IRDef(BaseModel):
 class IR_T(BaseModel):
 	"""An IR Type descriptor"""
 
-	t: Union[Type, IRDef, IR_List, IR_Dict, IR_Enum, str]  # TODO: upconvert str
+	t: Union[Type, IR_Union, IRDef, IR_List, IR_Dict, IR_Enum, str]  # TODO: upconvert str
 	readonly: bool = False
 	required: bool = True
+
+
+class IR_Union(BaseModel):
+	"""An IR descriptor for a Union of types"""
+	items: List[IR_T]
 
 
 class IR_List(BaseModel):
@@ -466,6 +471,8 @@ class IRTransformer:
 		declared_type = ir_t.t
 		if isinstance(declared_type, type):
 			type_as_str = declared_type.__name__
+		elif isinstance(declared_type, IR_Union):
+			type_as_str = f"Union[{', '.join(IRTransformer.resolve_ir_t_str(e) for e in declared_type.items)}]"
 		elif isinstance(declared_type, IRDef):
 			type_as_str = declared_type.name
 		elif isinstance(declared_type, IR_Enum):
@@ -562,17 +569,21 @@ class IRTransformer:
 	@staticmethod
 	def unify_ir_t(ir_ts: List[IR_T]) -> Optional[IR_T]:
 		"""Unify IR types, usually for returns"""
-		ts = set(IRTransformer.resolve_ir_t_str(t) for t in ir_ts if t)
+		ts = {IRTransformer.resolve_ir_t_str(t): t for t in ir_ts if t}
 
-		is_required = "None" not in ts
-		non_none = ts - {"None"}
+		is_required = "None" not in ts  # TODO: doesn't handle generic types like IR_Union
+		ts.pop("None", None)
 
-		if len(non_none) == 0:
+		if len(ts) == 0:
 			return None
-		elif len(non_none) == 1:
-			return IR_T(t=non_none.pop(), required=is_required)
+		elif len(ts) == 1:
+			[single] = ts.values()
+			if isinstance(single, IR_T):
+				return single
+			else:
+				return IR_T(t=single, required=is_required)
 		else:
-			return IR_T(t=f"Union[{', '.join(non_none)}]", required=is_required)
+			return IR_T(t=IR_Union(items=list(ts.values())), required=is_required)
 
 	def transform_paths(self) -> str:
 		"""Transform OpenAPI Paths into the Python code for the Azure objects"""
@@ -653,7 +664,7 @@ class IRTransformer:
 			imports.extend(self._remove_local_imports(self.openapi.path, self._find_imports(ir)))
 		return imports
 
-	def _find_imports(self, ir: Union[IRDef, IR_T, IR_Enum, IR_List, IR_Dict, str, type]) -> List[AZImport]:
+	def _find_imports(self, ir: Union[IRDef, IROp, IR_T, IR_Union, IR_Enum, IR_List, IR_Dict, str, type]) -> List[AZImport]:
 		if isinstance(ir, (str, type)):
 			return []
 		elif isinstance(ir, IRDef):
@@ -669,6 +680,8 @@ class IRTransformer:
 			return self._find_imports(ir.items)
 		elif isinstance(ir, IR_Dict):
 			return list(itertools.chain.from_iterable([self._find_imports(ir.keys), self._find_imports(ir.values)]))
+		elif isinstance(ir, IR_Union):
+			return list(itertools.chain.from_iterable([self._find_imports(v) for v in ir.items]))
 		else:  # cov: err
 			raise TypeError(f"Cannot find imports for unexpected type {type(ir)}")
 
@@ -845,6 +858,7 @@ class JSONSchemaSubparser:
 			reader, resolved = self.openapi.load_relative(obj.ref)
 			relative_transformer = JSONSchemaSubparser(reader, self.refcache)
 			resolved_loaded = cast(Union[OARef, OAParam], TypeAdapter(Union[OARef, OAParam]).validate_python(resolved))
+
 			transformed = relative_transformer.ir_param(resolved_loaded)
 
 			return transformed
@@ -1164,7 +1178,7 @@ class AZImport(BaseModel, CodeGenable):
 		return f"from {path_str} import {names_str}"
 
 	@classmethod
-	def merge(cls, imports: List[AZImport]) -> List[AZImport]:
+	def merge(cls, imports: Iterable[AZImport]) -> List[AZImport]:
 		merged: Dict[Path, AZImport] = {}
 		for imp in imports:
 			p = imp.path
