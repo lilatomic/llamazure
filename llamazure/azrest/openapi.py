@@ -22,6 +22,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from json import JSONDecodeError
 from pathlib import Path
 from textwrap import dedent, indent
@@ -386,6 +387,11 @@ class IRTransformer:
 
 		self.jsonparser = JSONSchemaSubparser(openapi, refcache)
 
+	@cached_property
+	def normalised_oadef_names(self) -> set[str]:
+		"""OAdef names that have been normalised. Some have improper capitalisation, like `systemData`"""
+		return {mk_typename(e) for e in self.oa_defs.keys()}
+
 	@classmethod
 	def from_reader(cls, reader: Reader) -> IRTransformer:
 		parser_def = TypeAdapter(Dict[str, Union[OAEnum, OADef]])
@@ -553,7 +559,7 @@ class IRTransformer:
 
 			elif isinstance(prop.t, IRDef):
 				# if it's a top-level class we want to reference it
-				if prop.t.name in self.oa_defs:
+				if mk_typename(prop.t.name) in self.normalised_oadef_names:
 					continue
 
 				# do not embed imported classes
