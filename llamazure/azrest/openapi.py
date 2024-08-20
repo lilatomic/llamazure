@@ -25,7 +25,7 @@ from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import ClassVar, Dict, List, Literal, Optional, Sequence, Set, Tuple, Type, Union, cast, Iterable
+from typing import ClassVar, Dict, Iterable, List, Literal, Optional, Sequence, Set, Tuple, Type, Union, cast
 
 import pydantic
 import requests
@@ -206,6 +206,7 @@ class IR_T(BaseModel):
 
 class IR_Union(BaseModel):
 	"""An IR descriptor for a Union of types"""
+
 	items: List[IR_T]
 
 
@@ -378,18 +379,21 @@ class RefCache:
 class IRTransformer:
 	"""Transformer to and from the IR"""
 
-	def __init__(self, defs: Dict[str, Union[OADef, OAEnum]], openapi: Reader, refcache: RefCache):
+	def __init__(self, defs: Dict[str, Union[OADef, OAEnum]], paths: Dict[str, OAPath], openapi: Reader, refcache: RefCache):
 		self.oa_defs: Dict[str, Union[OADef, OAEnum]] = defs
+		self.oa_paths: Dict[str, OAPath] = paths
 		self.openapi = openapi
 
 		self.jsonparser = JSONSchemaSubparser(openapi, refcache)
 
 	@classmethod
 	def from_reader(cls, reader: Reader) -> IRTransformer:
-		parser = TypeAdapter(Dict[str, Union[OAEnum, OADef]])
+		parser_def = TypeAdapter(Dict[str, Union[OAEnum, OADef]])
+		parser_paths = TypeAdapter(Dict[str, OAPath])
 		try:
-			oa_defs = parser.validate_python(reader.definitions)
-			return IRTransformer(oa_defs, reader, RefCache())
+			oa_defs = parser_def.validate_python(reader.definitions)
+			oa_paths = parser_paths.validate_python(reader.paths)
+			return IRTransformer(oa_defs, oa_paths, reader, RefCache())
 		except pydantic.ValidationError as e:  # cov: err
 			print(e.errors())
 			raise LoadError(reader.path, reader.definitions) from e
@@ -594,13 +598,7 @@ class IRTransformer:
 
 	def transform_paths(self) -> str:
 		"""Transform OpenAPI Paths into the Python code for the Azure objects"""
-		parser = TypeAdapter(Dict[str, OAPath])
-		parsed = parser.validate_python(self.openapi.paths)
-
-		ops: List[IROp] = []
-		for path, path_item in parsed.items():
-			for method, op in path_item.items():
-				ops.append(self.jsonparser.ip_op(self.openapi.apiv, path, method, op))
+		ops = self._find_ir_ops()
 
 		az_objs: Dict[str, List[IROp]] = defaultdict(list)
 		for ir_op in ops:
@@ -652,11 +650,14 @@ class IRTransformer:
 		return az_op
 
 	def transform_imports(self, base_module_path: Path) -> str:
+
 		definitions, _ = self._find_ir_definitions()
-
-		imports = self._extract_imports(definitions)
-
-		merged = AZImport.merge(imports)
+		merged = AZImport.merge(
+			(
+				*(self._extract_imports(definitions.values())),
+				*(self._extract_imports(self._find_ir_ops())),
+			)
+		)
 
 		def resolve_path(e: AZImport):
 			e.path = base_module_path / path2module(e.path)
@@ -665,9 +666,9 @@ class IRTransformer:
 		resolved = [resolve_path(e) for e in merged]
 		return "\n".join([cg.codegen() for cg in resolved])
 
-	def _extract_imports(self, definitions: Dict[str, IRDef]):
+	def _extract_imports(self, definitions: Iterable[Union[IRDef, IROp]]) -> List[AZImport]:
 		imports = []
-		for ir in definitions.values():
+		for ir in definitions:
 			imports.extend(self._remove_local_imports(self.openapi.path, self._find_imports(ir)))
 		return imports
 

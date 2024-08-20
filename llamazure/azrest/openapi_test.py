@@ -238,7 +238,7 @@ class TestIRTransformerImports:
 	az_import = AZImport(path=tgt_path, names={"Import"})
 
 	def empty_irtransformer(self) -> IRTransformer:
-		return IRTransformer({}, Reader("", Path(), {}, {}), RefCache())
+		return IRTransformer({}, {}, Reader("", Path(), {}, {}), RefCache())
 
 	local_path = Path("path/to/src")
 	simple_cases = [
