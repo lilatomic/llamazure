@@ -22,6 +22,9 @@ python-default = "cicd/python-default.lock"
 mypy = "cicd/mypy.lock"
 black = "cicd/black.lock"
 
+[setup-py-generation]
+first_party_dependency_version_scheme = "compatible"
+
 [pylint]
 config = ".pylintrc"
 
