@@ -989,6 +989,12 @@ class AZField(BaseModel, CodeGenable):
 	annotations: List[str] = []
 	readonly: bool
 
+	@property
+	def normalised_name(self) -> str:
+		if self.name == "id":
+			return "rid"
+		return self.name
+
 	def codegen(self) -> str:
 		if self.name == "id":
 			return f'rid: {self.t} = Field(alias="id", default=None)'
@@ -1035,7 +1041,7 @@ class AZDef(BaseModel, CodeGenable):
 		conditions = ["isinstance(o, self.__class__)"]
 		for field in self.fields:
 			if not field.readonly:
-				conditions.append(f"self.{field.name} == o.{field.name}")
+				conditions.append(f"self.{field.normalised_name} == o.{field.normalised_name}")
 
 		conditions_str = self.indent(2, "\nand ".join(conditions))
 
