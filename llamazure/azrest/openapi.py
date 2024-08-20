@@ -585,6 +585,13 @@ class IRTransformer:
 		else:
 			return IR_T(t=IR_Union(items=list(ts.values())), required=is_required)
 
+	def _find_ir_ops(self) -> List[IROp]:
+		ops: List[IROp] = []
+		for path, path_item in self.oa_paths.items():
+			for method, op in path_item.items():
+				ops.append(self.jsonparser.ip_op(self.openapi.apiv, path, method, op))
+		return ops
+
 	def transform_paths(self) -> str:
 		"""Transform OpenAPI Paths into the Python code for the Azure objects"""
 		parser = TypeAdapter(Dict[str, OAPath])
@@ -682,6 +689,17 @@ class IRTransformer:
 			return list(itertools.chain.from_iterable([self._find_imports(ir.keys), self._find_imports(ir.values)]))
 		elif isinstance(ir, IR_Union):
 			return list(itertools.chain.from_iterable([self._find_imports(v) for v in ir.items]))
+		elif isinstance(ir, IROp):
+			o = []
+			if ir.body:
+				o.extend(self._find_imports(ir.body))
+			if ir.params:
+				o.extend(itertools.chain.from_iterable(self._find_imports(v) for v in ir.params.values()))
+			if ir.query_params:
+				o.extend(itertools.chain.from_iterable(self._find_imports(v) for v in ir.query_params.values()))
+			if ir.ret_t:
+				o.extend(self._find_imports(ir.ret_t))
+			return o
 		else:  # cov: err
 			raise TypeError(f"Cannot find imports for unexpected type {type(ir)}")
 
