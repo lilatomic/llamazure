@@ -1029,6 +1029,7 @@ class AZEnum(BaseModel, CodeGenable):
 		if s == "None":
 			s = "none"
 		s = s.replace(",", "_")
+		s = s.replace("/", "_")
 		return s
 
 	def codegen(self) -> str:
