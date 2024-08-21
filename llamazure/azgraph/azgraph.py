@@ -63,11 +63,11 @@ class Graph:
 		).json()
 		return cast(Tuple[str], tuple(s["subscriptionId"] for s in raw["value"]))
 
-	def q(self, q: str) -> Union[Any, ResErr]:
+	def q(self, q: str) -> Any:
 		"""Make a graph query"""
 		res = self.query(Req(q, self.subscriptions))
 		if isinstance(res, ResErr):
-			return res
+			raise res.exception()
 		return res.data
 
 	def _exec_query(self, req) -> ResMaybe:
