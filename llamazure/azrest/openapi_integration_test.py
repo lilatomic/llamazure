@@ -31,7 +31,7 @@ class TestTransformDefs:
 		"""Test a plain Definition"""
 		oa_defs = {"MyClass": OADef(type="object", description="BlahBlah MyClass", properties={"my_property": self.prop})}
 
-		tx = IRTransformer(oa_defs, Reader("", Path(), {}, {}), RefCache())
+		tx = IRTransformer(oa_defs, {}, Reader("", Path(), {}, {}), RefCache())
 
 		r = tx.transform_definitions()
 
@@ -62,7 +62,7 @@ class TestTransformDefs:
 			"MyClass": OADef(type="object", properties={"properties": self.prop_nested_properties}),
 			"MyClassProperties": OADef(type="object", properties={"my_property": self.prop}),
 		}
-		tx = IRTransformer(oa_defs, Reader("", Path(), {"definitions": oa_defs}, {}), RefCache())
+		tx = IRTransformer(oa_defs, {}, Reader("", Path(), {"definitions": oa_defs, "paths": {}}, {}), RefCache())
 
 		r = tx.transform_definitions()
 
