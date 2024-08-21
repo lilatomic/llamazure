@@ -1,6 +1,17 @@
 # 0
 
-# 0.2
+## 0.3
+
+### 0.3.0
+
+- fix: normalise enum names with `/` in them
+- feature: better propagation of Union type information
+- feature: extract imports from ops
+- fix: normalise name of fields (includes rid)
+- fix: normalise class names when determining nested classes
+- task: fix namespace package
+
+## 0.2
 
 ### 0.2.0
 
@@ -17,7 +28,7 @@
 - fix: handle unsafe param names (eg `$filter`)
 - internal: use cache for OpenAPI documents (speeds up performance when pulling from Github)
 
-# 0.1
+## 0.1
 
 ### 0.1.0
 
@@ -25,7 +36,7 @@
 - feature: codegen interface from Azure OpenAPI specs
 - feature: batch api
 
-# 0.0
+## 0.0
 
 ### 0.0.2
 

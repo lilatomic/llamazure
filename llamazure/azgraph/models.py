@@ -6,6 +6,14 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple, TypedDict, Union
 
 
+class AzureGraphException(RuntimeError):
+	err: ResErr
+
+	def __init__(self, err: ResErr):
+		super().__init__("Error querying the Azure Resource Graph")
+		self.err = err
+
+
 @dataclass(frozen=True)
 class Req:
 	"""Azure Resource Graph request"""
@@ -51,6 +59,9 @@ class ResErr:
 
 	def to_optional(self) -> Optional[Any]:
 		return None
+
+	def exception(self) -> Exception:
+		return AzureGraphException(self)
 
 
 class ErrorDetails(TypedDict):

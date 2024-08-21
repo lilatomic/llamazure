@@ -22,16 +22,17 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from json import JSONDecodeError
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import ClassVar, Dict, List, Literal, Optional, Sequence, Set, Tuple, Type, Union, cast
+from typing import ClassVar, Dict, Iterable, List, Literal, Optional, Sequence, Set, Tuple, Type, Union, cast
 
 import pydantic
 import requests
 from pydantic import BaseModel, Field, TypeAdapter
 
-from llamazure.azrest.models import AzList, default_dict, default_list
+from llamazure.azrest.models import AzList
 
 l = logging.getLogger(__name__)
 
@@ -98,7 +99,12 @@ class OAEnum(BaseModel):
 	t: Union[str] = Field(alias="type")
 	description: Optional[str] = None
 	enum: List[str]
-	# TOOD: x-ms-enum?
+	x_ms_enum: Optional[XMSEnum] = Field(alias="x-ms-enum")
+
+	class XMSEnum(BaseModel):
+		name: str
+		modelAsString: bool
+		# TOOD: rest of x-ms-enum?
 
 
 class ParamPosition(Enum):
@@ -195,9 +201,15 @@ class IRDef(BaseModel):
 class IR_T(BaseModel):
 	"""An IR Type descriptor"""
 
-	t: Union[Type, IRDef, IR_List, IR_Dict, IR_Enum, str]  # TODO: upconvert str
+	t: Union[Type, IR_Union, IRDef, IR_List, IR_Dict, IR_Enum, str]  # TODO: upconvert str
 	readonly: bool = False
 	required: bool = True
+
+
+class IR_Union(BaseModel):
+	"""An IR descriptor for a Union of types"""
+
+	items: List[IR_T]
 
 
 class IR_List(BaseModel):
@@ -369,18 +381,26 @@ class RefCache:
 class IRTransformer:
 	"""Transformer to and from the IR"""
 
-	def __init__(self, defs: Dict[str, Union[OADef, OAEnum]], openapi: Reader, refcache: RefCache):
+	def __init__(self, defs: Dict[str, Union[OADef, OAEnum]], paths: Dict[str, OAPath], openapi: Reader, refcache: RefCache):
 		self.oa_defs: Dict[str, Union[OADef, OAEnum]] = defs
+		self.oa_paths: Dict[str, OAPath] = paths
 		self.openapi = openapi
 
 		self.jsonparser = JSONSchemaSubparser(openapi, refcache)
 
+	@cached_property
+	def normalised_oadef_names(self) -> set[str]:
+		"""OAdef names that have been normalised. Some have improper capitalisation, like `systemData`"""
+		return {mk_typename(e) for e in self.oa_defs.keys()}
+
 	@classmethod
 	def from_reader(cls, reader: Reader) -> IRTransformer:
-		parser = TypeAdapter(Dict[str, Union[OAEnum, OADef]])
+		parser_def = TypeAdapter(Dict[str, Union[OAEnum, OADef]])
+		parser_paths = TypeAdapter(Dict[str, OAPath])
 		try:
-			oa_defs = parser.validate_python(reader.definitions)
-			return IRTransformer(oa_defs, reader, RefCache())
+			oa_defs = parser_def.validate_python(reader.definitions)
+			oa_paths = parser_paths.validate_python(reader.paths)
+			return IRTransformer(oa_defs, oa_paths, reader, RefCache())
 		except pydantic.ValidationError as e:  # cov: err
 			print(e.errors())
 			raise LoadError(reader.path, reader.definitions) from e
@@ -396,6 +416,9 @@ class IRTransformer:
 				continue  # we don't need to define dicts
 			elif isinstance(parsed.t, IR_Enum):
 				ir_enums[parsed.t.name] = parsed.t
+			elif isinstance(obj, OAEnum) and obj.x_ms_enum and obj.x_ms_enum.modelAsString:
+				# modelAsString means no validation is done. We model that as a string, and isn't an IR_Enum here
+				continue
 			else:  # cov: err
 				raise ValueError(f"Type resolved to non-definition {parsed.t}")
 		return ir_definitions, ir_enums
@@ -462,6 +485,8 @@ class IRTransformer:
 		declared_type = ir_t.t
 		if isinstance(declared_type, type):
 			type_as_str = declared_type.__name__
+		elif isinstance(declared_type, IR_Union):
+			type_as_str = f"Union[{', '.join(IRTransformer.resolve_ir_t_str(e) for e in declared_type.items)}]"
 		elif isinstance(declared_type, IRDef):
 			type_as_str = declared_type.name
 		elif isinstance(declared_type, IR_Enum):
@@ -538,7 +563,7 @@ class IRTransformer:
 
 			elif isinstance(prop.t, IRDef):
 				# if it's a top-level class we want to reference it
-				if prop.t.name in self.oa_defs:
+				if mk_typename(prop.t.name) in self.normalised_oadef_names:
 					continue
 
 				# do not embed imported classes
@@ -558,27 +583,32 @@ class IRTransformer:
 	@staticmethod
 	def unify_ir_t(ir_ts: List[IR_T]) -> Optional[IR_T]:
 		"""Unify IR types, usually for returns"""
-		ts = set(IRTransformer.resolve_ir_t_str(t) for t in ir_ts if t)
+		ts = {IRTransformer.resolve_ir_t_str(t): t for t in ir_ts if t}
 
-		is_required = "None" not in ts
-		non_none = ts - {"None"}
+		is_required = "None" not in ts  # TODO: doesn't handle generic types like IR_Union
+		ts.pop("None", None)
 
-		if len(non_none) == 0:
+		if len(ts) == 0:
 			return None
-		elif len(non_none) == 1:
-			return IR_T(t=non_none.pop(), required=is_required)
+		elif len(ts) == 1:
+			[single] = ts.values()
+			if isinstance(single, IR_T):
+				return IR_T(t=single.t, required=is_required)
+			else:
+				return IR_T(t=single, required=is_required)
 		else:
-			return IR_T(t=f"Union[{', '.join(non_none)}]", required=is_required)
+			return IR_T(t=IR_Union(items=list(ts.values())), required=is_required)
+
+	def _find_ir_ops(self) -> List[IROp]:
+		ops: List[IROp] = []
+		for path, path_item in self.oa_paths.items():
+			for method, op in path_item.items():
+				ops.append(self.jsonparser.ip_op(self.openapi.apiv, path, method, op))
+		return ops
 
 	def transform_paths(self) -> str:
 		"""Transform OpenAPI Paths into the Python code for the Azure objects"""
-		parser = TypeAdapter(Dict[str, OAPath])
-		parsed = parser.validate_python(self.openapi.paths)
-
-		ops: List[IROp] = []
-		for path, path_item in parsed.items():
-			for method, op in path_item.items():
-				ops.append(self.jsonparser.ip_op(self.openapi.apiv, path, method, op))
+		ops = self._find_ir_ops()
 
 		az_objs: Dict[str, List[IROp]] = defaultdict(list)
 		for ir_op in ops:
@@ -630,11 +660,14 @@ class IRTransformer:
 		return az_op
 
 	def transform_imports(self, base_module_path: Path) -> str:
+
 		definitions, _ = self._find_ir_definitions()
-
-		imports = self._extract_imports(definitions)
-
-		merged = AZImport.merge(imports)
+		merged = AZImport.merge(
+			(
+				*(self._extract_imports(definitions.values())),
+				*(self._extract_imports(self._find_ir_ops())),
+			)
+		)
 
 		def resolve_path(e: AZImport):
 			e.path = base_module_path / path2module(e.path)
@@ -643,13 +676,13 @@ class IRTransformer:
 		resolved = [resolve_path(e) for e in merged]
 		return "\n".join([cg.codegen() for cg in resolved])
 
-	def _extract_imports(self, definitions: Dict[str, IRDef]):
+	def _extract_imports(self, definitions: Iterable[Union[IRDef, IROp]]) -> List[AZImport]:
 		imports = []
-		for ir in definitions.values():
+		for ir in definitions:
 			imports.extend(self._remove_local_imports(self.openapi.path, self._find_imports(ir)))
 		return imports
 
-	def _find_imports(self, ir: Union[IRDef, IR_T, IR_Enum, IR_List, IR_Dict, str, type]) -> List[AZImport]:
+	def _find_imports(self, ir: Union[IRDef, IROp, IR_T, IR_Union, IR_Enum, IR_List, IR_Dict, str, type]) -> List[AZImport]:
 		if isinstance(ir, (str, type)):
 			return []
 		elif isinstance(ir, IRDef):
@@ -665,6 +698,19 @@ class IRTransformer:
 			return self._find_imports(ir.items)
 		elif isinstance(ir, IR_Dict):
 			return list(itertools.chain.from_iterable([self._find_imports(ir.keys), self._find_imports(ir.values)]))
+		elif isinstance(ir, IR_Union):
+			return list(itertools.chain.from_iterable([self._find_imports(v) for v in ir.items]))
+		elif isinstance(ir, IROp):
+			o = []
+			if ir.body:
+				o.extend(self._find_imports(ir.body))
+			if ir.params:
+				o.extend(itertools.chain.from_iterable(self._find_imports(v) for v in ir.params.values()))
+			if ir.query_params:
+				o.extend(itertools.chain.from_iterable(self._find_imports(v) for v in ir.query_params.values()))
+			if ir.ret_t:
+				o.extend(self._find_imports(ir.ret_t))
+			return o
 		else:  # cov: err
 			raise TypeError(f"Cannot find imports for unexpected type {type(ir)}")
 
@@ -818,9 +864,18 @@ class JSONSchemaSubparser:
 		elif isinstance(obj, OADef.Array):
 			return self.ir_array(name, obj, required_properties)
 		elif isinstance(obj, OAEnum):
+			if enum_params := obj.x_ms_enum:
+				enum_name = enum_params.name
+
+				# modelAsString means that no validation will happen.
+				if enum_params.modelAsString:
+					return IR_T(t=str, required=name in required_properties)
+			else:
+				enum_name = name
+
 			return IR_T(
 				t=IR_Enum(
-					name=name,
+					name=enum_name,
 					values=obj.enum,
 					description=obj.description,
 				),
@@ -836,6 +891,7 @@ class JSONSchemaSubparser:
 			reader, resolved = self.openapi.load_relative(obj.ref)
 			relative_transformer = JSONSchemaSubparser(reader, self.refcache)
 			resolved_loaded = cast(Union[OARef, OAParam], TypeAdapter(Union[OARef, OAParam]).validate_python(resolved))
+
 			transformed = relative_transformer.ir_param(resolved_loaded)
 
 			return transformed
@@ -947,6 +1003,12 @@ class AZField(BaseModel, CodeGenable):
 	annotations: List[str] = []
 	readonly: bool
 
+	@property
+	def normalised_name(self) -> str:
+		if self.name == "id":
+			return "rid"
+		return self.name
+
 	def codegen(self) -> str:
 		if self.name == "id":
 			return f'rid: {self.t} = Field(alias="id", default=None)'
@@ -993,7 +1055,7 @@ class AZDef(BaseModel, CodeGenable):
 		conditions = ["isinstance(o, self.__class__)"]
 		for field in self.fields:
 			if not field.readonly:
-				conditions.append(f"self.{field.name} == o.{field.name}")
+				conditions.append(f"self.{field.normalised_name} == o.{field.normalised_name}")
 
 		conditions_str = self.indent(2, "\nand ".join(conditions))
 
@@ -1020,6 +1082,7 @@ class AZEnum(BaseModel, CodeGenable):
 		if s == "None":
 			s = "none"
 		s = s.replace(",", "_")
+		s = s.replace("/", "_")
 		return s
 
 	def codegen(self) -> str:
@@ -1154,7 +1217,7 @@ class AZImport(BaseModel, CodeGenable):
 		return f"from {path_str} import {names_str}"
 
 	@classmethod
-	def merge(cls, imports: List[AZImport]) -> List[AZImport]:
+	def merge(cls, imports: Iterable[AZImport]) -> List[AZImport]:
 		merged: Dict[Path, AZImport] = {}
 		for imp in imports:
 			p = imp.path

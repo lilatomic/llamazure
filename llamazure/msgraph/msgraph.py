@@ -4,7 +4,7 @@ import dataclasses
 import operator
 import urllib.parse
 from functools import reduce
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 import requests
 
@@ -34,9 +34,12 @@ class Graph:
 		token = credential.get_token("https://graph.microsoft.com/.default")
 		return cls(token)
 
-	def q(self, q: str) -> Union[Any, ResErr]:
+	def q(self, q: str) -> Any:
 		"""Make a graph query"""
-		return self._exec_query(Req(q))
+		res = self._exec_query(Req(q))
+		if isinstance(res, ResErr):
+			raise res.exception()
+		return res.value
 
 	def _make_http_request(self, req: Req, url: str, params: Optional[Dict] = None) -> ResMaybe:
 		raw = requests.get(

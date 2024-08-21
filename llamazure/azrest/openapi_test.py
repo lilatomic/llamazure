@@ -12,6 +12,7 @@ from llamazure.azrest.openapi import (
 	IR_Dict,
 	IR_Enum,
 	IR_List,
+	IR_Union,
 	IRDef,
 	IRParam,
 	IRTransformer,
@@ -211,19 +212,19 @@ class TestIRTransformerUnifyIRT:
 	def test_single_type():
 		ir_ts = [IR_T(t=str)]
 		result = IRTransformer.unify_ir_t(ir_ts)
-		assert result == IR_T(t="str", required=True)
+		assert result == IR_T(t=str, required=True)
 
 	@staticmethod
 	def test_multiple_types():
 		ir_ts = [IR_T(t=int), IR_T(t=str)]
 		result = IRTransformer.unify_ir_t(ir_ts)
-		assert result == IR_T(t="Union[str, int]", required=True) or result == IR_T(t="Union[int, str]", required=True)
+		assert result == IR_T(t=IR_Union(items=[IR_T(t=str), IR_T(t=int)]), required=True) or result == IR_T(t=IR_Union(items=[IR_T(t=int), IR_T(t=str)]), required=True)
 
 	@staticmethod
 	def test_optional_type():
 		ir_ts = [IR_T(t=int), IR_T(t="None")]
 		result = IRTransformer.unify_ir_t(ir_ts)
-		assert result == IR_T(t="int", required=False)
+		assert result == IR_T(t=int, required=False)
 
 	@staticmethod
 	def test_all_optional_types():
@@ -238,7 +239,7 @@ class TestIRTransformerImports:
 	az_import = AZImport(path=tgt_path, names={"Import"})
 
 	def empty_irtransformer(self) -> IRTransformer:
-		return IRTransformer({}, Reader("", Path(), {}, {}), RefCache())
+		return IRTransformer({}, {}, Reader("", Path(), {}, {}), RefCache())
 
 	local_path = Path("path/to/src")
 	simple_cases = [
@@ -301,7 +302,7 @@ class TestJSONSchemaParams:
 
 class TestJSONSchemaDefs:
 	def do_test(self, definitions, target_def, expected):
-		reader = Reader("", Path(), {"definitions": definitions}, {})
+		reader = Reader("", Path(), {"definitions": definitions, "paths": {}}, {})
 		ir = IRTransformer.from_reader(reader)
 
 		target = ir.oa_defs[target_def]
@@ -337,7 +338,7 @@ class TestJSONSchemaDefs:
 				"description": "Type of managed service identity (either system assigned, or none).",
 				"enum": ["None", "SystemAssigned"],
 				"type": "string",
-				"x-ms-enum": {"name": "SystemAssignedServiceIdentityType", "modelAsString": True},
+				"x-ms-enum": {"name": "SystemAssignedServiceIdentityType", "modelAsString": False},
 			}
 		}
 		self.do_test(d, "SystemAssignedServiceIdentityType", IR_T(t=IR_Enum(name=name, values=d[name]["enum"], description=d[name]["description"]), required=False))

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import logging
 from typing import Dict, Optional, Type, Union, cast
 
@@ -58,7 +59,11 @@ class AzRest:
 			r.params["api-version"] = req.apiv
 		if req.body:
 			r.headers["Content-Type"] = "application/json"
-			r.data = req.body.model_dump_json(exclude_none=True, by_alias=True)
+			if isinstance(req.body, dict):
+				# allows you to do your own serialisation
+				r.data = json.dumps(req.body)
+			else:
+				r.data = req.body.model_dump_json(exclude_none=True, by_alias=True)
 		return r
 
 	def _build_url(self, req: Req) -> str:

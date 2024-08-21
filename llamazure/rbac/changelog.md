@@ -1,4 +1,12 @@
 # 0
+
+## 0.2
+
+### 0.2.0
+
+- task: bump llamazure.azrest dependency
+- task: fix namespace package
+
 # 0.1
 
 ### 0.1.0
