@@ -103,6 +103,7 @@ class OAEnum(BaseModel):
 
 	class XMSEnum(BaseModel):
 		name: str
+		modelAsString: bool
 		# TOOD: rest of x-ms-enum?
 
 
@@ -415,6 +416,9 @@ class IRTransformer:
 				continue  # we don't need to define dicts
 			elif isinstance(parsed.t, IR_Enum):
 				ir_enums[parsed.t.name] = parsed.t
+			elif isinstance(obj, OAEnum) and obj.x_ms_enum and obj.x_ms_enum.modelAsString:
+				# modelAsString means no validation is done. We model that as a string, and isn't an IR_Enum here
+				continue
 			else:  # cov: err
 				raise ValueError(f"Type resolved to non-definition {parsed.t}")
 		return ir_definitions, ir_enums
@@ -589,7 +593,7 @@ class IRTransformer:
 		elif len(ts) == 1:
 			[single] = ts.values()
 			if isinstance(single, IR_T):
-				return single
+				return IR_T(t=single.t, required=is_required)
 			else:
 				return IR_T(t=single, required=is_required)
 		else:
@@ -860,8 +864,12 @@ class JSONSchemaSubparser:
 		elif isinstance(obj, OADef.Array):
 			return self.ir_array(name, obj, required_properties)
 		elif isinstance(obj, OAEnum):
-			if obj.x_ms_enum:
-				enum_name = obj.x_ms_enum.name
+			if enum_params := obj.x_ms_enum:
+				enum_name = enum_params.name
+
+				# modelAsString means that no validation will happen.
+				if enum_params.modelAsString:
+					return IR_T(t=str, required=name in required_properties)
 			else:
 				enum_name = name
 
