@@ -63,6 +63,7 @@ class ResErr:
 	def exception(self) -> Exception:
 		return AzureGraphException(self)
 
+
 class ErrorDetails(TypedDict):
 	"""Error details. TypedDict because extra parameters are supplied"""
 

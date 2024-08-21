@@ -8,10 +8,9 @@ import click
 from azure.identity import DefaultAzureCredential
 
 from llamazure.azrest.azrest import AzRest
-from llamazure.azrest.models import cast_as
 from llamazure.rid import rid
 from llamazure.rid.rid import Resource
-from llamazure.tools.migrate.portal.r.m.portal.portal import AzDashboards, Dashboard, PatchableDashboard  # pylint: disable=E0611,E0401
+from llamazure.tools.migrate.portal.r.m.portal.portal import AzDashboards  # pylint: disable=E0611,E0401
 from llamazure.tools.migrate.util import JSONTraverser, rid_params
 
 
@@ -47,7 +46,7 @@ class Migrator:
 		# d = Dashboard(**transformed)
 		# p = cast_as(d, PatchableDashboard)
 		self.az.call(
-			AzDashboards.Update(*rid_params(self.dashboard), transformed),
+			AzDashboards.Update(*rid_params(self.dashboard), transformed),  # type: ignore
 		)
 
 	def make_backup(self, dashboard: dict):
@@ -75,7 +74,7 @@ class Restorer:
 		# they broke the openapi model lol
 		# p = PatchableDashboard(**content)
 		self.az.call(
-			AzDashboards.Update(*rid_params(self.dashboard), content),
+			AzDashboards.Update(*rid_params(self.dashboard), content),  # type: ignore
 		)
 
 

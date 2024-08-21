@@ -5,7 +5,7 @@ import dataclasses
 import json
 import operator
 from functools import reduce
-from typing import Any, Tuple, Union, cast
+from typing import Any, Tuple, cast
 
 import requests
 

@@ -32,7 +32,7 @@ import pydantic
 import requests
 from pydantic import BaseModel, Field, TypeAdapter
 
-from llamazure.azrest.models import AzList, default_dict, default_list
+from llamazure.azrest.models import AzList
 
 l = logging.getLogger(__name__)
 

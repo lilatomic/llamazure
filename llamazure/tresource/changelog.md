@@ -1,5 +1,11 @@
 # 0
 
+## 0.1
+
+### 0.1.0
+
+- task: fix namespace package
+
 ## 0.0
 
 ### 0.0.2

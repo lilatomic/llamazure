@@ -9,7 +9,7 @@ import yaml
 from azure.identity import ClientSecretCredential
 
 from llamazure.azgraph.azgraph import Graph
-from llamazure.azgraph.models import Req, Res, ResErr
+from llamazure.azgraph.models import AzureGraphException, Req, Res
 
 
 def print_output(name: str, output: Any):
@@ -78,10 +78,11 @@ def test_paginated(graph: Graph):
 @pytest.mark.integration
 def test_error(graph: Graph):
 	"""Run a query that results in an error"""
-	res = graph.q("Resources | syntax error")
-	print_output("error", res)
-	matches_type = isinstance(res, ResErr)
-	assert matches_type
+	with pytest.raises(AzureGraphException) as e:
+		graph.q("Resources | syntax error")
+	err = e.value.err
+	print_output("error", err)
+	assert err
 
 
 def test_shim():

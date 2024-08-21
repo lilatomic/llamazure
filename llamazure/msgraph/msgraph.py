@@ -4,7 +4,7 @@ import dataclasses
 import operator
 import urllib.parse
 from functools import reduce
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 import requests
 

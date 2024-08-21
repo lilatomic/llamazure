@@ -6,7 +6,7 @@ python_distribution(
 	long_description_path="llamazure/tools/readme.md",
 	provides=python_artifact(
 		name="llamazure.tools",
-		version="0.1.0",
+		version="0.2.0",
 		description="A bundle of helpful tools for dealing with Azure",
 		author="Daniel Goldman",
 		classifiers=[
@@ -14,6 +14,8 @@ python_distribution(
 			"Programming Language :: Python :: 3.9",
 			"Programming Language :: Python :: 3.10",
 			"Programming Language :: Python :: 3.11",
+			"Programming Language :: Python :: 3.12",
+			"Programming Language :: Python :: 3.13",
 			"Topic :: Utilities",
 		],
 		license="Round Robin 2.0.0",

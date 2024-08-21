@@ -1,6 +1,14 @@
 
 # 0
 
+## 0.1
+
+### 0.1.0
+
+- feature: easier to raise Exception from ResErr
+- feature: **breaking** `q` throws on error
+- task: fix namespace package
+
 ## 0.0
 
 ### 0.0.3
