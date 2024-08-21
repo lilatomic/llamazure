@@ -43,10 +43,11 @@ class Migrator:
 
 	def put_dashboard(self, transformed: dict):
 		"""Update the dashboard in Azure with the transformed data."""
-		d = Dashboard(**transformed)
-		p = cast_as(d, PatchableDashboard)
+		# they broke the openapi model lol
+		# d = Dashboard(**transformed)
+		# p = cast_as(d, PatchableDashboard)
 		self.az.call(
-			AzDashboards.Update(*rid_params(self.dashboard), p),
+			AzDashboards.Update(*rid_params(self.dashboard), transformed),
 		)
 
 	def make_backup(self, dashboard: dict):
@@ -71,9 +72,10 @@ class Restorer:
 			return json.load(f)
 
 	def put_dashboard(self, content: dict):
-		p = PatchableDashboard(**content)
+		# they broke the openapi model lol
+		# p = PatchableDashboard(**content)
 		self.az.call(
-			AzDashboards.Update(*rid_params(self.dashboard), p),
+			AzDashboards.Update(*rid_params(self.dashboard), content),
 		)
 
 

@@ -73,7 +73,7 @@ class TestDashboard:
 		restored = m.get_dashboard()
 
 		def get_replacement(d: Dict):
-			return d["properties"]["lenses"][0]["parts"][1]["metadata"]["settings"]["content"]["title"]
+			return d["properties"]["lenses"][0]["parts"][0]["metadata"]["settings"]["content"]["title"]
 
 		assert get_replacement(old) != get_replacement(new)
 		assert get_replacement(old) == get_replacement(restored)
