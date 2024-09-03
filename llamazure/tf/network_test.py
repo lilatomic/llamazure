@@ -22,22 +22,20 @@ class TestRender:
 		e = {
 			"access": "Allow",
 			"description": "",
-			"destination_address_prefix": None,
 			"destination_address_prefixes": ["2.1.1.1/32", "2.1.1.2/32"],
-			"destination_port_range": None,
 			"destination_port_ranges": ["2", "3"],
 			"destination_application_security_group_ids": [],
 			"direction": "Inbound",
 			"name": "n",
 			"priority": 0,
 			"protocol": "Tcp",
-			"source_address_prefix": None,
 			"source_address_prefixes": ["1.1.1.1/32", "1.1.1.2/32"],
-			"source_port_range": None,
 			"source_port_ranges": ["0", "1"],
 			"source_application_security_group_ids": [],
+			"network_security_group_name": "nsg_name",
+			"resource_group_name": "rg",
 		}
-		assert a.render(0) == e
+		assert a.render("nsg_name", "rg", 0) == e
 
 
 class TestExample:
@@ -58,32 +56,33 @@ class TestExample:
 			"name": "acceptanceTestSecurityGroup1",
 			"location": "West Europe",
 			"resource_group_name": "example-resources",
-			"security_rule": [
-				{
-					"name": "test123",
-					"priority": 100,
-					"direction": "Inbound",
-					"access": "Allow",
-					"protocol": "Tcp",
-					"source_port_range": "*",
-					"source_port_ranges": [],
-					"destination_port_range": "*",
-					"destination_port_ranges": [],
-					"source_address_prefix": "*",
-					"source_address_prefixes": [],
-					"destination_address_prefix": "*",
-					"destination_address_prefixes": [],
-					"destination_application_security_group_ids": [],
-					"source_application_security_group_ids": [],
-					"description": "",
-				}
-			],
+			"security_rule": [],
 			"tags": {
 				"environment": "Production",
 			},
 		}
 
 		assert a.render() == e
+
+		es = [
+			{
+				"name": "test123",
+				"priority": 100,
+				"direction": "Inbound",
+				"access": "Allow",
+				"protocol": "Tcp",
+				"source_port_range": "*",
+				"destination_port_range": "*",
+				"source_address_prefix": "*",
+				"destination_address_prefix": "*",
+				"destination_application_security_group_ids": [],
+				"source_application_security_group_ids": [],
+				"description": "",
+				"network_security_group_name": "${azurerm_network_security_group.acceptanceTestSecurityGroup1.name}",
+				"resource_group_name": "example-resources",
+			}
+		]
+		assert [rule.render() for rule in a.subresources()] == es
 
 	def test_example(self):
 		"""Test showing how to use the code generation"""

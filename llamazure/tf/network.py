@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 
-from llamazure.tf.models import TFResource
+from llamazure.tf.models import AnyTFResource, TFResource, _pluralise
 
 
 class Counter:
@@ -45,19 +45,25 @@ class NSG(TFResource):
 
 	def render(self) -> dict:
 		"""Render for tf-json"""
-		counter = Counter(initial_value=100)
-		rendered_rules = []
-
-		for rule in self.rules:
-			rendered_rules.append(rule.render(counter.incr(rule.direction)))
-
 		return {
 			"name": self.name,
 			"resource_group_name": self.rg,
 			"location": self.location,
-			"security_rule": rendered_rules,
+			"security_rule": [],
 			"tags": self.tags,
 		}
+
+	def subresources(self) -> list[TFResource]:
+		counter = Counter(initial_value=100)
+
+		return [
+			AnyTFResource(
+				name="%s-%s" % (self.name, rule.name),
+				t="azurerm_network_security_rule",
+				props=rule.render("${%s.%s.name}" % (self.t, self.name), self.rg, counter.incr(rule.direction)),
+			)
+			for rule in self.rules
+		]
 
 
 @dataclass
@@ -90,19 +96,21 @@ class NSGRule:
 		Inbound: str = "Inbound"
 		Outbound: str = "Outbound"
 
-	def render(self, priority: int):
+	def render(self, nsg_name: str, rg: str, priority: int):
 		"""Render for tf-json"""
 		return {
 			"name": self.name,
 			"description": self.description,
 			"protocol": self.protocol,
-			**_pluralise_for_azurerm("source_port_range", self.src_ports),
-			**_pluralise_for_azurerm("destination_port_range", self.dst_ports),
-			**_pluralise_for_azurerm("source_address_prefix", self.src_addrs, pluralise="es"),
-			**_pluralise_for_azurerm("destination_address_prefix", self.dst_addrs, pluralise="es"),
+			**_pluralise("source_port_range", self.src_ports),
+			**_pluralise("destination_port_range", self.dst_ports),
+			**_pluralise("source_address_prefix", self.src_addrs, pluralise="es"),
+			**_pluralise("destination_address_prefix", self.dst_addrs, pluralise="es"),
 			"source_application_security_group_ids": self.src_sgids,
 			"destination_application_security_group_ids": self.dst_sgids,
 			"access": self.access.value,
 			"priority": priority,
 			"direction": self.direction.value,
+			"resource_group_name": rg,
+			"network_security_group_name": nsg_name,
 		}

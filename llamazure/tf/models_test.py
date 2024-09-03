@@ -11,7 +11,7 @@ class TestPluralise:
 	def test_single_element(self):
 		# Test case where the list has one element
 		result = _pluralise("apple", ["apple"])
-		expected = {"apple": ["apple"]}
+		expected = {"apple": "apple"}
 		assert result == expected
 
 	def test_multiple_elements(self):
@@ -23,7 +23,7 @@ class TestPluralise:
 	def test_single_element_with_es_suffix(self):
 		# Test case where the list has one element and uses the suffix "es"
 		result = _pluralise("box", ["box"], pluralise="es")
-		expected = {"box": ["box"]}
+		expected = {"box": "box"}
 		assert result == expected
 
 	def test_multiple_elements_with_es_suffix(self):

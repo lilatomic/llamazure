@@ -16,7 +16,8 @@ def random_nsg():
 
 
 def versions_tf(subscription_id):
-	return """\
+	return (
+		"""\
 terraform {
 	required_providers {
 		azurerm = {
@@ -31,7 +32,9 @@ provider "azurerm" {
 	subscription_id = "%s"
 	features {}
 }
-""" % subscription_id
+"""
+		% subscription_id
+	)
 
 
 class TestNetworkIntegration:

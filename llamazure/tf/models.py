@@ -20,6 +20,16 @@ class TFResource(ABC):
 
 
 @dataclass
+class AnyTFResource(TFResource):
+	t: str
+	name: str
+	props: dict
+
+	def render(self) -> dict:
+		return self.props
+
+
+@dataclass
 class Terraform:
 	resource: list[TFResource]
 
@@ -43,6 +53,6 @@ class Terraform:
 def _pluralise(k: str, v: list[str], pluralise: str = "s") -> dict[str, str]:
 	"""Format the k-v pair, pluralising the k if necessary"""
 	if len(v) == 1:
-		return {k: v}
+		return {k: v[0]}
 	else:
 		return {k + pluralise: v}
