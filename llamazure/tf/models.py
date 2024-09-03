@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC
 from collections import defaultdict
 from dataclasses import dataclass
@@ -12,6 +14,10 @@ class TFResource(ABC):
 	def render(self) -> dict:
 		"""Render the resource as JSON-serialisable data"""
 
+	def subresources(self) -> list[TFResource]:
+		"""Child resources"""
+		return []
+
 
 @dataclass
 class Terraform:
@@ -20,8 +26,14 @@ class Terraform:
 	def render(self):
 		"""Render the terraform resources"""
 		rendered_resources = defaultdict(dict)
-		for resource in self.resource:
+
+		def register(resource: TFResource):
 			rendered_resources[resource.t][resource.name] = resource.render()
+			for subresource in resource.subresources():
+				register(subresource)
+
+		for resource in self.resource:
+			register(resource)
 
 		return {
 			"resource": rendered_resources,

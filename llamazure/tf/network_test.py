@@ -6,7 +6,10 @@ from llamazure.tf.network import NSG, NSGRule
 
 
 class TestRender:
+	"""Test rendering"""
+
 	def test_plural_nsgrule(self):
+		"""Test that plurals render correctly"""
 		a = NSGRule(
 			name="n",
 			access=NSGRule.Access.Allow,
@@ -19,19 +22,27 @@ class TestRender:
 		e = {
 			"access": "Allow",
 			"description": "",
+			"destination_address_prefix": None,
 			"destination_address_prefixes": ["2.1.1.1/32", "2.1.1.2/32"],
+			"destination_port_range": None,
 			"destination_port_ranges": ["2", "3"],
+			"destination_application_security_group_ids": [],
 			"direction": "Inbound",
 			"name": "n",
 			"priority": 0,
 			"protocol": "Tcp",
+			"source_address_prefix": None,
 			"source_address_prefixes": ["1.1.1.1/32", "1.1.1.2/32"],
+			"source_port_range": None,
 			"source_port_ranges": ["0", "1"],
+			"source_application_security_group_ids": [],
 		}
 		assert a.render(0) == e
 
 
 class TestExample:
+	"""Test the example from the Terraform provider"""
+
 	def test_terraform_example(self):
 		"""Test the example from the Terraform provider"""
 		a = NSG(
@@ -54,10 +65,16 @@ class TestExample:
 					"direction": "Inbound",
 					"access": "Allow",
 					"protocol": "Tcp",
-					"source_port_range": ["*"],
-					"destination_port_range": ["*"],
-					"source_address_prefix": ["*"],
-					"destination_address_prefix": ["*"],
+					"source_port_range": "*",
+					"source_port_ranges": [],
+					"destination_port_range": "*",
+					"destination_port_ranges": [],
+					"source_address_prefix": "*",
+					"source_address_prefixes": [],
+					"destination_address_prefix": "*",
+					"destination_address_prefixes": [],
+					"destination_application_security_group_ids": [],
+					"source_application_security_group_ids": [],
 					"description": "",
 				}
 			],
@@ -69,10 +86,11 @@ class TestExample:
 		assert a.render() == e
 
 	def test_example(self):
-		"""Test showing how to use the code"""
+		"""Test showing how to use the code generation"""
 
-		tf = Terraform([
-			NSG("n", "rg", "l", [])
-		])
+		tf = Terraform([NSG("n", "rg", "l", [])])
 
-		assert json.dumps(tf.render()) == '{"resource": {"azurerm_network_security_group": {"n": {"name": "n", "resource_group_name": "rg", "location": "l", "security_rule": [], "tags": {}}}}}'
+		assert (
+			json.dumps(tf.render())
+			== '{"resource": {"azurerm_network_security_group": {"n": {"name": "n", "resource_group_name": "rg", "location": "l", "security_rule": [], "tags": {}}}}}'
+		)
