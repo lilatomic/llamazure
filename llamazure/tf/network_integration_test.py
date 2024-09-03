@@ -3,10 +3,15 @@ import json
 import random
 import subprocess
 
+import pytest
 from _pytest.fixtures import fixture
 
 from llamazure.tf.models import Terraform
 from llamazure.tf.network import NSG, NSGRule
+
+
+def test_shim():
+	"""Make pytest succeed even when no tests are selected"""
 
 
 @fixture
@@ -40,6 +45,7 @@ provider "azurerm" {
 class TestNetworkIntegration:
 	"""Integration tests for network resources"""
 
+	@pytest.mark.integration
 	def test_network_integration(self, random_nsg, tmp_path, it_info):
 		tf = Terraform(
 			[
