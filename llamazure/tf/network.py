@@ -3,30 +3,25 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Generic, TypeVar
 
 from llamazure.tf.models import AnyTFResource, TFResource, _pluralise
 
+T = TypeVar("T")
 
-class Counter:
+
+class Counter(Generic[T]):
 	"""Incrementing counter, useful for generating priorities"""
 
 	def __init__(self, initial_value=0):
 		self._initial_value = initial_value
-		self._counter: dict[str, int] = defaultdict(lambda: initial_value)
+		self._counter: dict[T, int] = defaultdict(lambda: initial_value)
 
-	def incr(self, name: str):
+	def incr(self, name: T):
 		"""Get the current value and increment the counter for the given name"""
 		v = self._counter[name]
 		self._counter[name] += 1
 		return v
-
-
-def _pluralise_for_azurerm(k: str, v: list[str], pluralise: str = "s") -> dict[str, str]:
-	"""Azure needs both the plural and singular form. Sucks"""
-	if len(v) == 1:
-		return {k: v[0], k + pluralise: []}
-	else:
-		return {k: None, k + pluralise: v}
 
 
 @dataclass
@@ -40,7 +35,7 @@ class NSG(TFResource):
 	tags: dict[str, str] = field(default_factory=dict)
 
 	@property
-	def t(self) -> str:
+	def t(self) -> str:  # type: ignore[override]
 		return "azurerm_network_security_group"
 
 	def render(self) -> dict:
@@ -54,7 +49,7 @@ class NSG(TFResource):
 		}
 
 	def subresources(self) -> list[TFResource]:
-		counter = Counter(initial_value=100)
+		counter: Counter[NSGRule.Direction] = Counter(initial_value=100)
 
 		return [
 			AnyTFResource(

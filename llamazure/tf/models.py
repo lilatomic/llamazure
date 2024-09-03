@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -8,9 +8,10 @@ from dataclasses import dataclass
 class TFResource(ABC):
 	"""A Terraform resource"""
 
-	t: str  # type
-	name: str  # name
+	name: str
+	t: str
 
+	@abstractmethod
 	def render(self) -> dict:
 		"""Render the resource as JSON-serialisable data"""
 
@@ -50,7 +51,7 @@ class Terraform:
 		}
 
 
-def _pluralise(k: str, v: list[str], pluralise: str = "s") -> dict[str, str]:
+def _pluralise(k: str, v: list[str], pluralise: str = "s") -> dict[str, str | list[str]]:
 	"""Format the k-v pair, pluralising the k if necessary"""
 	if len(v) == 1:
 		return {k: v[0]}
