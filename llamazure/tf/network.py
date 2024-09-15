@@ -44,7 +44,7 @@ class NSG(TFResource):
 			"name": self.name,
 			"resource_group_name": self.rg,
 			"location": self.location,
-			"security_rule": [],
+			"security_rule": None,
 			"tags": self.tags,
 		}
 
