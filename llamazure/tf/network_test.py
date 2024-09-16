@@ -56,7 +56,7 @@ class TestExample:
 			"name": "acceptanceTestSecurityGroup1",
 			"location": "West Europe",
 			"resource_group_name": "example-resources",
-			"security_rule": [],
+			"security_rule": None,
 			"tags": {
 				"environment": "Production",
 			},
@@ -91,5 +91,5 @@ class TestExample:
 
 		assert (
 			json.dumps(tf.render())
-			== '{"resource": {"azurerm_network_security_group": {"n": {"name": "n", "resource_group_name": "rg", "location": "l", "security_rule": [], "tags": {}}}}}'
+			== '{"resource": {"azurerm_network_security_group": {"n": {"name": "n", "resource_group_name": "rg", "location": "l", "security_rule": null, "tags": {}}}}}'
 		)

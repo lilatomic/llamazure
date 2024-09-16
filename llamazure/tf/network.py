@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Generic, TypeVar
 
-from llamazure.tf.models import AnyTFResource, TFResource, _pluralise
+from llamazure.tf.models import AnyTFResource, TFList, TFResource, _pluralise
 
 T = TypeVar("T")
 
@@ -44,7 +44,7 @@ class NSG(TFResource):
 			"name": self.name,
 			"resource_group_name": self.rg,
 			"location": self.location,
-			"security_rule": [],
+			"security_rule": None,
 			"tags": self.tags,
 		}
 
@@ -70,12 +70,12 @@ class NSGRule:
 	direction: Direction
 
 	protocol: str = "Tcp"
-	src_ports: list[str] = field(default_factory=lambda: ["*"])
-	src_addrs: list[str] = field(default_factory=lambda: ["*"])
-	src_sgids: list[str] = field(default_factory=lambda: [])
-	dst_ports: list[str] = field(default_factory=lambda: ["*"])
-	dst_addrs: list[str] = field(default_factory=lambda: ["*"])
-	dst_sgids: list[str] = field(default_factory=lambda: [])
+	src_ports: TFList = field(default_factory=lambda: ["*"])
+	src_addrs: TFList = field(default_factory=lambda: ["*"])
+	src_sgids: TFList = field(default_factory=lambda: [])
+	dst_ports: TFList = field(default_factory=lambda: ["*"])
+	dst_addrs: TFList = field(default_factory=lambda: ["*"])
+	dst_sgids: TFList = field(default_factory=lambda: [])
 
 	description: str = ""
 

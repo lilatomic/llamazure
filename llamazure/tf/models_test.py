@@ -1,4 +1,4 @@
-from llamazure.tf.models import _pluralise
+from llamazure.tf.models import RefList, _pluralise
 
 
 class TestPluralise:
@@ -30,4 +30,9 @@ class TestPluralise:
 		# Test case where the list has multiple elements and uses the suffix "es"
 		result = _pluralise("box", ["box", "fox"], pluralise="es")
 		expected = {"boxes": ["box", "fox"]}
+		assert result == expected
+
+	def test_reflist(self):
+		result = _pluralise("apple", RefList("ref"))
+		expected = {"apples": ["ref"]}
 		assert result == expected
