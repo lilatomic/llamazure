@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import Union
 
 
 class TFResource(ABC):
@@ -51,9 +52,22 @@ class Terraform:
 		}
 
 
-def _pluralise(k: str, v: list[str], pluralise: str = "s") -> dict[str, str | list[str]]:
+@dataclass(frozen=True)
+class RefList:
+	"""A reference to a var containing a list"""
+
+	var: str
+
+
+TFList = Union[list[str], RefList]
+
+
+def _pluralise(k: str, v: TFList, pluralise: str = "s") -> dict[str, str | list[str]]:
 	"""Format the k-v pair, pluralising the k if necessary"""
-	if len(v) == 1:
-		return {k: v[0]}
+	if isinstance(v, RefList):
+		return {k + pluralise: [v.var]}
 	else:
-		return {k + pluralise: v}
+		if len(v) == 1:
+			return {k: v[0]}
+		else:
+			return {k + pluralise: v}
