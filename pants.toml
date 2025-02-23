@@ -1,5 +1,5 @@
 [GLOBAL]
-pants_version = "2.23.0dev6"
+pants_version = "2.26.0.dev5"
 backend_packages = [
 	"pants.backend.python",
 	"pants.backend.experimental.python",
@@ -15,7 +15,7 @@ pants_ignore = ["!cicd/secrets.yml"]
 [source]
 
 [python]
-interpreter_constraints = ["CPython>=3.9"]
+interpreter_constraints = ["CPython>=3.10"]
 enable_resolves = true
 
 [python.resolves]
