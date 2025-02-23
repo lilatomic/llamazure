@@ -8,7 +8,7 @@ from typing import Generic, TypeVar, Union
 T = TypeVar("T")
 
 
-@dataclass
+@dataclass(frozen=True)
 class TFRenderOpt(Generic[T]):
 	value: T
 
