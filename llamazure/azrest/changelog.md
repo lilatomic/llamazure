@@ -1,5 +1,11 @@
 # 0
 
+## 0.4
+
+## 0.4.0
+
+- fix: improve inference of dicts 
+
 ## 0.3
 
 ### 0.3.0

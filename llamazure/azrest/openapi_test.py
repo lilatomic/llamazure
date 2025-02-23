@@ -387,6 +387,23 @@ class TestJSONSchemaDefs:
 		}
 		self.do_test(d, name, IR_T(t=IR_Dict(keys=IR_T(t=str), values=IR_T(t=str)), required=False))
 
+	def test_dict__typed(self):
+		"""Test for a dict whose values are typed."""
+		name = "TrackedResource"
+		d = {
+			name: {
+				"title": "Tracked Resource",
+				"type": "object",
+				"properties": {
+					"tags": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Resource tags."},
+				},
+				"required": ["location"],
+			},
+		}
+
+		tags_ir_t = IR_T(t=IR_Dict(keys=IR_T(t=str), values=IR_T(t=str)), required=False)
+		self.do_test(d, name, IR_T(t=IRDef(name=name, properties={"tags": tags_ir_t}, src="."), required=False))
+
 	def test_allof_ref_and_properties(self):
 		name = "TrackedResource"
 		d = {
@@ -404,6 +421,7 @@ class TestJSONSchemaDefs:
 			"Resource": self.openapi_Resource,
 		}
 
+		tags_ir_t = IR_T(t=IR_Dict(keys=IR_T(t=str), values=IR_T(t=str)), required=False)
 		self.do_test(
 			d,
 			name,
@@ -411,7 +429,7 @@ class TestJSONSchemaDefs:
 				t=IRDef(
 					name="TrackedResource",
 					properties={
-						"tags": IR_T(t=dict, required=False),
+						"tags": tags_ir_t,
 						"location": IR_T(t=str),
 						"id": IR_T(t=str, readonly=True, required=False),
 						"name": IR_T(t=str, readonly=True, required=False),

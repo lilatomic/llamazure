@@ -85,7 +85,7 @@ class OADef(BaseModel):
 		required: bool = False
 		items: Optional[Dict[str, str]] = None
 
-	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef, OADef]] = {}
+	properties: Dict[str, Union[OADef.Array, OARef, OADef, OADef.Property]] = {}
 	t: Optional[str] = Field(alias="type", default=None)
 	description: Optional[str] = None
 
@@ -533,7 +533,7 @@ class IRTransformer:
 			annotations = []
 			if isinstance(f_type.t, IR_List):
 				annotations.append("default_list")
-			elif isinstance(f_type.t, IR_List):
+			elif isinstance(f_type.t, IR_Dict):
 				annotations.append("default_dict")
 
 			az_fields.append(AZField(name=f_name, t=t, default=v, annotations=annotations, readonly=f_type.readonly))
@@ -749,7 +749,19 @@ class JSONSchemaSubparser:
 		return None
 
 	def _is_dict(self, obj: OADef) -> bool:
-		return (not obj.properties and not obj.allOf and obj.t == "object" and not obj.additionalProperties) or obj.additionalProperties is True
+		if obj.additionalProperties is True:  # additionalProperties is wide open
+			return True
+
+		if not obj.t == "object":  # not an object
+			return False
+
+		if obj.properties or obj.allOf:  # has properties
+			return False
+
+		if isinstance(obj.additionalProperties, OADef.Property) and not obj.additionalProperties.items:  # additionalProperties has nothing specified
+			return True
+
+		return False
 
 	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IR_T:
 		relname = self.openapi.extract_remote_object_name(ref.ref)
@@ -776,7 +788,7 @@ class JSONSchemaSubparser:
 		required = name in required_properties
 
 		if obj.additionalProperties is True:
-			# this is explicitly a dict without constraints on values
+			# is this explicitly a dict without constraints on values
 			has_type = obj.properties.get("type", None)
 			if has_type:
 				if isinstance(has_type, OARef):
@@ -1237,7 +1249,7 @@ def codegen(transformer: IRTransformer, base_module: Path) -> str:
 		# flake8: noqa
 		from __future__ import annotations
 		from enum import Enum
-		from typing import Annotated, List, Optional, Union
+		from typing import Annotated, Dict, List, Optional, Union
 
 		from pydantic import BaseModel, Field
 
