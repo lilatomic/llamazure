@@ -1,5 +1,11 @@
 # 0
 
+## 0.2
+
+### 0.2.0
+
+- feature : allow rendering NSG rules as "total" 
+
 ## 0.1
 
 ### 0.1.0
