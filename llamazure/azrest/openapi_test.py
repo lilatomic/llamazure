@@ -243,7 +243,6 @@ class TestIRTransformerImports:
 
 	local_path = Path("path/to/src")
 	simple_cases = [
-		("IRDef", IRDef(properties={"prop1": IR_T(t=ir_import)}, src=local_path, name="DefName"), [az_import, AZImport(path=Path("path/to/src"), names={"DefName"})]),
 		("IR_T", IR_T(t=ir_import), [az_import]),
 		("IR_Enum", IR_Enum(name="name0", values=[]), []),
 		("IR_List", IR_List(items=IR_T(t=ir_import)), [az_import]),
@@ -254,12 +253,21 @@ class TestIRTransformerImports:
 
 	@pytest.mark.parametrize("type_name,ir,expected", simple_cases, ids=[case[0] for case in simple_cases])
 	def test_find_imports(self, type_name, ir, expected):
+		self._do_test(ir, expected)
+
+	def _do_test(self, ir, expected):
 		irt = self.empty_irtransformer()
-		result = irt._find_imports(ir)
+		result = irt._find_imports(ir, "path/to/src")
 		assert result == expected
 
 		without_local = irt._remove_local_imports(self.local_path, result)
 		assert not any(e.path == self.local_path for e in without_local)
+
+	def test_find_import_transitive_not_explored(self):
+		"""Test that we don't transitively include everything"""
+		ir = IRDef(properties={"prop1": IR_T(t=self.ir_import)}, src=self.local_path, name="DefName")
+		expected = [AZImport(path=Path("path/to/src"), names={"DefName"})]
+		self._do_test(ir, expected)
 
 
 class TestJSONSchemaParams:
