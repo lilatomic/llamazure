@@ -1,4 +1,5 @@
 """Integration tests for AzRest"""
+import random
 from typing import Dict
 
 # pylint: disable=redefined-outer-name
@@ -90,6 +91,24 @@ class TestBatches:
 			assert isinstance(res, AzList)
 
 		assert len(batch_res["test-req-0"].value) > 0
+
+
+class TestLongPoll:
+	def test_nothing(self):
+		"""Prevent collection problems for partitions"""
+
+	@pytest.mark.integration
+	def test_longpoll(self, azr, it_info):
+		"""Test that we follow longpolls"""
+		scope = it_info["resources"]["longpoll0"]
+
+		tgt = f"10.0.{random.randint(0,255)}.0/24"
+		existing = azr.call(Req.get(name="test longpoll", path=scope, apiv="2022-01-01", ret_t=dict))
+		existing["properties"]["addressSpace"]["addressPrefixes"] = [tgt]
+		res = azr.call_long_operation(Req.put(name="test longpoll", path=scope, apiv="2022-01-01", body=existing, ret_t=dict))
+		assert res == {"status": "Succeeded"}  # TODO: deserialise from spec
+		updated = azr.call(Req.get(name="test longpoll", path=scope, apiv="2022-01-01", ret_t=dict))
+		assert updated["properties"]["addressSpace"]["addressPrefixes"] == [tgt]
 
 
 # Example Pydantic models

@@ -5,6 +5,7 @@
 ## 0.4.0
 
 - fix: improve inference of dicts 
+- feature: longpoll
 
 ## 0.3
 

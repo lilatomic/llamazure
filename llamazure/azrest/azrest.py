@@ -4,10 +4,11 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import time
 from typing import Dict, Optional, Type, Union, cast
 
 import requests
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from llamazure.azrest.models import AzBatch, AzBatchResponses, AzList, AzureError, AzureErrorResponse, BatchReq, Req, Ret_T
 
@@ -19,7 +20,7 @@ def fmt_req(req: Req) -> str:
 	return req.name
 
 
-def fmt_log(msg: str, req: Req, **kwargs: str) -> str:
+def fmt_log(msg: str, req: Req, **kwargs: Union[str, int, float]) -> str:
 	"""Format a log statement referencing a request"""
 	arg_s = " ".join(f"{k}={v}" for k, v in kwargs.items())
 	return f"{msg} req={fmt_req(req)} {arg_s}"
@@ -30,6 +31,12 @@ class RetryPolicy:
 	"""Parameters and strategies for retrying Azure Resource Graph queries"""
 
 	retries: int = 0  # number of times to retry. This is in addition to the initial try
+	long_running_retries: int = 10  # number of retry attempts to try each long-running task. This is in addition to the initial try
+
+
+HEADER_LOCATION = "Location"
+HEADER_ASYNC = "Azure-AsyncOperation"
+HEADER_RETRY_AFTER = "Retry-After"
 
 
 class AzRest:
@@ -110,7 +117,7 @@ class AzRest:
 	def call(self, req: Req[Ret_T]) -> Ret_T:
 		"""Make the request to Azure"""
 		r = self.to_request(req)
-		res = self._call_with_retry(req, r)
+		res = self._deserialise(req, self._call_with_retry(req, r))
 		if res is None:
 			return res
 
@@ -124,21 +131,21 @@ class AzRest:
 				# This is basically always a GET
 				# TODO: support the nextLink.operationName
 				r = requests.Request(method="GET", url=res_list.nextLink)
-				res_list = self._call_with_retry(req, r)  # type: ignore  # we know the req
+				res_list = self._deserialise(req, self._call_with_retry(req, r))  # type: ignore  # we know the req
 				acc.extend(res_list.value)
 			return acc  # type: ignore  # we're deliberately unwrapping a list into its primitive type
 		else:
 			return res
 
-	def _call_with_retry(self, req: Req[Ret_T], r: requests.Request) -> Ret_T:
+	def _call_with_retry(self, req: Req[Ret_T], r: requests.Request) -> requests.Response:
 		l.debug(fmt_log("making req", req))
-		res: Union[Ret_T, AzureError] = self._do_call(req, r)  # type: ignore  # mypy binds Ret_T as the union and gets confused, I think?
+		res = self._do_call(r)
 		if isinstance(res, AzureError):
 			retries = 0
 			while retries < self.retry_policy.retries and isinstance(res, AzureError):
 				l.debug(fmt_log("req returned error; retrying", req, err=res.error.model_dump_json()))
 				retries += 1
-				res = self._do_call(req, r)  # type: ignore
+				res = self._do_call(r)  # type: ignore
 
 		if isinstance(res, AzureError):
 			l.warning(fmt_log("req returned error; retries exhausted", req, err=res.error.model_dump_json()))
@@ -147,12 +154,14 @@ class AzRest:
 			l.debug(fmt_log("req complete", req))
 			return res
 
-	def _do_call(self, req: Req[Ret_T], r: requests.Request) -> Union[Ret_T, AzureError]:
+	def _do_call(self, r: requests.Request) -> Union[requests.Response, AzureError]:
 		"""Make a single request to Azure, without retry or pagination"""
 		res = self.session.send(self.session.prepare_request(r))
 		if not res.ok:
 			return AzureErrorResponse.model_validate_json(res.content).error.as_exception()
+		return res
 
+	def _deserialise(self, req: Req[Ret_T], res: requests.Response) -> Ret_T:
 		if req.ret_t is Type[None]:  # noqa: E721  # we're comparing types here
 			return None  # type: ignore
 
@@ -162,6 +171,55 @@ class AzRest:
 
 		deserialised = type_adapter.validate_json(res.content)
 		return deserialised
+
+	def _get_longpoll_location(self, res: requests.Response) -> Optional[str]:
+		if HEADER_ASYNC in res.headers:
+			return res.headers[HEADER_ASYNC]
+		elif HEADER_LOCATION in res.headers:
+			return res.headers[HEADER_LOCATION]
+		else:
+			return None
+
+	def _get_time_to_wait(self, res: requests.Response) -> float:
+		if HEADER_RETRY_AFTER in res.headers:
+			return float(res.headers[HEADER_RETRY_AFTER])
+		else:
+			return 5.0
+
+	def call_long_operation(self, req: Req[Ret_T]) -> Ret_T:
+		"""Make a call for a long-running operation, where we will need to check a new location for the result."""
+		ir = self._call_with_retry(req, self.to_request(req))
+
+		if ir.status_code not in {202, 201}:
+			l.warning(fmt_log("req longpoll returned unexpected status", req, status=ir.status_code))
+
+		result_location = self._get_longpoll_location(ir)
+		if result_location is None:
+			msg = f"req longpoll did not have header needed to find result of longpoll, expected one of '{HEADER_ASYNC}' or '{HEADER_LOCATION}'"
+			l.error(fmt_log(msg, req))
+			raise RuntimeError(msg)  # TODO: use real class
+
+		done_req = Req.from_url(req.name, "GET", result_location.removeprefix(self.base_url), ret_t=req.ret_t)  # TODO: better name
+
+		res = self._call_with_retry(done_req, self.to_request(done_req))
+
+		retries = 0
+		while retries < self.retry_policy.long_running_retries and res.status_code != 200:
+			time_to_wait = self._get_time_to_wait(res)
+			l.debug(fmt_log("longpoll request sleep", req, attempt=retries, time=time_to_wait))
+			time.sleep(time_to_wait)
+			res = self._call_with_retry(done_req, self.to_request(done_req))
+
+		if res.status_code not in {200, 204}:
+			try:
+				error = AzureErrorResponse.model_validate_json(res.content).error.as_exception()
+			except ValidationError:
+				msg = "req longpoll returned unexpected status that could not be deserialised into an error"
+				l.error(fmt_log(msg, req, status=res.status_code, content=res.content.decode()))
+				raise RuntimeError(msg)
+			raise error
+		else:
+			return self._deserialise(req, res)
 
 
 class AzOps:
