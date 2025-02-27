@@ -3,11 +3,6 @@ python_requirements(
 	source="requirements_test.txt",
 )
 
-python_requirements(
-	name="reqs0",
-)
+python_requirements(name="reqs0")
 
-python_requirements(name="black", source="cicd/black_requirements.txt", resolve="black")
-
-python_requirements(name="mypy", source="cicd/mypy_requirements.txt", resolve="mypy")
-python_requirements(name="mypy-stubs", source="cicd/mypy_requirements.txt", resolve="python-default")
+python_requirements(name="tools", resolve="tools", source="cicd/requirements_tools.txt")
