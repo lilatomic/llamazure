@@ -1,4 +1,5 @@
 """Test TresourceMP"""
+
 from typing import Type
 
 from llamazure.rid import conv, rid

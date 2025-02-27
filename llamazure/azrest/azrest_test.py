@@ -1,4 +1,5 @@
 """Integration tests for AzRest"""
+
 import random
 from typing import Dict
 
@@ -102,7 +103,7 @@ class TestLongPoll:
 		"""Test that we follow longpolls"""
 		scope = it_info["resources"]["longpoll0"]
 
-		tgt = f"10.0.{random.randint(0,255)}.0/24"
+		tgt = f"10.0.{random.randint(0, 255)}.0/24"
 		existing = azr.call(Req.get(name="test longpoll", path=scope, apiv="2022-01-01", ret_t=dict))
 		existing["properties"]["addressSpace"]["addressPrefixes"] = [tgt]
 		res = azr.call_long_operation(Req.put(name="test longpoll", path=scope, apiv="2022-01-01", body=existing, ret_t=dict))

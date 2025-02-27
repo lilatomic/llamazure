@@ -1,4 +1,5 @@
 """Conftest"""
+
 import logging
 
 # pylint: disable=redefined-outer-name

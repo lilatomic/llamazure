@@ -1,4 +1,5 @@
 """Test the OpenAPI codegen"""
+
 from pathlib import Path
 from typing import Dict, Optional, Union
 
@@ -193,7 +194,7 @@ class TestIRTransformerResolveIRTStrReadOnlyAndRequired:
 class TestTransformPrimitives:
 	def test_string(self):
 		p = OADef.Property(type="string", description="description0")
-		assert empty_jsp().resolve_type(p.t) == str
+		assert empty_jsp().resolve_type(p.t) is str
 
 	def test_nonhandled(self):
 		tgt = "whatever"
@@ -327,7 +328,7 @@ class TestJSONSchemaDefs:
 			"id": {
 				"readOnly": True,
 				"type": "string",
-				"description": "Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}",
+				"description": "Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}",  # noqa: E501
 			},
 			"name": {"readOnly": True, "type": "string", "description": "The name of the resource"},
 			"type": {
@@ -495,7 +496,6 @@ class TestJSONSchemaDefs:
 
 
 class TestJSONSchemaResponse:
-
 	oa_response = OAResponse
 
 	def jsp(self) -> JSONSchemaSubparser:

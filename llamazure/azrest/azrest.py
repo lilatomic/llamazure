@@ -1,4 +1,5 @@
 """Access the Azure HTTP API"""
+
 from __future__ import annotations
 
 import dataclasses

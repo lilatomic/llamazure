@@ -11,6 +11,7 @@ For example, PermissionGetResult might be an OA object because it is present in 
 However, it's just a list of Permission objects.
 It won't have an AZ object; instead, it will be transformed into something like an AZList[AZPermission].
 """
+
 # pylint: disable=consider-using-f-string
 from __future__ import annotations
 
@@ -660,7 +661,6 @@ class IRTransformer:
 		return az_op
 
 	def transform_imports(self, base_module_path: Path) -> str:
-
 		definitions, _ = self._find_ir_definitions()
 		merged = AZImport.merge(
 			(
@@ -725,7 +725,6 @@ OAObj = Union[OARef, OADef.Array, OADef.Property, OADef, OAEnum]
 
 
 class JSONSchemaSubparser:
-
 	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OARef, OAEnum, OADef])
 
 	def __init__(self, openapi: Reader, refcache: RefCache):

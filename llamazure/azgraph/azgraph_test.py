@@ -1,4 +1,5 @@
 """Tests for the Azure Resource Graph"""
+
 # pylint: disable=redefined-outer-name
 # pylint: disable=protected-access
 from unittest.mock import Mock

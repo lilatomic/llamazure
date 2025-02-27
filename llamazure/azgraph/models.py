@@ -1,4 +1,5 @@
 """Models for the Azure Resource Graph"""
+
 from __future__ import annotations
 
 import dataclasses

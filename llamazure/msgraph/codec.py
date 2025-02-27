@@ -1,4 +1,5 @@
 """Codec for serialising and deserialising for Azure"""
+
 import dataclasses
 from typing import Any, Dict, Optional, Union
 

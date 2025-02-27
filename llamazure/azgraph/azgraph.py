@@ -1,4 +1,5 @@
 """Interface to the Azure Resource Graph"""
+
 from __future__ import annotations
 
 import dataclasses
@@ -32,7 +33,12 @@ class Graph:
 
 	Making queries is easiest with the `q` method:
 	>>> graph.q("Resources | project id, name, type, location | limit 5")
-	[{'id': '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg0/providers/Microsoft.Storage/storageAccounts/sa0', 'name': 'sa0', 'type': 'microsoft.storage/storageaccounts', 'location': 'canadacentral'}]
+	[{
+		'id': '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg0/providers/Microsoft.Storage/storageAccounts/sa0',
+		'name': 'sa0',
+		'type': 'microsoft.storage/storageaccounts',
+		'location': 'canadacentral'
+	}]
 
 	If you want to provide options to the query, use a `Req` and the `query` function
 

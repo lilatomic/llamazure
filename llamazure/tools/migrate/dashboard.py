@@ -1,4 +1,5 @@
 """Migrate an Azure Dashboard to a different Log Analytics Workspace"""
+
 import json
 from dataclasses import dataclass
 from datetime import datetime

@@ -1,4 +1,5 @@
 """Integration tests for network resources"""
+
 import json
 import random
 import subprocess

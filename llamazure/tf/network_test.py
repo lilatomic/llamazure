@@ -1,4 +1,5 @@
 """Test and examples for the network helpers"""
+
 import json
 
 from llamazure.tf.models import Terraform

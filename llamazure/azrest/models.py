@@ -1,4 +1,5 @@
 """Models for the Azure REST API"""
+
 from __future__ import annotations
 
 import dataclasses

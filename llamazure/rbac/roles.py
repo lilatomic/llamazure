@@ -1,4 +1,5 @@
 """Azure Role Definitions and Assignments"""
+
 from __future__ import annotations
 
 import dataclasses

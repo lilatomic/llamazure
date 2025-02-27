@@ -22,7 +22,6 @@ class TestLoading:
 
 
 class TestTransformDefs:
-
 	prop = OADef.Property(type="integer", description="A property")
 
 	prop_nested_properties = OARef(**{"$ref": "#/definitions/MyClassProperties", "description": "Properties for My Class"})

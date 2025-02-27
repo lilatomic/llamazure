@@ -1,4 +1,5 @@
 """Resource IDs that treat the resource id as a materialised path"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

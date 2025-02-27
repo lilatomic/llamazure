@@ -1,4 +1,5 @@
 """Build a tree of Azure resources"""
+
 from __future__ import annotations
 
 from collections import defaultdict
