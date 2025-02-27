@@ -3,7 +3,8 @@ pants_version = "2.26.0.dev5"
 backend_packages = [
 	"pants.backend.python",
 	"pants.backend.experimental.python",
-	"pants.backend.python.lint.black",
+	"pants.backend.experimental.python.lint.ruff.check",
+	"pants.backend.experimental.python.lint.ruff.format",
 	"pants.backend.python.lint.isort",
 	"pants.backend.python.lint.flake8",
 	"pants.backend.python.lint.autoflake",
@@ -31,12 +32,8 @@ config = ".pylintrc"
 
 [flake8]
 config = ".flake8"
-
-[black]
-args = ["--use-tabs"]
-console_script = "tan"
-install_from_resolve = "black"
-interpreter_constraints = ["CPython>=3.9"]
+install_from_resolve = "tools"
+requirements = ["flake8"]
 
 [test]
 use_coverage = true
@@ -50,6 +47,8 @@ install_from_resolve = "mypy"
 requirements = ["//:mypy"]
 interpreter_constraints = ["CPython>=3.9"]
 
-[anonymous-telemetry]
-enabled = true
-repo_id = "5c263cce-11ff-3ab5-a552-01e94b0c9d60"
+[ruff]
+config = "pyproject.toml"
+
+[update-build-files]
+formatter = "ruff"
