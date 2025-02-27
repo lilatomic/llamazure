@@ -6,6 +6,8 @@
 
 - fix: improve inference of dicts 
 - feature: longpoll
+- feature: batch api can retry failed subtasks
+- feature: handle ratelimit retry-after (currently only in batches) 
 
 ## 0.3
 

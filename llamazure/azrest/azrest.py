@@ -5,15 +5,48 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import re
 import time
-from typing import Dict, Optional, Type, Union, cast
+from typing import Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
 
 import requests
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from llamazure.azrest.models import AzBatch, AzBatchResponses, AzList, AzureError, AzureErrorResponse, BatchReq, Req, Ret_T
+from llamazure.azrest.models import AzBatch, AzBatchResponse, AzBatchResponses, AzList, AzureError, AzureErrorResponse, BatchReq, Req, Ret_T
 
 l = logging.getLogger(__name__)
+
+
+K = TypeVar("K")
+V = TypeVar("V")
+
+
+def _partition_dict(d: dict[K, V], p: Callable[[K, V], bool]) -> tuple[dict[K, V], dict[K, V]]:
+	"""Partition an iterable into those that match the predicate and those that do not."""
+	matches = {}
+	nonmatches = {}
+
+	for k, v in d.items():
+		if p(k, v):
+			matches[k] = v
+		else:
+			nonmatches[k] = v
+
+	return matches, nonmatches
+
+
+def _partition_list(l: list[V], p: Callable[[V], bool]) -> tuple[list[V], list[V]]:
+	"""Partition an iterable into those that match the predicate and those that do not."""
+	matches = []
+	nonmatches = []
+
+	for v in l:
+		if p(v):
+			matches.append(v)
+		else:
+			nonmatches.append(v)
+
+	return matches, nonmatches
 
 
 def fmt_req(req: Req) -> str:
@@ -33,11 +66,14 @@ class RetryPolicy:
 
 	retries: int = 0  # number of times to retry. This is in addition to the initial try
 	long_running_retries: int = 10  # number of retry attempts to try each long-running task. This is in addition to the initial try
+	wait_for_ratelimit: bool = True  # whether to wait for ratelimit or return the error
+	retry_batch_individually: bool = True  # whether to retry individual members of batches
 
 
 HEADER_LOCATION = "Location"
 HEADER_ASYNC = "Azure-AsyncOperation"
 HEADER_RETRY_AFTER = "Retry-After"
+HEADER_RATELIMIT_RETRY_AFTER = re.compile("x-ms-ratelimit-.*-retry-after")
 
 
 class AzRest:
@@ -109,11 +145,38 @@ class AzRest:
 
 	def call_batch(self, req: BatchReq) -> Dict[str, Union[Ret_T, AzureError]]:
 		"""Call a batch request"""
-		batch_request = self.batch_to_request(req)
+		if self.retry_policy.retry_batch_individually:
+			successes, errors = self._call_batch_with_individual_retry(req)
+			all_responses = [*successes, *errors]
+		else:
+			batch_response = self.call(self.batch_to_request(req))
+			all_responses = batch_response.responses
+		return {e.name: self._resolve_batch_response(req.requests[e.name], e) for e in all_responses}
 
-		batch_response: AzBatchResponses = self.call(batch_request)
-		deserialised_responses = {e.name: self._resolve_batch_response(req.requests[e.name], e) for e in batch_response.responses}
-		return deserialised_responses
+	def _get_ratelimit_time_to_wait(self, error: AzBatchResponse) -> float:
+		"""Get the time to wait from the first plausible retry-after header. Defaults to 0."""
+		for header in error.headers:
+			if HEADER_RATELIMIT_RETRY_AFTER.fullmatch(header):
+				return float(error.headers[header])
+		return 0
+
+	def _call_batch_with_individual_retry(self, req: BatchReq, attempt=0) -> Tuple[List[AzBatchResponse], List[AzBatchResponse]]:
+		"""Call a batch request with retries for the individual requests."""
+
+		results = self.call(self.batch_to_request(req))
+
+		successes, errors = _partition_list(results.responses, lambda v: v.content is not None and "error" in v.content)
+
+		if errors and attempt < self.retry_policy.retries:
+			new_batch = BatchReq({k: e for k, e in req.requests.items() if k in errors})
+			time_to_sleep = max(self._get_ratelimit_time_to_wait(e) for e in errors)
+			time.sleep(time_to_sleep)
+
+			new_successes, new_errors = self._call_batch_with_individual_retry(new_batch, attempt + 1)
+			successes.extend(new_successes)
+			errors = new_errors  # either the old errors succeeded or are superseded by these, so we overwrite
+
+		return successes, errors
 
 	def call(self, req: Req[Ret_T]) -> Ret_T:
 		"""Make the request to Azure"""
@@ -181,7 +244,7 @@ class AzRest:
 		else:
 			return None
 
-	def _get_time_to_wait(self, res: requests.Response) -> float:
+	def _get_longpoll_time_to_wait(self, res: requests.Response) -> float:
 		if HEADER_RETRY_AFTER in res.headers:
 			return float(res.headers[HEADER_RETRY_AFTER])
 		else:
@@ -206,7 +269,7 @@ class AzRest:
 
 		retries = 0
 		while retries < self.retry_policy.long_running_retries and res.status_code != 200:
-			time_to_wait = self._get_time_to_wait(res)
+			time_to_wait = self._get_longpoll_time_to_wait(res)
 			l.debug(fmt_log("longpoll request sleep", req, attempt=retries, time=time_to_wait))
 			time.sleep(time_to_wait)
 			res = self._call_with_retry(done_req, self.to_request(done_req))
