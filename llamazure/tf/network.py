@@ -102,14 +102,14 @@ class NSGRule:
 	class Access(Enum):
 		"""Access type"""
 
-		Allow: str = "Allow"
-		Deny: str = "Deny"
+		Allow = "Allow"
+		Deny = "Deny"
 
 	class Direction(Enum):
 		"""Direction type"""
 
-		Inbound: str = "Inbound"
-		Outbound: str = "Outbound"
+		Inbound = "Inbound"
+		Outbound = "Outbound"
 
 	def render_as_subresources(self, nsg_name: str, rg: str, priority: int):
 		"""Render for tf-json"""

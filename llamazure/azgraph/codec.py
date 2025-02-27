@@ -11,7 +11,7 @@ class Encoder(json.JSONEncoder):
 	"""Encode Req for JSON for Azure"""
 
 	def default(self, o: Any) -> Any:
-		if dataclasses.is_dataclass(o):
+		if hasattr(type(o), "__dataclass_fields__"):  # inline the check for dataclasses to help mypy
 			return dataclasses.asdict(o)
 		return super().default(o)
 

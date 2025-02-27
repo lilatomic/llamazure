@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generic, Iterator, List, Optional, Sequence, Type, TypeVar, Union
+from typing import Any, Dict, Generic, Iterator, List, Optional, Type, TypeVar, Union
 from urllib.parse import parse_qs, urlparse
 
 from pydantic import BaseModel, BeforeValidator, Field
@@ -25,7 +25,7 @@ class Req(Generic[Ret_T]):
 	method: str
 	apiv: Optional[str]
 	body: Optional[BaseModel] = None
-	params: Dict[str, Union[str, Sequence[str]]] = field(default_factory=dict)
+	params: Dict[str, Union[str, List[str]]] = field(default_factory=dict)
 	ret_t: Type[Ret_T] = Type[None]  # type: ignore
 
 	@classmethod
