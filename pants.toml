@@ -28,6 +28,7 @@ first_party_dependency_version_scheme = "compatible"
 
 [pylint]
 config = ".pylintrc"
+install_from_resolve = "tools"
 
 [flake8]
 config = ".flake8"
