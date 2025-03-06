@@ -66,6 +66,7 @@ class RetryPolicy:
 
 	retries: int = 0  # number of times to retry. This is in addition to the initial try
 	long_running_retries: int = 10  # number of retry attempts to try each long-running task. This is in addition to the initial try
+	long_running_wait_multiplier: float = 1.0  # what fraction of the given Retry-After time to wait
 	wait_for_ratelimit: bool = True  # whether to wait for ratelimit or return the error
 	retry_batch_individually: bool = True  # whether to retry individual members of batches
 
@@ -246,9 +247,9 @@ class AzRest:
 
 	def _get_longpoll_time_to_wait(self, res: requests.Response) -> float:
 		if HEADER_RETRY_AFTER in res.headers:
-			return float(res.headers[HEADER_RETRY_AFTER])
+			return float(res.headers[HEADER_RETRY_AFTER]) * self.retry_policy.long_running_wait_multiplier
 		else:
-			return 5.0
+			return 5.0 * self.retry_policy.long_running_wait_multiplier
 
 	def call_long_operation(self, req: Req[Ret_T]) -> Ret_T:
 		"""Make a call for a long-running operation, where we will need to check a new location for the result."""
