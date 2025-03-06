@@ -1,4 +1,5 @@
 """Inspector to help explore Azure's OpenAPI documents"""
+
 import json
 import os
 from pathlib import Path

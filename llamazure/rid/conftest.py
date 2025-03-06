@@ -3,6 +3,7 @@ Helpers for testing resource IDs
 
 These helpers generate llamazure.rid.rid resources. Other implementations of resource IDs may use these for validation.
 """
+
 import string
 from typing import Union
 

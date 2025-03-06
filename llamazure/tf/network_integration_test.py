@@ -1,4 +1,5 @@
 """Integration tests for network resources"""
+
 import json
 import random
 import subprocess
@@ -7,7 +8,7 @@ import pytest
 from _pytest.fixtures import fixture
 
 from llamazure.tf.models import Terraform
-from llamazure.tf.network import NSG, NSGRule
+from llamazure.tf.network import NSG, NSGRule, OptNSGTotal
 
 
 def test_shim():
@@ -46,7 +47,8 @@ class TestNetworkIntegration:
 	"""Integration tests for network resources"""
 
 	@pytest.mark.integration
-	def test_network_integration(self, random_nsg, tmp_path, it_info):
+	@pytest.mark.parametrize("opt_total", [OptNSGTotal(True), OptNSGTotal(False)])
+	def test_network_integration(self, random_nsg, tmp_path, it_info, opt_total: OptNSGTotal):
 		tf = Terraform(
 			[
 				NSG(
@@ -71,7 +73,11 @@ class TestNetworkIntegration:
 			json.dump(tf.render(), f, indent="\t")
 
 		def run_tf(argv: list[str]):
-			subprocess.run(["terraform", f"-chdir={basedir}", *argv], check=True, capture_output=True)
+			try:
+				subprocess.run(["terraform", f"-chdir={basedir}", *argv], check=True, capture_output=True, text=True)
+			except subprocess.CalledProcessError as e:
+				print(json.dumps({"stdout": e.stdout, "stderr": e.stderr}, indent=2))
+				raise AssertionError("deploying TF failed") from e
 
 		run_tf(["init"])
 		run_tf(["apply", "-auto-approve"])

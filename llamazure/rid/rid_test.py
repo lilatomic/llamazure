@@ -1,4 +1,5 @@
 """Tests for tools for working with Azure resource IDs"""
+
 from pathlib import Path
 from typing import Optional, Union
 from uuid import UUID

@@ -42,3 +42,19 @@ markers = [
 exclude_also = [
     "# cov: err" # ignore unlikely error paths
 ]
+
+[tool.ruff]
+line-length=180
+target-version = "py310"
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+extend-select = ["I", "W", "E"]
+preview = true
+ignore = ["W191", "E741", "E117"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["llamazure"]
+
+[tool.ruff.format]
+indent-style="tab"

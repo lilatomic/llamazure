@@ -1,10 +1,12 @@
 """Models for the Azure REST API"""
+
 from __future__ import annotations
 
 import dataclasses
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, Generic, Iterator, List, Optional, Type, TypeVar, Union
+from urllib.parse import parse_qs, urlparse
 
 from pydantic import BaseModel, BeforeValidator, Field
 
@@ -23,7 +25,7 @@ class Req(Generic[Ret_T]):
 	method: str
 	apiv: Optional[str]
 	body: Optional[BaseModel] = None
-	params: Dict[str, str] = field(default_factory=dict)
+	params: Dict[str, Union[str, List[str]]] = field(default_factory=dict)
 	ret_t: Type[Ret_T] = Type[None]  # type: ignore
 
 	@classmethod
@@ -65,6 +67,37 @@ class Req(Generic[Ret_T]):
 	def with_ret_t(self, ret_t: Type[Ret_T0]) -> Req[Ret_T0]:
 		"""Override the return type"""
 		return dataclasses.replace(self, ret_t=ret_t)  # type: ignore
+
+	@classmethod
+	def from_url(
+		cls,
+		name: str,
+		method: str,
+		url: str,
+		body: Optional[BaseModel] = None,
+		ret_t: Type[Ret_T] = Type[None],  # type: ignore
+	) -> Req:
+		"""
+		Build a Req from a URL, useful for when Azure has handed you one; for example, from the 'Azure-AsyncOperation' header.
+
+		This function does less validation, on the assumption Azure knows what we should do.
+		"""
+		parsed = urlparse(url)
+
+		path = parsed.path
+		params = parse_qs(parsed.query)
+		built_params = {k: v[0] if len(v) == 1 else v for k, v in params.items()}
+		apiv = built_params.pop("api-version", None)  # type: ignore # this shouldn't happen but there's no reason for us to throw
+
+		return Req(
+			name=name,
+			path=path,
+			method=method,
+			apiv=apiv,  # type: ignore # we know what we're doing
+			body=body,
+			params=built_params,
+			ret_t=ret_t,
+		)
 
 
 @dataclass

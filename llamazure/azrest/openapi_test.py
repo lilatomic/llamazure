@@ -1,4 +1,5 @@
 """Test the OpenAPI codegen"""
+
 from pathlib import Path
 from typing import Dict, Optional, Union
 
@@ -193,7 +194,7 @@ class TestIRTransformerResolveIRTStrReadOnlyAndRequired:
 class TestTransformPrimitives:
 	def test_string(self):
 		p = OADef.Property(type="string", description="description0")
-		assert empty_jsp().resolve_type(p.t) == str
+		assert empty_jsp().resolve_type(p.t) is str
 
 	def test_nonhandled(self):
 		tgt = "whatever"
@@ -243,7 +244,6 @@ class TestIRTransformerImports:
 
 	local_path = Path("path/to/src")
 	simple_cases = [
-		("IRDef", IRDef(properties={"prop1": IR_T(t=ir_import)}, src=local_path, name="DefName"), [az_import, AZImport(path=Path("path/to/src"), names={"DefName"})]),
 		("IR_T", IR_T(t=ir_import), [az_import]),
 		("IR_Enum", IR_Enum(name="name0", values=[]), []),
 		("IR_List", IR_List(items=IR_T(t=ir_import)), [az_import]),
@@ -254,12 +254,21 @@ class TestIRTransformerImports:
 
 	@pytest.mark.parametrize("type_name,ir,expected", simple_cases, ids=[case[0] for case in simple_cases])
 	def test_find_imports(self, type_name, ir, expected):
+		self._do_test(ir, expected)
+
+	def _do_test(self, ir, expected):
 		irt = self.empty_irtransformer()
-		result = irt._find_imports(ir)
+		result = irt._find_imports(ir, "path/to/src")
 		assert result == expected
 
 		without_local = irt._remove_local_imports(self.local_path, result)
 		assert not any(e.path == self.local_path for e in without_local)
+
+	def test_find_import_transitive_not_explored(self):
+		"""Test that we don't transitively include everything"""
+		ir = IRDef(properties={"prop1": IR_T(t=self.ir_import)}, src=self.local_path, name="DefName")
+		expected = [AZImport(path=Path("path/to/src"), names={"DefName"})]
+		self._do_test(ir, expected)
 
 
 class TestJSONSchemaParams:
@@ -319,7 +328,7 @@ class TestJSONSchemaDefs:
 			"id": {
 				"readOnly": True,
 				"type": "string",
-				"description": "Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}",
+				"description": "Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}",  # noqa: E501
 			},
 			"name": {"readOnly": True, "type": "string", "description": "The name of the resource"},
 			"type": {
@@ -387,6 +396,23 @@ class TestJSONSchemaDefs:
 		}
 		self.do_test(d, name, IR_T(t=IR_Dict(keys=IR_T(t=str), values=IR_T(t=str)), required=False))
 
+	def test_dict__typed(self):
+		"""Test for a dict whose values are typed."""
+		name = "TrackedResource"
+		d = {
+			name: {
+				"title": "Tracked Resource",
+				"type": "object",
+				"properties": {
+					"tags": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Resource tags."},
+				},
+				"required": ["location"],
+			},
+		}
+
+		tags_ir_t = IR_T(t=IR_Dict(keys=IR_T(t=str), values=IR_T(t=str)), required=False)
+		self.do_test(d, name, IR_T(t=IRDef(name=name, properties={"tags": tags_ir_t}, src="."), required=False))
+
 	def test_allof_ref_and_properties(self):
 		name = "TrackedResource"
 		d = {
@@ -404,6 +430,7 @@ class TestJSONSchemaDefs:
 			"Resource": self.openapi_Resource,
 		}
 
+		tags_ir_t = IR_T(t=IR_Dict(keys=IR_T(t=str), values=IR_T(t=str)), required=False)
 		self.do_test(
 			d,
 			name,
@@ -411,7 +438,7 @@ class TestJSONSchemaDefs:
 				t=IRDef(
 					name="TrackedResource",
 					properties={
-						"tags": IR_T(t=dict, required=False),
+						"tags": tags_ir_t,
 						"location": IR_T(t=str),
 						"id": IR_T(t=str, readonly=True, required=False),
 						"name": IR_T(t=str, readonly=True, required=False),
@@ -469,7 +496,6 @@ class TestJSONSchemaDefs:
 
 
 class TestJSONSchemaResponse:
-
 	oa_response = OAResponse
 
 	def jsp(self) -> JSONSchemaSubparser:

@@ -1,4 +1,5 @@
 """Tools for working with Azure resource IDs"""
+
 from __future__ import annotations
 
 import abc

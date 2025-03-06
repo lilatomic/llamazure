@@ -1,17 +1,21 @@
 """Integration tests for AzRest"""
+
+import random
 from typing import Dict
 
 # pylint: disable=redefined-outer-name
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from llamazure.azrest.azrest import AzRest
+from llamazure.azrest.azrest import AzRest, RetryPolicy
 from llamazure.azrest.models import AzList, AzureError, BatchReq, Req, cast_as, ensure
 
 
 @pytest.fixture
 def azr(credential) -> AzRest:
-	return AzRest.from_credential(credential)
+	azr = AzRest.from_credential(credential)
+	azr.retry_policy = RetryPolicy(long_running_wait_multiplier=0.2)
+	return azr
 
 
 def sub_req(sub: str) -> Req:
@@ -90,6 +94,43 @@ class TestBatches:
 			assert isinstance(res, AzList)
 
 		assert len(batch_res["test-req-0"].value) > 0
+
+
+class TestLongPoll:
+	def test_nothing(self):
+		"""Prevent collection problems for partitions"""
+
+	@pytest.mark.integration
+	def test_longpoll(self, azr, it_info):
+		"""Test that we follow longpolls"""
+		scope = it_info["resources"]["longpoll0"]
+
+		tgt = f"10.0.{random.randint(0, 255)}.0/24"
+		existing = azr.call(Req.get(name="test longpoll", path=scope, apiv="2022-01-01", ret_t=dict))
+		existing["properties"]["addressSpace"]["addressPrefixes"] = [tgt]
+		res = azr.call_long_operation(Req.put(name="test longpoll", path=scope, apiv="2022-01-01", body=existing, ret_t=dict))
+		assert res == {"status": "Succeeded"}  # TODO: deserialise from spec
+		updated = azr.call(Req.get(name="test longpoll", path=scope, apiv="2022-01-01", ret_t=dict))
+		assert updated["properties"]["addressSpace"]["addressPrefixes"] == [tgt]
+
+	@pytest.mark.integration
+	def test_longpoll_needs_wait(self, azr, it_info):
+		"""Test a longpoll that needs us to wait"""
+		sub = it_info["scopes"]["sub1"]
+		privateZoneName = "longpoll.example.com"
+		azr.call_long_operation(
+			Req.put(
+				name="test longpoll",
+				path=f"{sub}/resourceGroups/it-longpoll/providers/Microsoft.Network/privateDnsZones/{privateZoneName}",
+				apiv="2024-06-01",
+				ret_t=dict,
+				body={"tags": {"hi": "hello"}, "location": "Global"},
+			)
+		)
+
+		azr.call_long_operation(
+			Req.delete(name="test longpoll", path=f"{sub}/resourceGroups/it-longpoll/providers/Microsoft.Network/privateDnsZones/{privateZoneName}", apiv="2024-06-01", ret_t=dict)
+		)
 
 
 # Example Pydantic models

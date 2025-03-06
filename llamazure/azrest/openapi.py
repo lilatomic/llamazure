@@ -11,6 +11,7 @@ For example, PermissionGetResult might be an OA object because it is present in 
 However, it's just a list of Permission objects.
 It won't have an AZ object; instead, it will be transformed into something like an AZList[AZPermission].
 """
+
 # pylint: disable=consider-using-f-string
 from __future__ import annotations
 
@@ -85,7 +86,7 @@ class OADef(BaseModel):
 		required: bool = False
 		items: Optional[Dict[str, str]] = None
 
-	properties: Dict[str, Union[OADef.Array, OADef.Property, OARef, OADef]] = {}
+	properties: Dict[str, Union[OADef.Array, OARef, OADef, OADef.Property]] = {}
 	t: Optional[str] = Field(alias="type", default=None)
 	description: Optional[str] = None
 
@@ -533,7 +534,7 @@ class IRTransformer:
 			annotations = []
 			if isinstance(f_type.t, IR_List):
 				annotations.append("default_list")
-			elif isinstance(f_type.t, IR_List):
+			elif isinstance(f_type.t, IR_Dict):
 				annotations.append("default_dict")
 
 			az_fields.append(AZField(name=f_name, t=t, default=v, annotations=annotations, readonly=f_type.readonly))
@@ -660,7 +661,6 @@ class IRTransformer:
 		return az_op
 
 	def transform_imports(self, base_module_path: Path) -> str:
-
 		definitions, _ = self._find_ir_definitions()
 		merged = AZImport.merge(
 			(
@@ -679,37 +679,39 @@ class IRTransformer:
 	def _extract_imports(self, definitions: Iterable[Union[IRDef, IROp]]) -> List[AZImport]:
 		imports = []
 		for ir in definitions:
-			imports.extend(self._remove_local_imports(self.openapi.path, self._find_imports(ir)))
+			imports.extend(self._remove_local_imports(self.openapi.path, self._find_imports(ir, parent_src=self.openapi.path)))
 		return imports
 
-	def _find_imports(self, ir: Union[IRDef, IROp, IR_T, IR_Union, IR_Enum, IR_List, IR_Dict, str, type]) -> List[AZImport]:
+	def _find_imports(self, ir: Union[IRDef, IROp, IR_T, IR_Union, IR_Enum, IR_List, IR_Dict, str, type], parent_src) -> List[AZImport]:
 		if isinstance(ir, (str, type)):
 			return []
 		elif isinstance(ir, IRDef):
-			out = list(itertools.chain.from_iterable([self._find_imports(t) for t in ir.properties.values()]))
+			out = []
 			if ir.src:
 				out.append(AZImport(path=ir.src, names={ir.name}))
+			if ir.src == parent_src:
+				out.extend(list(itertools.chain.from_iterable([self._find_imports(t, parent_src) for t in ir.properties.values()])))
 			return out
 		elif isinstance(ir, IR_T):
-			return self._find_imports(ir.t)
+			return self._find_imports(ir.t, parent_src)
 		elif isinstance(ir, IR_Enum):
 			return []
 		elif isinstance(ir, IR_List):
-			return self._find_imports(ir.items)
+			return self._find_imports(ir.items, parent_src)
 		elif isinstance(ir, IR_Dict):
-			return list(itertools.chain.from_iterable([self._find_imports(ir.keys), self._find_imports(ir.values)]))
+			return list(itertools.chain.from_iterable([self._find_imports(ir.keys, parent_src), self._find_imports(ir.values, parent_src)]))
 		elif isinstance(ir, IR_Union):
-			return list(itertools.chain.from_iterable([self._find_imports(v) for v in ir.items]))
+			return list(itertools.chain.from_iterable([self._find_imports(v, parent_src) for v in ir.items]))
 		elif isinstance(ir, IROp):
 			o = []
 			if ir.body:
-				o.extend(self._find_imports(ir.body))
+				o.extend(self._find_imports(ir.body, parent_src))
 			if ir.params:
-				o.extend(itertools.chain.from_iterable(self._find_imports(v) for v in ir.params.values()))
+				o.extend(itertools.chain.from_iterable(self._find_imports(v, parent_src) for v in ir.params.values()))
 			if ir.query_params:
-				o.extend(itertools.chain.from_iterable(self._find_imports(v) for v in ir.query_params.values()))
+				o.extend(itertools.chain.from_iterable(self._find_imports(v, parent_src) for v in ir.query_params.values()))
 			if ir.ret_t:
-				o.extend(self._find_imports(ir.ret_t))
+				o.extend(self._find_imports(ir.ret_t, parent_src))
 			return o
 		else:  # cov: err
 			raise TypeError(f"Cannot find imports for unexpected type {type(ir)}")
@@ -723,7 +725,6 @@ OAObj = Union[OARef, OADef.Array, OADef.Property, OADef, OAEnum]
 
 
 class JSONSchemaSubparser:
-
 	oaparser: ClassVar[TypeAdapter] = TypeAdapter(Union[OARef, OAEnum, OADef])
 
 	def __init__(self, openapi: Reader, refcache: RefCache):
@@ -749,7 +750,19 @@ class JSONSchemaSubparser:
 		return None
 
 	def _is_dict(self, obj: OADef) -> bool:
-		return (not obj.properties and not obj.allOf and obj.t == "object" and not obj.additionalProperties) or obj.additionalProperties is True
+		if obj.additionalProperties is True:  # additionalProperties is wide open
+			return True
+
+		if not obj.t == "object":  # not an object
+			return False
+
+		if obj.properties or obj.allOf:  # has properties
+			return False
+
+		if isinstance(obj.additionalProperties, OADef.Property) and not obj.additionalProperties.items:  # additionalProperties has nothing specified
+			return True
+
+		return False
 
 	def resolve_reference(self, name, ref: OARef, required_properties: List[str]) -> IR_T:
 		relname = self.openapi.extract_remote_object_name(ref.ref)
@@ -776,7 +789,7 @@ class JSONSchemaSubparser:
 		required = name in required_properties
 
 		if obj.additionalProperties is True:
-			# this is explicitly a dict without constraints on values
+			# is this explicitly a dict without constraints on values
 			has_type = obj.properties.get("type", None)
 			if has_type:
 				if isinstance(has_type, OARef):
@@ -1237,7 +1250,7 @@ def codegen(transformer: IRTransformer, base_module: Path) -> str:
 		# flake8: noqa
 		from __future__ import annotations
 		from enum import Enum
-		from typing import Annotated, List, Optional, Union
+		from typing import Annotated, Dict, List, Optional, Union
 
 		from pydantic import BaseModel, Field
 

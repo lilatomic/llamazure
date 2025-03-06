@@ -1,4 +1,5 @@
 """Test encoding Req and decoding Res and ResErr"""
+
 import json
 
 from llamazure.azgraph.codec import Decoder, Encoder
@@ -51,7 +52,7 @@ class TestDecoder:
 			],
 			"facets": [],
 			"resultTruncated": "false",
-			"$skipToken": "ew0KICAiJGlkIjogIjEiLA0KICAiTWF4Um93cyI6IDMsDQogICJSb3dzVG9Ta2lwIjogNCwNCiAgIkt1c3RvQ2x1c3RlclVybCI6ICJodHRwczovL2FyZy1ldXMtbmluZS1zZi5hcmcuY29yZS53aW5kb3dzLm5ldCINCn0=",
+			"$skipToken": "ew0KICAiJGlkIjogIjEiLA0KICAiTWF4Um93cyI6IDMsDQogICJSb3dzVG9Ta2lwIjogNCwNCiAgIkt1c3RvQ2x1c3RlclVybCI6ICJodHRwczovL2FyZy1ldXMtbmluZS1zZi5hcmcuY29yZS53aW5kb3dzLm5ldCINCn0=",  # noqa: E501
 		}
 		res = Decoder().decode(self.empty_req, body)
 

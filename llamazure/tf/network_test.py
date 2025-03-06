@@ -1,8 +1,9 @@
 """Test and examples for the network helpers"""
+
 import json
 
 from llamazure.tf.models import Terraform
-from llamazure.tf.network import NSG, NSGRule
+from llamazure.tf.network import NSG, NSGRule, OptNSGTotal
 
 
 class TestRender:
@@ -35,7 +36,7 @@ class TestRender:
 			"network_security_group_name": "nsg_name",
 			"resource_group_name": "rg",
 		}
-		assert a.render("nsg_name", "rg", 0) == e
+		assert a.render_as_subresources("nsg_name", "rg", 0) == e
 
 
 class TestExample:
@@ -83,6 +84,46 @@ class TestExample:
 			}
 		]
 		assert [rule.render() for rule in a.subresources()] == es
+
+	def test_opt_total(self):
+		"""Test that the `opt_total` renders correctly"""
+
+		a = NSG(
+			name="acceptanceTestSecurityGroup1",
+			rg="example-resources",
+			location="West Europe",
+			rules=[NSGRule("test123", NSGRule.Access.Allow, NSGRule.Direction.Inbound)],
+			tags={
+				"environment": "Production",
+			},
+			opt_total=OptNSGTotal(True),
+		)
+
+		e = {
+			"name": "acceptanceTestSecurityGroup1",
+			"location": "West Europe",
+			"resource_group_name": "example-resources",
+			"security_rule": [
+				{
+					"name": "test123",
+					"priority": 100,
+					"direction": "Inbound",
+					"access": "Allow",
+					"protocol": "Tcp",
+					"source_port_range": "*",
+					"destination_port_range": "*",
+					"source_address_prefix": "*",
+					"destination_address_prefix": "*",
+					"destination_application_security_group_ids": [],
+					"source_application_security_group_ids": [],
+					"description": "",
+				}
+			],
+			"tags": {
+				"environment": "Production",
+			},
+		}
+		assert a.render() == e
 
 	def test_example(self):
 		"""Test showing how to use the code generation"""
