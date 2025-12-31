@@ -36,7 +36,7 @@ class Graph:
 
 	def q(self, q: str) -> Any:
 		"""Make a graph query"""
-		res = self._exec_query(Req(q))
+		res = self.query(Req(q))
 		if isinstance(res, ResErr):
 			raise res.exception()
 		return res.value

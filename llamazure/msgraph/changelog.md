@@ -2,6 +2,8 @@
 
 ## 0.1
 
+- fix: `q` follows pagination
+
 ### 0.1.0
 
 - feature: **breaking** `q` throws on error
