@@ -2,6 +2,8 @@
 
 ## 0.1
 
+- feature: helpers to create subresources
+
 ### 0.1.0
 
 - task: fix namespace package

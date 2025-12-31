@@ -22,6 +22,13 @@ class AzObj(abc.ABC):
 		"""
 		...
 
+	def resource(self, provider: str, res_type: str, name: str) -> Resource:
+		return Resource(provider, res_type, name, rg=self.rg, sub=self.sub, parent=self)
+
+	def subresource(self, res_type: str, name: str) -> SubResource:
+		return SubResource(res_type, name, rg=self.rg, sub=self.sub, parent=self)
+
+
 
 @dataclass(frozen=True)
 class Subscription(AzObj):
@@ -31,6 +38,9 @@ class Subscription(AzObj):
 
 	def slug(self) -> str:
 		return f"/subscriptions/{self.uuid}"
+
+	def rg(self, name: str) -> ResourceGroup:
+		return ResourceGroup(name, self)
 
 
 @dataclass(frozen=True)
