@@ -8,7 +8,7 @@ python_tests(
 
 python_distribution(
 	name="llamazure.tresource",
-	dependencies=[":tresource"],
+	dependencies=[":tresource", ":py.typed"],
 	long_description_path="llamazure/tresource/readme.md",
 	provides=python_artifact(
 		name="llamazure.tresource",
@@ -33,3 +33,5 @@ python_distribution(
 python_test_utils(
 	name="test_utils",
 )
+
+resource(name="py.typed", source="py.typed")

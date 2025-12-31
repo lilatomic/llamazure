@@ -13,7 +13,7 @@ python_test_utils(
 python_distribution(
 	name="llamazure.tf",
 	repositories=["@llamazure.tf"],
-	dependencies=[":tf"],
+	dependencies=[":tf", ":py.typed"],
 	long_description_path="llamazure/tf/readme.md",
 	provides=python_artifact(
 		name="llamazure.tf",
@@ -41,3 +41,5 @@ python_distribution(
 		long_description_content_type="text/markdown",
 	),
 )
+
+resource(name="py.typed", source="py.typed")

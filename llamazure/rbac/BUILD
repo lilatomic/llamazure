@@ -42,7 +42,7 @@ experimental_wrap_as_python_sources(
 
 python_distribution(
 	name="llamazure.rbac",
-	dependencies=[":rbac"],
+	dependencies=[":rbac", ":py.typed"],
 	long_description_path="llamazure/rbac/readme.md",
 	provides=python_artifact(
 		name="llamazure.rbac",
@@ -63,3 +63,5 @@ python_distribution(
 		long_description_content_type="text/markdown",
 	),
 )
+
+resource(name="py.typed", source="py.typed")

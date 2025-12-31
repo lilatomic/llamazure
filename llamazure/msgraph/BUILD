@@ -8,7 +8,7 @@ python_tests(
 
 python_distribution(
 	name="llamazure.rid",
-	dependencies=[":msgraph"],
+	dependencies=[":msgraph", ":py.typed"],
 	long_description_path="llamazure/msgraph/readme.md",
 	provides=python_artifact(
 		name="llamazure.msgraph",
@@ -29,3 +29,5 @@ python_distribution(
 		long_description_content_type="text/markdown",
 	),
 )
+
+resource(name="py.typed", source="py.typed")

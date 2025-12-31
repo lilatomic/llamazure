@@ -16,7 +16,7 @@ python_tests(
 python_distribution(
 	name="llamazure.azgraph",
 	repositories=["@llamazure.azgraph"],
-	dependencies=[":azgraph"],
+	dependencies=[":azgraph", ":py.typed"],
 	long_description_path="llamazure/azgraph/readme.md",
 	provides=python_artifact(
 		name="llamazure.azgraph",
@@ -31,9 +31,10 @@ python_distribution(
 			"Programming Language :: Python :: 3.12",
 			"Programming Language :: Python :: 3.13",
 			"Topic :: Utilities",
-			"Topic :: Internet :: Log Analysis",
 		],
 		license="Round Robin 2.0.0",
 		long_description_content_type="text/markdown",
 	),
 )
+
+resource(name="py.typed", source="py.typed")

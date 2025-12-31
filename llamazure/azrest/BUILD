@@ -8,7 +8,7 @@ python_tests(
 
 python_distribution(
 	name="llamazure.rid",
-	dependencies=[":azrest"],
+	dependencies=[":azrest", ":py.typed"],
 	long_description_path="llamazure/azrest/readme.md",
 	provides=python_artifact(
 		name="llamazure.azrest",
@@ -35,3 +35,5 @@ python_distribution(
 python_test_utils(
 	name="test_utils",
 )
+
+resource(name="py.typed", source="py.typed")
