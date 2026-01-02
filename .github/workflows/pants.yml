@@ -41,7 +41,7 @@ jobs:
         env:
           integration_test_secrets: ${{secrets.integration_test_secrets}}
       - name: Upload test coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: dist/coverage/python/coverage.xml
