@@ -17,7 +17,7 @@ python_distribution(
 	long_description_path="llamazure/tf/readme.md",
 	provides=python_artifact(
 		name="llamazure.tf",
-		version="0.2.0",
+		version="0.2.1",
 		description="Generate some azurerm resources without the headache",
 		author="Daniel Goldman",
 		maintainer="Daniel Goldman",

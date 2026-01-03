@@ -2,6 +2,10 @@
 
 ## 0.2
 
+### 0.2.1
+
+- task: add py.typed
+
 ### 0.2.0
 
 - task: bump llamazure.azrest dependency

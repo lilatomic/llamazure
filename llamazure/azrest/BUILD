@@ -12,7 +12,7 @@ python_distribution(
 	long_description_path="llamazure/azrest/readme.md",
 	provides=python_artifact(
 		name="llamazure.azrest",
-		version="0.4.0",
+		version="0.4.1",
 		description="Azure REST client",
 		author="Daniel Goldman",
 		classifiers=[

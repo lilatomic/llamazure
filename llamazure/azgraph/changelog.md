@@ -3,6 +3,11 @@
 
 ## 0.1
 
+### 0.1.1
+
+- task: add py.typed
+- feature: add default exports
+
 ### 0.1.0
 
 - feature: easier to raise Exception from ResErr

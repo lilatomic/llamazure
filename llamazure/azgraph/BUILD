@@ -20,7 +20,7 @@ python_distribution(
 	long_description_path="llamazure/azgraph/readme.md",
 	provides=python_artifact(
 		name="llamazure.azgraph",
-		version="0.1.0",
+		version="0.1.1",
 		description="Azure Resources Graph client",
 		author="Daniel Goldman",
 		classifiers=[

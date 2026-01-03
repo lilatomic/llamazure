@@ -6,7 +6,7 @@ python_distribution(
 	long_description_path="llamazure/tools/readme.md",
 	provides=python_artifact(
 		name="llamazure.tools",
-		version="0.2.1",
+		version="0.2.2",
 		description="A bundle of helpful tools for dealing with Azure",
 		author="Daniel Goldman",
 		classifiers=[

@@ -2,6 +2,10 @@
 
 ## 0.1
 
+### 0.1.1
+
+- task: add py.typed
+
 ### 0.1.0
 
 - task: fix namespace package

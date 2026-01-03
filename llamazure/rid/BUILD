@@ -12,7 +12,7 @@ python_distribution(
 	long_description_path="llamazure/rid/readme.md",
 	provides=python_artifact(
 		name="llamazure.rid",
-		version="0.1.0",
+		version="0.1.1",
 		description="Azure Resource IDs you can use",
 		author="Daniel Goldman",
 		classifiers=[

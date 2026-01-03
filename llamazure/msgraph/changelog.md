@@ -2,7 +2,11 @@
 
 ## 0.1
 
+### 0.1.1
+
 - fix: `q` follows pagination
+- task: add py.typed
+- feature: add default exports
 
 ### 0.1.0
 
