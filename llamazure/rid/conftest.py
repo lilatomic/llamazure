@@ -25,7 +25,7 @@ st_resource_base = builds(
 )
 st_subresource = builds(
 	lambda res_type, name, rg_name, sub: SubResource(res_type, name, ResourceGroup(rg_name, sub) if rg_name else None, parent=None, sub=sub),
-	az_alnum_lower,
+	az_alnum_lower.filter(lambda s: s not in {"subscriptions", "resourcegroups", "providers"}),  # "providers" is not valid as a subresource type and will trip up the parser
 	az_alnum_lower,
 	none() | az_alnum_lower,
 	st_subscription,
@@ -38,22 +38,9 @@ def complex_resource(draw, res_gen) -> Union[Resource, SubResource]:
 	child = draw(res_gen)
 	parent = draw(res_gen)
 	if isinstance(child, Resource):
-		return Resource(
-			child.provider,
-			child.res_type,
-			child.name,
-			rg=parent.rg,
-			parent=parent,
-			sub=parent.sub,
-		)
+		return parent.resource(child.provider, child.res_type, child.name)
 	if isinstance(child, SubResource):
-		return SubResource(
-			child.res_type,
-			child.name,
-			rg=parent.rg,
-			parent=parent,
-			sub=parent.sub,
-		)
+		return parent.subresource(child.res_type, child.name)
 	else:
 		raise RuntimeError("AAAA")
 

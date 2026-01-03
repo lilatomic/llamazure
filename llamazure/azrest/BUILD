@@ -8,20 +8,20 @@ python_tests(
 
 python_distribution(
 	name="llamazure.rid",
-	dependencies=[":azrest"],
+	dependencies=[":azrest", ":py.typed"],
 	long_description_path="llamazure/azrest/readme.md",
 	provides=python_artifact(
 		name="llamazure.azrest",
-		version="0.4.0",
+		version="0.4.1",
 		description="Azure REST client",
 		author="Daniel Goldman",
 		classifiers=[
 			"Development Status :: 3 - Alpha",
-			"Programming Language :: Python :: 3.9",
 			"Programming Language :: Python :: 3.10",
 			"Programming Language :: Python :: 3.11",
 			"Programming Language :: Python :: 3.12",
 			"Programming Language :: Python :: 3.13",
+			"Programming Language :: Python :: 3.14",
 			"Topic :: Utilities",
 			"Topic :: Internet :: Log Analysis",
 		],
@@ -35,3 +35,5 @@ python_distribution(
 python_test_utils(
 	name="test_utils",
 )
+
+resource(name="py.typed", source="py.typed")

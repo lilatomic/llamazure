@@ -9,7 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v3
@@ -40,8 +41,9 @@ jobs:
           pants --tag="integration" test --output=all :: -- -m 'integration and not admin'
         env:
           integration_test_secrets: ${{secrets.integration_test_secrets}}
+          shard: ${{ matrix.python-version }}
       - name: Upload test coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: dist/coverage/python/coverage.xml

@@ -9,7 +9,7 @@ import yaml
 from azure.identity import ClientSecretCredential
 
 from llamazure.azgraph.azgraph import Graph
-from llamazure.azgraph.models import AzureGraphException, Req, Res
+from llamazure.azgraph.models import AzureGraphException, Req, Res, ResErr
 
 
 def print_output(name: str, output: Any):
@@ -71,6 +71,8 @@ def test_paginated(graph: Graph):
 		)
 	)
 	print_output("paginated", res)
+	if isinstance(res, ResErr):
+		raise res.exception()
 	matches_type = isinstance(res, Res)
 	assert matches_type
 

@@ -2,6 +2,10 @@
 
 ## 0.0
 
+### 0.2.2
+
+- task: add py.typed
+
 ### 0.2.1
 
 - task: upgrade version of `llamazure.azrest` to fix api changes

@@ -2,6 +2,11 @@
 
 ## 0.1
 
+### 0.1.1
+
+- feature: helpers to create subresources
+- task: add py.typed
+
 ### 0.1.0
 
 - task: fix namespace package

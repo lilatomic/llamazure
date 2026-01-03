@@ -32,6 +32,15 @@ class Subscription(AzObj):
 	def slug(self) -> str:
 		return f"/subscriptions/{self.uuid}"
 
+	def rg(self, name: str) -> ResourceGroup:
+		return ResourceGroup(name, self)
+
+	def resource(self, provider: str, res_type: str, name: str) -> Resource:
+		return Resource(provider, res_type, name, rg=None, sub=self)
+
+	def subresource(self, res_type: str, name: str) -> SubResource:
+		return SubResource(res_type, name, rg=None, sub=self)
+
 
 @dataclass(frozen=True)
 class ResourceGroup(AzObj):
@@ -42,6 +51,12 @@ class ResourceGroup(AzObj):
 
 	def slug(self) -> str:
 		return f"/resourcegroups/{self.name}"
+
+	def resource(self, provider: str, res_type: str, name: str) -> Resource:
+		return Resource(provider, res_type, name, rg=self, sub=self.sub)
+
+	def subresource(self, res_type: str, name: str) -> SubResource:
+		return SubResource(res_type, name, rg=self, sub=self.sub)
 
 
 @dataclass(frozen=True)
@@ -58,6 +73,12 @@ class Resource(AzObj):
 	def slug(self) -> str:
 		return f"/providers/{self.provider}/{self.res_type}/{self.name}"
 
+	def resource(self, provider: str, res_type: str, name: str) -> Resource:
+		return Resource(provider, res_type, name, rg=self.rg, sub=self.sub, parent=self)
+
+	def subresource(self, res_type: str, name: str) -> SubResource:
+		return SubResource(res_type, name, rg=self.rg, sub=self.sub, parent=self)
+
 
 @dataclass(frozen=True)
 class SubResource(AzObj):
@@ -71,6 +92,12 @@ class SubResource(AzObj):
 
 	def slug(self) -> str:
 		return f"/{self.res_type}/{self.name}"
+
+	def resource(self, provider: str, res_type: str, name: str) -> Resource:
+		return Resource(provider, res_type, name, rg=self.rg, sub=self.sub, parent=self)
+
+	def subresource(self, res_type: str, name: str) -> SubResource:
+		return SubResource(res_type, name, rg=self.rg, sub=self.sub, parent=self)
 
 
 def parse(rid: str) -> AzObj:
