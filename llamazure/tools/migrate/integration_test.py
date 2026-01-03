@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Dict
 
@@ -16,6 +17,15 @@ from llamazure.tools.migrate.util import JSONTraverser
 
 def test_shim():
 	"""Make pytest succeed even when no tests are selected"""
+
+
+@pytest.fixture
+def shard():
+	env_shard = os.environ.get("shard")
+	if env_shard:
+		return env_shard
+	else:
+		return f"{sys.version_info.major}.{sys.version_info.minor}"
 
 
 @pytest.fixture
@@ -56,10 +66,10 @@ def find_only_file(directory) -> Path:
 
 class TestDashboard:
 	@pytest.mark.integration
-	def test_dashboard(self, it_info, credential, tmp_path):
+	def test_dashboard(self, shard, it_info, credential, tmp_path):
 		az = AzRest.from_credential(credential)
 
-		resource = rid.parse(it_info["dashboard"])
+		resource = rid.parse(it_info["dashboard"][shard])
 		assert isinstance(resource, rid.Resource)
 
 		m = dashboard.Migrator(az, resource, JSONTraverser({"aaa": "bbb", "bbb": "aaa"}), Path(tmp_path))

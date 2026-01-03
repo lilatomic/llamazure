@@ -41,6 +41,7 @@ jobs:
           pants --tag="integration" test --output=all :: -- -m 'integration and not admin'
         env:
           integration_test_secrets: ${{secrets.integration_test_secrets}}
+          shard: ${{ matrix.python-version }}
       - name: Upload test coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
