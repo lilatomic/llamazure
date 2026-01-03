@@ -38,22 +38,9 @@ def complex_resource(draw, res_gen) -> Union[Resource, SubResource]:
 	child = draw(res_gen)
 	parent = draw(res_gen)
 	if isinstance(child, Resource):
-		return Resource(
-			child.provider,
-			child.res_type,
-			child.name,
-			rg=parent.rg,
-			parent=parent,
-			sub=parent.sub,
-		)
+		return parent.resource(child.provider, child.res_type, child.name)
 	if isinstance(child, SubResource):
-		return SubResource(
-			child.res_type,
-			child.name,
-			rg=parent.rg,
-			parent=parent,
-			sub=parent.sub,
-		)
+		return parent.subresource(child.res_type, child.name)
 	else:
 		raise RuntimeError("AAAA")
 
